@@ -37,6 +37,27 @@ export const PRODUCTION_ORIGIN = "https://www.nomarcprojects.com";
 const strip = (u: string) => u.replace(/\/$/, "");
 export const stripTrailingSlash = strip;
 
+/** Any origin that points back at the machine running the code. A localhost
+ *  value ("http://localhost:3000") is correct for a dev box but is nonsense —
+ *  and actively harmful — on a hosted server: Better Auth would send the Google
+ *  OAuth redirect_uri to localhost:3000, the browser follows it, the state cookie
+ *  (set on the real origin) is never sent, and sign-in dies with state_mismatch.
+ *  The local .env pins these to localhost; if that file is ever copied into a
+ *  Vercel environment, every env-hosted origin here becomes a localhost one. */
+const LOOPBACK_ORIGIN = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
+
+/**
+ * Returns `u` stripped of its trailing slash, or `undefined` when it is a
+ * loopback origin running on a hosted (Vercel) runtime — such a value can only
+ * have been copied from a dev box and must not decide a server origin.
+ */
+function hostedOrigin(u: string | undefined): string | undefined {
+  if (!u) return undefined;
+  const clean = strip(u);
+  if (process.env.VERCEL_ENV && LOOPBACK_ORIGIN.test(clean)) return undefined;
+  return clean;
+}
+
 export function resolveSiteUrl(): string {
   // VERCEL_ENV is "production" only for the production deployment, not previews.
   if (process.env.VERCEL_ENV === "production") {
@@ -47,15 +68,20 @@ export function resolveSiteUrl(): string {
     // own production domain, custom or not. AUTH_URL/BETTER_AUTH_URL are
     // deliberately ignored here: on Vercel those were the per-deployment URL,
     // which is how reset links once went out pointing at nomarc-gigs.vercel.app.
-    const pinned = process.env.NEXT_PUBLIC_SITE_URL;
-    if (pinned) return strip(pinned);
+    const pinned = hostedOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+    if (pinned) return pinned;
     const injected = process.env.VERCEL_PROJECT_PRODUCTION_URL;
-    if (injected) return `https://${strip(injected.replace(/^https?:\/\//, ""))}`;
+    if (injected) {
+      const normalized = strip(injected.replace(/^https?:\/\//, ""));
+      if (!process.env.VERCEL_ENV || !LOOPBACK_ORIGIN.test(`https://${normalized}`)) {
+        return `https://${normalized}`;
+      }
+    }
     return PRODUCTION_ORIGIN;
   }
 
-  const explicit = process.env.BETTER_AUTH_URL || process.env.AUTH_URL;
-  if (explicit) return strip(explicit);
+  const explicit = hostedOrigin(process.env.BETTER_AUTH_URL || process.env.AUTH_URL);
+  if (explicit) return explicit;
 
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
 
