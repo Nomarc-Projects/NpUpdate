@@ -17,22 +17,22 @@
  * loaded by plain Node scripts outside Next's bundler.
  */
 /**
- * `www` — the host that actually serves. The apex 308-redirects to it:
+ * The host that actually serves production, verified live:
  *
- *   curl -I https://nomarcprojects.com/      → 308 → https://www.nomarcprojects.com/
- *   curl -I https://www.nomarcprojects.com/  → 200
+ *   curl -I https://nomarcprojects.com/login  → 200  (this app, incl. /api/auth)
+ *   curl -I https://www.nomarcprojects.com/   → 307 → https://nomarcprojects.com/
  *
- * This matters because Better Auth takes it as `baseURL`, which fixes the
- * Google OAuth redirect_uri. Pointing it at the apex sends Google's callback
- * to a URL that immediately redirects, and the OAuth state cookie set before
- * the hop does not survive the host change — sign-in completes at Google and
- * the user lands back signed-out.
+ * `www` is a pure Vercel "www" redirect and re-serves nothing, so it cannot host
+ * the Google OAuth redirect_uri: Better Auth sends the callback to
+ * www.nomarcprojects.com/api/auth/callback/google, the browser hops to the apex,
+ * and the OAuth state cookie set on www does not survive the host change —
+ * sign-in completes at Google and the visitor lands back signed-out.
  *
- * Do not "correct" this to the apex to match sitemap.ts/robots.ts/layout.tsx
- * without first re-checking the redirect direction above. It has been changed
- * in both directions already; the curl is the only thing that settles it.
+ * Keep this on the host that 200s, and re-run the curl before touching it. It
+ * has been flipped in both directions already; DNS is the only thing that
+ * settles it.
  */
-export const PRODUCTION_ORIGIN = "https://www.nomarcprojects.com";
+export const PRODUCTION_ORIGIN = "https://nomarcprojects.com";
 
 const strip = (u: string) => u.replace(/\/$/, "");
 export const stripTrailingSlash = strip;
@@ -48,13 +48,22 @@ const LOOPBACK_ORIGIN = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/;
 
 /**
  * Returns `u` stripped of its trailing slash, or `undefined` when it is a
- * loopback origin running on a hosted (Vercel) runtime — such a value can only
- * have been copied from a dev box and must not decide a server origin.
+ * loopback origin running on a hosted runtime — such a value can only have been
+ * copied from a dev box and must not decide a server origin.
+ *
+ * The guard is `VERCEL_ENV || NODE_ENV === "production"`, not Vercel-only:
+ * `npm run start` on a plain host is also production, and when the dev-box .env
+ * is present there AUTH_URL/BETTER_AUTH_URL stay "http://localhost:3000".
+ * Without this, Better Auth's baseURL becomes localhost and the Google OAuth
+ * redirect_uri goes to localhost — the browser follows it, the state cookie
+ * (set on the real origin) is never sent, and sign-in dies with state_mismatch.
+ * Local `next dev` keeps NODE_ENV=development, so it still honors the loopback.
  */
 function hostedOrigin(u: string | undefined): string | undefined {
   if (!u) return undefined;
   const clean = strip(u);
-  if (process.env.VERCEL_ENV && LOOPBACK_ORIGIN.test(clean)) return undefined;
+  const hosted = Boolean(process.env.VERCEL_ENV) || process.env.NODE_ENV === "production";
+  if (hosted && LOOPBACK_ORIGIN.test(clean)) return undefined;
   return clean;
 }
 
@@ -83,7 +92,16 @@ export function resolveSiteUrl(): string {
   const explicit = hostedOrigin(process.env.BETTER_AUTH_URL || process.env.AUTH_URL);
   if (explicit) return explicit;
 
+  // Previews keep their own host (each deployment's VERCEL_URL) so their OAuth
+  // callback stays on the host the user actually logged in from.
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+
+  // Non-Vercel production belt-and-suspenders: an operator can pin the domain
+  // with NEXT_PUBLIC_SITE_URL when AUTH_URL/BETTER_AUTH_URL are stale or loopback
+  // (e.g. a dev .env copied onto the server). Loopbacks are rejected by
+  // hostedOrigin, so this cannot resurrect a localhost origin.
+  const sitePin = hostedOrigin(process.env.NEXT_PUBLIC_SITE_URL);
+  if (sitePin) return sitePin;
 
   // Local dev, and any Node script run without the env set.
   return process.env.NODE_ENV === "production" ? PRODUCTION_ORIGIN : "http://localhost:3000";
