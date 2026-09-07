@@ -22,6 +22,8 @@ import { AdsBoardPanel } from "@/components/dashboard/shared/ads-board-panel";
 import { TourWizardButton } from "@/components/tour/tour-wizard-button";
 import { CompanySetupModal } from "@/components/dashboard/onboarding/company-setup-modal";
 import { getMyProfile, type ProfileData } from "@/lib/services/profile";
+import { shortLocation } from "@/lib/location-format";
+import { useViewer } from "@/lib/use-viewer";
 import { getQualifications, type Experience, type Cert } from "@/lib/services/qualifications";
 import { listMyProjects, deleteProject, type PortfolioProject } from "@/lib/services/projects";
 import { getMyApplications } from "@/lib/services/applications";
@@ -59,10 +61,9 @@ function toCard(p: PortfolioProject): Project {
   };
 }
 
-type TabKey = "overview" | "projects" | "recommendations" | "ads";
+type TabKey = "overview" | "recommendations" | "ads";
 const TABS: TabItem[] = [
   { key: "overview", label: "Overview" },
-  { key: "projects", label: "Projects" },
   { key: "recommendations", label: "Recommendations" },
   { key: "ads", label: "Ads Board" },
 ];
@@ -125,7 +126,7 @@ function IdentityCard({
       subtitle={
         <>
           <span className="block">{subtitleLine1}</span>
-          {profile?.location && <span className="mt-0.5 block">{profile.location}</span>}
+          {profile?.location && <span className="mt-0.5 block">{shortLocation(profile.location)}</span>}
         </>
       }
       editHref="/dashboard/profile"
@@ -364,6 +365,10 @@ export function ProfessionalHome() {
   useEffect(() => setMounted(true), []);
 
   const [tab, setTab] = useState<TabKey>("overview");
+  // Ads Board is a paid-plan surface — free users don't see the tab at all.
+  const viewer = useViewer();
+  const isFree = viewer.plan === "free";
+  const visibleTabs = isFree ? TABS.filter((t) => t.key !== "ads") : TABS;
   const [showDrafts, setShowDrafts] = useState(false);
   const [companySetupOpen, setCompanySetupOpen] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -381,7 +386,7 @@ export function ProfessionalHome() {
   const [confirm, setConfirm] = useState<{ kind: "hide" | "delete"; id: string } | null>(null);
   const [selected, setSelected] = useState<Project | null>(null);
 
-  const fullWidth = tab === "projects" && showDrafts;
+  const fullWidth = false;
 
   // Published projects as cards, pinned ones first.
   const projectList = useMemo(() => {
@@ -504,7 +509,7 @@ export function ProfessionalHome() {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-bold text-[#1e1e1e] dark:text-white">Welcome back, {firstName}</h1>
-          <p className="mt-0.5 text-[13.5px] text-[#9a9a9a]">Your projects, profile, recommendations, and promotions at a glance</p>
+          <p className="mt-0.5 text-[13.5px] text-[#9a9a9a]">Your profile, recommendations, and promotions at a glance</p>
         </div>
         <TourWizardButton />
       </div>
@@ -538,19 +543,13 @@ export function ProfessionalHome() {
               squeezed the tabs into a narrow flex-1 column. Inside the component
               they share its single horizontally-scrolling row. */}
           <DashboardTabs
-            tabs={TABS}
+            tabs={visibleTabs}
             active={tab}
-            onChange={(k) => { setTab(k as TabKey); setShowDrafts(false); setSelected(null); }}
-            trailing={tab === "projects" ? (
-              <div className="flex items-center gap-4 whitespace-nowrap">
-                <button onClick={() => { setShowDrafts((s) => !s); setSelected(null); }} className={`text-[13.5px] font-medium transition-colors ${showDrafts ? "text-[#1e1e1e] dark:text-white" : "text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"}`}>Drafts</button>
-                <Link href="/dashboard/add-project" className="flex items-center gap-1.5 text-[13.5px] font-medium text-[#9a9a9a] transition-colors hover:text-[#1e1e1e] dark:hover:text-white"><Plus size={15} /> Add new project</Link>
-              </div>
-            ) : undefined}
+            onChange={(k) => { setTab(k as TabKey); setSelected(null); }}
           />
 
           <AnimatePresence mode="wait">
-            <motion.div key={tab + (tab === "projects" ? String(showDrafts) + (selected?.name ?? "") : "")} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="mt-5">
+            <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }} className="mt-5">
               {tab === "overview" && (
                 <div className="space-y-5">
                   <KpiTileRow stats={stats} />
@@ -558,59 +557,11 @@ export function ProfessionalHome() {
                 </div>
               )}
 
-              {tab === "projects" && (
-                showDrafts ? (
-                  <DraftsList
-                    drafts={draftList}
-                    onRemove={(id) => {
-                      deleteProject(id).then((res) => {
-                        if (!res.ok) { toast.error(res.error ?? "Couldn't remove the draft."); return; }
-                        setPortfolio((l) => l.filter((p) => p.id !== id));
-                        toast.success("Draft removed");
-                      });
-                    }}
-                  />
-                ) : selected ? (
-                  <ProjectDetail
-                    p={selected}
-                    onBack={() => setSelected(null)}
-                    onEdit={() => router.push("/dashboard/add-project")}
-                    onPin={() => togglePin(selected.name)}
-                    onShare={() => shareLink(selected.name)}
-                    onHide={() => { setConfirm({ kind: "hide", id: selected.name }); }}
-                    onDelete={() => { setConfirm({ kind: "delete", id: selected.name }); }}
-                  />
-                ) : projectList.length === 0 ? (
-                  <EmptyState
-                    icon={FolderOpen}
-                    title="No projects added yet"
-                    description="Your portfolio is your strongest asset. Showcase your past work and successful collaborations, to stand out to potential employers and clients."
-                    primary={{ label: "Add New Project", href: "/dashboard/add-project" }}
-                  />
-                ) : (
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {projectList.map((p) => (
-                      <ProjectCard
-                        key={p.name}
-                        p={p}
-                        pinned={pinnedNames.includes(p.name)}
-                        onOpen={() => setSelected(p)}
-                        onEdit={() => router.push("/dashboard/add-project")}
-                        onPin={() => togglePin(p.name)}
-                        onShare={() => shareLink(p.name)}
-                        onHide={() => setConfirm({ kind: "hide", id: p.name })}
-                        onDelete={() => setConfirm({ kind: "delete", id: p.name })}
-                      />
-                    ))}
-                  </div>
-                )
-              )}
-
               {tab === "recommendations" && (
-                <RecommendationsPanel emptyDescription="Recommendations build immediate trust and credibility on Nomarc. Ask colleagues, past clients, or employers to endorse your skills and professional work ethic." />
+                <RecommendationsPanel allowRequests={false} emptyDescription="Recommendations build immediate trust and credibility on Nomarc. Ask colleagues, past clients, or employers to endorse your skills and professional work ethic." />
               )}
 
-              {tab === "ads" && (
+              {!isFree && tab === "ads" && (
                 <AdsBoardPanel
                   ownerName={profile?.name || (mounted ? u?.name : undefined) || firstName}
                   ownerMeta={profile?.headline || "Construction Professional"}

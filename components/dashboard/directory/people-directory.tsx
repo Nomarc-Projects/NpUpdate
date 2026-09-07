@@ -12,6 +12,7 @@ import { MySearchesMenu } from "@/components/dashboard/directory/my-searches-men
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { getProfessionalDetail, type PeopleRow, type ProDetail } from "@/lib/services/directory";
 import { getSavedIds, toggleSaved } from "@/lib/services/saved";
+import { shortLocation } from "@/lib/location-format";
 import { cn } from "@/lib/utils";
 
 const EXPERIENCE_BANDS = [
@@ -140,7 +141,7 @@ export function PeopleDirectory({ rows }: { rows: PeopleRow[] }) {
             </div>
             <p className="text-[13px] text-[#6b6b6b] dark:text-white/60">{detail.headline}</p>
             {detail.location && (
-              <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[#9a9a9a]"><MapPin size={12} /> {detail.location}</p>
+              <p className="mt-0.5 flex items-center gap-1 text-[12px] text-[#9a9a9a]"><MapPin size={12} /> {shortLocation(detail.location)}</p>
             )}
             <div className="mt-3 space-y-1.5">
               {rows.find((r) => r.id === openId)?.email && <CopyChip value={rows.find((r) => r.id === openId)!.email} />}

@@ -8,7 +8,6 @@ import { Bell, Search, Settings, User, LayoutGrid, LogOut, ChevronDown } from "l
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { RoleSwitcher } from "@/components/dashboard/role-switcher";
 import { TourLauncher } from "@/components/tour/tour-launcher";
 import { ResetAccountButton } from "@/components/dashboard/reset-account-button";
 import { CartButton } from "@/components/exhibition-hub/cart-button";
@@ -66,9 +65,6 @@ export function DashTopBar({ notificationCount = 0 }: { notificationCount?: numb
 
   return (
     <div className="hidden lg:flex items-center justify-end gap-2 px-5 py-2.5 border-b border-[#ececec] dark:border-white/10 bg-white/95 dark:bg-[#1e1e1e]/95 backdrop-blur-sm sticky top-0 z-30">
-
-      {/* Role switcher (only when >1 role held) — pushes the rest to the right */}
-      <RoleSwitcher />
 
       {/* TEMPORARY — QA-only, wipes the caller's own onboarding state. Remove before launch. */}
       <ResetAccountButton />

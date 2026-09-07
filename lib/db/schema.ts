@@ -37,6 +37,10 @@ export const profile = pgTable("profile", {
   practiceRegNumber: text("practice_reg_number"),
   practiceCompanyAddress: text("practice_company_address"),
   practiceCompanyBio: text("practice_company_bio"),
+  /** "professional" | "non_professional" — the kind picked in the "Set up as a
+   *  company" flow (drizzle/0049). Null on older profiles; new setups default
+   *  to "professional". */
+  companyKind: text("company_kind"),
   avatarUrl: text("avatar_url"),
   rate: text("rate"),
   // Canonical discipline for Helm's persona + retrieval filter. Same vocabulary

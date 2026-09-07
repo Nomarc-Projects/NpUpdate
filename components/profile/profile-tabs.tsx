@@ -53,6 +53,13 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
   const active = TABS.find((t) => t.key === tab)!;
   const displayName = profile?.name || "Your profile";
 
+  // The identity tab is the member's public profile; on a professional account
+  // it reads "Professional profile" rather than "Public profile".
+  const identityLabel = isProfessional ? "Professional Profile" : "Public Profile";
+  const identityTitle = isProfessional ? "Professional profile" : "Public profile";
+  const tabLabel = (t: Key) => (t === "public" ? identityLabel : TABS.find((x) => x.key === t)?.label ?? "");
+  const tabTitle = (t: Key) => (t === "public" ? identityTitle : TABS.find((x) => x.key === t)?.title ?? "");
+
   // The rail shows the professional tabs only to professionals.
   const visibleTabs = isProfessional ? TABS : TABS.filter((t) => t.key === "public");
 
@@ -72,7 +79,7 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
           <img src={profile?.avatarUrl || DEFAULT_AVATAR} alt={displayName} className={`w-12 h-12 rounded-full ${profile?.avatarUrl ? "object-cover" : "object-contain p-2.5 bg-white dark:bg-white"}`} />
           <div>
             <h1 className="text-2xl md:text-[28px] font-bold leading-tight flex items-center gap-2 flex-wrap">
-              <span><span className="text-[#9a9a9a]">{displayName}</span>{" "}<span className="text-[#1e1e1e] dark:text-white">/ {active.title}</span></span>
+              <span><span className="text-[#9a9a9a]">{displayName}</span>{" "}<span className="text-[#1e1e1e] dark:text-white">/ {tabTitle(active.key)}</span></span>
               {profile?.verified && <StatusBadge tone="blue"><BadgeCheck size={13} /> Verified</StatusBadge>}
               {!!quals?.endorsementsTotal && <StatusBadge tone="yellow"><ThumbsUp size={12} /> {quals.endorsementsTotal} endorsements</StatusBadge>}
             </h1>
@@ -96,7 +103,7 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
                 return (
                   <button key={t.key} type="button" onClick={() => select(t.key)} aria-current={active ? "page" : undefined}
                     className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-[13px] font-medium transition-colors flex-shrink-0 ${active ? "bg-[#ffd716]/15 dark:bg-[#ffd716]/10 text-[#1e1e1e] dark:text-white font-semibold" : "bg-white dark:bg-[#1e1e1e] text-[#6b6b6b] dark:text-white/50 hover:text-[#1e1e1e] dark:hover:text-white border border-[#e8e8e8] dark:border-white/10"}`}>
-                    <t.Icon size={14} /> {t.label}
+                    <t.Icon size={14} /> {tabLabel(t.key)}
                   </button>
                 );
               })}
@@ -108,7 +115,7 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
                 return (
                   <button key={t.key} type="button" onClick={() => select(t.key)} aria-current={active ? "page" : undefined}
                     className={`w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium transition-colors border-b border-[#f0f0f0] dark:border-white/5 last:border-0 text-left ${active ? "bg-[#ffd716]/12 dark:bg-[#ffd716]/[0.08] text-[#1e1e1e] dark:text-white font-semibold border-l-[3px] border-l-[#ffd716]" : "text-[#6b6b6b] dark:text-white/50 hover:bg-[#f7f7f7] dark:hover:bg-white/[0.04] hover:text-[#1e1e1e] dark:hover:text-white pl-[18px]"}`}>
-                    <t.Icon size={15} className={active ? "text-[#caa400]" : ""} /> {t.label}
+                    <t.Icon size={15} className={active ? "text-[#caa400]" : ""} /> {tabLabel(t.key)}
                   </button>
                 );
               })}

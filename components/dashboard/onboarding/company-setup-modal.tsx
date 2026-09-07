@@ -18,6 +18,7 @@ import { completeProfessionalOnboarding } from "@/lib/services/profile";
  */
 export function CompanySetupModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const [companyKind, setCompanyKind] = useState<"professional" | "non_professional">("professional");
   const [availability, setAvailability] = useState("");
   const [headline, setHeadline] = useState("");
   const [practiceCompanyName, setPracticeCompanyName] = useState("");
@@ -36,6 +37,7 @@ export function CompanySetupModal({ open, onClose }: { open: boolean; onClose: (
           headline: headline.trim(),
           bio: bio.trim(),
           availability,
+          companyKind,
           practiceStatus: "company",
           practiceLicenceStatus: "company",
           practiceCompanyName: practiceCompanyName.trim(),
@@ -60,6 +62,13 @@ export function CompanySetupModal({ open, onClose }: { open: boolean; onClose: (
             This marks your account as a <span className="font-semibold text-[#1e1e1e] dark:text-white">company professional</span> — it will appear under "Company" on Find Professionals.
           </p>
         </div>
+
+        <Field label="Account type">
+          <select className={inputClass} value={companyKind} onChange={(e) => setCompanyKind(e.target.value as "professional" | "non_professional")}>
+            <option value="professional">Professional</option>
+            <option value="non_professional">Non-professional</option>
+          </select>
+        </Field>
 
         <Field label="Company name">
           <input className={inputClass} value={practiceCompanyName} onChange={(e) => setPracticeCompanyName(e.target.value)} placeholder="e.g. Arcade Builds Ltd" />

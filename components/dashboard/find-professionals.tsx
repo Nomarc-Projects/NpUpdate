@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -15,6 +15,8 @@ import { SaveToList } from "@/components/dashboard/save-to-list";
 import { Pagination } from "@/components/ui/pagination";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { DISCIPLINE_LABEL } from "@/lib/helm/disciplines";
+import { shortLocation } from "@/lib/location-format";
 
 type OpenJob = { id: string; title: string; company: string | null };
 
@@ -29,11 +31,23 @@ const exhibitorRelationships = [
   "You provided technical support or consultation to [Name]", "[Name] was a vendor or service provider to you", "[Name] was a direct client or customer",
 ];
 
-const baseFilters = [
-  { label: "Occupation", options: ["Architect", "Interior designer", "Structural engineer", "MEP Engineer", "BIM Specialist", "Quantity Surveyor", "Project Manager", "3D Visualizer", "Urban Planner", "Draftsman"] },
-  { label: "Experience level", options: ["Junior (0–2 years)", "Mid-level (3–5 years)", "Senior (6+ years)"] },
-  { label: "Location", options: ["Lagos", "Abuja", "Port Harcourt", "Enugu", "Remote"] },
-];
+/* Practice status filter — values come straight from profile.practiceStatus
+ * (intern | graduate | consultant | licensed | company). Options shown to the
+ * user are built from the ones actually present on the updated profiles so the
+ * filter always reflects real data. */
+const PRACTICE_STATUS_LABEL: Record<string, string> = {
+  intern: "Intern",
+  graduate: "Graduate / Freelancer",
+  consultant: "Consultant",
+  licensed: "Licensed",
+  company: "Company",
+  registered: "Registered",
+};
+const PRACTICE_STATUS_VALUE: Record<string, string> = Object.fromEntries(
+  Object.entries(PRACTICE_STATUS_LABEL).map(([v, l]) => [l, v]),
+);
+const PRACTICE_STATUS_ORDER = ["intern", "graduate", "consultant", "licensed", "company", "registered"];
+
 const firmTypeFilter = { label: "Firm type", options: ["Architecture & Design", "Engineering", "Construction & Contracting", "Real Estate & Development", "Government & Public Sector", "Other / Consultancy"] };
 
 function FilterGroup({ label, options, selected, onToggle }: { label: string; options: string[]; selected: string[]; onToggle: (o: string) => void }) {
@@ -53,6 +67,44 @@ function FilterGroup({ label, options, selected, onToggle }: { label: string; op
                   <input type="checkbox" checked={selected.includes(o)} onChange={() => onToggle(o)} className="accent-[#ffd716]" /> {o}
                 </label>
               ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/* Live keyword search filter for Occupation / Location — the user types what
+ * they're looking for and the list filters as they type. Suggestions come from
+ * the professionals' own updated profiles (distinct occupations / places). */
+function LiveSearchFilter({ label, value, onChange, suggestions }: { label: string; value: string; onChange: (v: string) => void; suggestions: string[] }) {
+  const [open, setOpen] = useState(true);
+  const id = `live-${label.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+  const active = value.trim().length > 0;
+  return (
+    <div className="border-b border-[#f0f0f0] dark:border-white/10">
+      <button onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between py-3 text-sm font-medium text-[#1e1e1e] dark:text-white">
+        <span className="flex items-center gap-2">{label}{active && <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-[#ffd716] text-[#1e1e1e] text-[10px] font-bold flex items-center justify-center">1</span>}</span>
+        <ChevronDown size={16} className={`text-[#9a9a9a] transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+            <div className="pb-3">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9a9a9a]" />
+                <input
+                  list={id}
+                  value={value}
+                  onChange={(e) => onChange(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}...`}
+                  className="w-full rounded-lg border border-[#e3e3e3] dark:border-white/15 bg-white dark:bg-transparent pl-9 pr-3 py-2 text-[13px] text-[#1e1e1e] dark:text-white placeholder:text-[#b3b3b3] focus:outline-none focus:border-[#ffd716]"
+                />
+              </div>
+              <datalist id={id}>
+                {suggestions.map((s) => <option key={s} value={s} />)}
+              </datalist>
             </div>
           </motion.div>
         )}
@@ -198,7 +250,7 @@ function DetailView({ detail, loading, canInvite, onBack, onRecommend, onMessage
               <NomarcAvatar src={detail.avatarUrl} name={detail.name} className="h-14 w-14 text-base" />
               <div>
                 <div className="flex items-center gap-2"><h2 className="text-lg font-bold text-[#1e1e1e] dark:text-white">{detail.name}</h2>{detail.verified && <BadgeCheck size={16} className="text-[#1e9df5]" />}{detail.availability && <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-[#dcfce7] text-[#16803c]">{detail.availability}</span>}</div>
-                <p className="text-[13px] text-[#9a9a9a]">{[detail.headline, detail.location].filter(Boolean).join(" • ")}</p>
+                <p className="text-[13px] text-[#9a9a9a]">{[detail.headline, detail.location ? shortLocation(detail.location) : ""].filter(Boolean).join(" • ")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -311,7 +363,51 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const [invite, setInvite] = useState(false);
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState<Record<string, string[]>>({});
-  const filters = role === "exhibitor" ? [...baseFilters, firmTypeFilter] : baseFilters;
+  const [occSearch, setOccSearch] = useState("");
+  const [locSearch, setLocSearch] = useState("");
+
+  // Filter options are derived from the professionals' own profile data rather
+  // than a hardcoded list, so Occupation / Practice status / Location always
+  // reflect what members last saved on their professional profiles.
+  const occOptions = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of pros) {
+      const t = (p.headline ?? "").trim();
+      if (!t) continue;
+      const k = t.toLowerCase();
+      if (!m.has(k)) m.set(k, t);
+    }
+    return [...m.values()].sort((a, b) => a.localeCompare(b));
+  }, [pros]);
+
+  const locOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of pros) {
+      const loc = (p.location ?? "").trim();
+      if (!loc) continue;
+      const parts = loc.split(",").map((x) => x.trim()).filter(Boolean);
+      s.add(parts.length > 1 ? parts[parts.length - 1] : loc);
+    }
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [pros]);
+
+  const practiceStatusOptions = useMemo(() => {
+    const present = new Set<string>();
+    for (const p of pros) if (p.practiceStatus) present.add(p.practiceStatus);
+    return PRACTICE_STATUS_ORDER.filter((v) => present.has(v)).map((v) => PRACTICE_STATUS_LABEL[v]);
+  }, [pros]);
+
+  // Occupations and locations search live as the user types; practice status
+  // stays a checkbox list. Suggestions for the live searches come straight from
+  // the updated professional profiles.
+  const liveSearchFilters = [
+    { label: "Occupation", value: occSearch, onChange: setOccSearch, suggestions: occOptions },
+    { label: "Location", value: locSearch, onChange: setLocSearch, suggestions: locOptions },
+  ];
+  const checkboxFilters = [
+    { label: "Practice status", options: practiceStatusOptions },
+    ...(role === "exhibitor" ? [firmTypeFilter] : []),
+  ];
   const subtitle = role === "exhibitor"
     ? "Connect with verified industry professionals and key decision-makers."
     : "Browse verified construction talent for your next project.";
@@ -332,7 +428,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
 
   const toggle = (label: string, o: string) =>
     setSel((s) => { const cur = s[label] ?? []; return { ...s, [label]: cur.includes(o) ? cur.filter((x) => x !== o) : [...cur, o] }; });
-  const clearAll = () => { setSel({}); setQuery(""); };
+  const clearAll = () => { setSel({}); setQuery(""); setOccSearch(""); setLocSearch(""); };
 
   const openProfile = (id: string) => {
     setSelectedId(id); setDetail(null);
@@ -341,23 +437,25 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
 
   // filtering + sorting over the DB-backed list
   const q = query.trim().toLowerCase();
-  const occ = sel["Occupation"] ?? [];
-  const loc = sel["Location"] ?? [];
-  const expLvl = sel["Experience level"] ?? [];
-  const matchExp = (years: number) => expLvl.some((l) => (l.startsWith("Junior") && years <= 2) || (l.startsWith("Mid") && years >= 3 && years <= 5) || (l.startsWith("Senior") && years >= 6));
+  const occSearchLower = occSearch.trim().toLowerCase();
+  const locSearchLower = locSearch.trim().toLowerCase();
+  const practiceStatus = sel["Practice status"] ?? [];
   let results = pros.filter((p) => {
     const hay = `${p.name} ${p.headline} ${p.location} ${p.skills.join(" ")}`.toLowerCase();
     if (q && !hay.includes(q)) return false;
     if (type === "Individual Professional" && p.isCompany) return false;
     if (type === "Company" && !p.isCompany) return false;
-    if (occ.length && !occ.some((o) => p.headline.toLowerCase().includes(o.toLowerCase()))) return false;
-    if (loc.length && !loc.some((o) => p.location.toLowerCase().includes(o.toLowerCase()))) return false;
-    if (expLvl.length && !matchExp(p.years)) return false;
+    if (occSearchLower) {
+      const occHay = `${p.headline} ${DISCIPLINE_LABEL[p.discipline] ?? ""}`.toLowerCase();
+      if (!occHay.includes(occSearchLower)) return false;
+    }
+    if (locSearchLower && !p.location.toLowerCase().includes(locSearchLower)) return false;
+    if (practiceStatus.length && !practiceStatus.some((l) => p.practiceStatus === PRACTICE_STATUS_VALUE[l])) return false;
     return true;
   });
   if (sortBy === "Most experience") results = [...results].sort((a, b) => b.years - a.years);
   else if (sortBy === "Name A–Z") results = [...results].sort((a, b) => a.name.localeCompare(b.name));
-  const activeCount = Object.values(sel).reduce((n, a) => n + a.length, 0) + (q ? 1 : 0);
+  const activeCount = Object.values(sel).reduce((n, a) => n + a.length, 0) + (q ? 1 : 0) + (occSearch.trim() ? 1 : 0) + (locSearch.trim() ? 1 : 0);
 
   const pageCount = Math.max(1, Math.ceil(results.length / perPage));
   const safePage = Math.min(page, pageCount);
@@ -376,7 +474,8 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
         {activeCount > 0 && <button onClick={clearAll} className="text-[11px] text-[#9a9a9a] hover:text-[#e5484d] transition-colors font-medium">Clear all</button>}
       </div>
       <div className="flex-1 overflow-y-auto pt-1">
-        {filters.map((f) => <FilterGroup key={f.label} label={f.label} options={f.options} selected={sel[f.label] ?? []} onToggle={(o) => toggle(f.label, o)} />)}
+        {liveSearchFilters.map((f) => <LiveSearchFilter key={f.label} label={f.label} value={f.value} onChange={f.onChange} suggestions={f.suggestions} />)}
+        {checkboxFilters.map((f) => <FilterGroup key={f.label} label={f.label} options={f.options} selected={sel[f.label] ?? []} onToggle={(o) => toggle(f.label, o)} />)}
       </div>
     </div>
   );

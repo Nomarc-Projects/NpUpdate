@@ -106,7 +106,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   // Address" on the profile update form) — reuse it here instead of asking for
   // it again. Only show the Location section when nothing has been saved yet.
   const hasLocation = savedLocation.trim().length > 0;
-  const location = hasLocation ? savedLocation.trim() : [address.trim(), lga, stateName, country].filter(Boolean).join(", ");
+  const location = hasLocation ? savedLocation.trim() : [address.trim(), lga.trim(), stateName.trim(), country.trim()].filter(Boolean).join(", ");
 
   function requestClose() {
     setCancelOpen(true);

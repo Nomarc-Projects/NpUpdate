@@ -86,7 +86,7 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<Tab>("All");
   const [query, setQuery] = useState("");
-  const [mobileThread, setMobileThread] = useState(false);
+  const [mobileThread, setMobileThread] = useState(() => Boolean(initialActiveId));
   const [modal, setModal] = useState<"document" | "media" | "camera" | "audio" | "contact" | "poll" | "event" | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -220,7 +220,7 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
   }).filter((c) => !q || `${c.name} ${c.headline} ${c.preview}`.toLowerCase().includes(q));
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-3.5rem)] lg:h-screen min-h-0 overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-3.5rem)] min-h-0 overflow-hidden">
       {/* Offline banner */}
       <AnimatePresence>
         {!isOnline && (
@@ -299,12 +299,14 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
           {/* thread + optional contact info panel */}
           <div className={`flex-1 flex min-w-0 ${mobileThread ? "" : "hidden sm:flex"}`}>
           <div className="flex-1 flex flex-col min-w-0">
-            {!activeId || !thread ? (
+            {!activeId ? (
               <div className="flex-1 flex items-center justify-center text-[#9a9a9a]">
                 {loading ? <Loader2 className="animate-spin" size={22} /> : <p className="text-sm">Select a conversation</p>}
               </div>
             ) : (
               <>
+                {thread ? (
+                  <>
                 <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b border-[#ececec] dark:border-white/10 relative">
                   <div className="flex items-center gap-3 min-w-0">
                     <button onClick={() => setMobileThread(false)} className="sm:hidden text-[#9a9a9a]"><ArrowLeft size={18} /></button>
@@ -385,6 +387,12 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
                     });
                   })()}
                 </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center text-[#9a9a9a]">
+                    <p className="text-sm">Loading conversation…</p>
+                  </div>
+                )}
 
                 <ChatInputBar onSend={sendRich} onOpenModal={(key) => setModal(key)} />
               </>
@@ -498,7 +506,7 @@ function NewChatPicker({ people, query, onQuery, onPick, onClose }: {
 export function MessagesSkeleton() {
   const S = ({ cls = "", style }: { cls?: string; style?: React.CSSProperties }) => <div className={`skeleton rounded-md ${cls}`} style={style} />;
   return (
-    <div className="flex flex-col h-[calc(100dvh-3.5rem)] lg:h-screen min-h-0 overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-3.5rem)] min-h-0 overflow-hidden">
       {/* banner skeleton */}
       <div className="mx-4 sm:mx-6 mt-4 skeleton rounded-2xl h-[76px] flex-shrink-0" />
       <div className="flex-1 flex min-h-0">

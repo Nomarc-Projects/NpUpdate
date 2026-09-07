@@ -16,7 +16,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/ui/logo";
 import { NomarcMark } from "@/components/ui/nomarc-mark";
 import { useAuth } from "@/lib/store/auth";
-import { RoleSwitcher } from "@/components/dashboard/role-switcher";
 import { signOut as authSignOut } from "@/lib/auth-client";
 import { getUnreadCount } from "@/lib/services/messaging";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
@@ -199,11 +198,6 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
 
       {/* footer */}
       <div className="p-3 border-t border-[#ececec] dark:border-white/10">
-        {!collapsed && (
-          <div className="mb-3">
-            <RoleSwitcher variant="sidebar" />
-          </div>
-        )}
         <div className={cn("flex items-center gap-3", collapsed && "justify-center")}>
           {user?.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element

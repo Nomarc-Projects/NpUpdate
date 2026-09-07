@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { KebabMenu } from "@/components/dashboard/kit";
 import { useSession } from "@/lib/auth-client";
+import { useViewer } from "@/lib/use-viewer";
 import { getMyCompany, type CompanyData, type CompanyCert } from "@/lib/services/company";
 import { getMyProducts, deleteProduct, setProductStatus, type MyProduct } from "@/lib/services/products";
 import { getKycState } from "@/lib/services/kyc";
@@ -219,6 +220,9 @@ export function ExhibitorHome() {
   const router = useRouter();
   const { data: session } = useSession();
   const sUser = session?.user as { name?: string; image?: string | null } | undefined;
+  // Ads Board is a paid surface — free users don't see the tab at all.
+  const viewer = useViewer();
+  const isFree = viewer.plan === "free";
 
   const [tab, setTab] = useState<Tab>("overview");
   const [company, setCompany] = useState<CompanyData | null>(null);
@@ -326,6 +330,7 @@ export function ExhibitorHome() {
     { key: "recommendations", label: "Recommendations" },
     { key: "ads", label: "Ads Board" },
   ];
+  const visibleTabs = isFree ? tabs.filter((t) => t.key !== "ads") : tabs;
   const trailing = (
     <>
       <button
@@ -345,7 +350,7 @@ export function ExhibitorHome() {
 
   const tabBar = (
     <DashboardTabs
-      tabs={tabs}
+      tabs={visibleTabs}
       active={tab}
       onChange={(k) => { setTab(k as Tab); setOpenProduct(null); }}
       layoutId="exhibitor-tab"
@@ -474,7 +479,7 @@ export function ExhibitorHome() {
                   <RecommendationsPanel emptyDescription="Recommendations build immediate trust and credibility with buyers. Ask past clients, partners, or contractors to endorse your company's reliability and product quality." />
                 )}
 
-                {tab === "ads" && (
+                {!isFree && tab === "ads" && (
                   <AdsBoardPanel
                     ownerName={companyName}
                     ownerMeta={subtitle}

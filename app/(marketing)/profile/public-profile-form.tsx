@@ -82,7 +82,7 @@ export function PublicProfileForm({ initial }: { initial?: ProfileData }) {
   }
 
   function save() {
-    const location = [address.trim(), lga, stateName, country].filter(Boolean).join(", ");
+    const location = [address.trim(), lga.trim(), stateName.trim(), country.trim()].filter(Boolean).join(", ");
     const firstToSave = firstName.trim();
     const lastToSave = lastName.trim();
     if (!firstToSave) { toast.error("Please enter your first name."); return; }

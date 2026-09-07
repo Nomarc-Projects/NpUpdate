@@ -8,6 +8,7 @@ import { profileSkill, workExperience, education, certification, recommendation 
 import { requireUserId } from "@/lib/server-user";
 import { getServicesForUser, type ServiceWithTiers } from "@/lib/services/services";
 import { notify } from "@/lib/notify-internal";
+import { inferDiscipline } from "@/lib/helm/disciplines";
 
 export type ProCard = {
   id: string;
@@ -22,6 +23,13 @@ export type ProCard = {
   skills: string[];
   ratingAvg: number;
   ratingCount: number;
+  /** raw practice_status: intern | graduate | consultant | licensed | company.
+   *  Drives the Practice status filter on Find Professionals. */
+  practiceStatus: string;
+  /** canonical profession axis — schema.profile.discipline, inferred from the
+   *  headline when unset. Lets the Occupation filter match the real profession
+   *  even when the free-text headline was never filled at onboarding. */
+  discipline: string;
   /** True when the professional's practice status is "company" — see
    *  schema.profile.practiceStatus. Drives the Individual/Company filter on
    *  Find Professionals. */
@@ -58,6 +66,7 @@ export async function getProfessionals(): Promise<ProCard[]> {
            COALESCE(p.headline,'') AS headline, COALESCE(p.location,'') AS location,
            COALESCE(p.availability,'') AS availability, COALESCE(p.verified,false) AS verified,
            COALESCE(p.practice_status,'') AS practice_status,
+           COALESCE(p.discipline,'') AS discipline,
            COALESCE(p.success_score,0) AS success_score, COALESCE(p.years_experience,0) AS years,
            COALESCE((SELECT round(avg(rating)::numeric,1) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_avg,
            COALESCE((SELECT count(*) FROM review WHERE subject_type='professional' AND subject_id=u.id),0) AS rating_count
@@ -88,6 +97,8 @@ export async function getProfessionals(): Promise<ProCard[]> {
       availability: avail(r.availability as string),
       verified: r.verified === true,
       isCompany: String(r.practice_status ?? "") === "company",
+      practiceStatus: String(r.practice_status ?? ""),
+      discipline: String(r.discipline ?? "") || inferDiscipline(String(r.headline ?? "")) || "",
       successScore: Number(r.success_score ?? 0),
       years: Number(r.years ?? 0),
       skills: skillsList,

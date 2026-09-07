@@ -32,6 +32,9 @@ export type ProfileData = {
   practiceRegNumber: string;
   practiceCompanyAddress: string;
   practiceCompanyBio: string;
+  /** "professional" | "non_professional" — kind selected in "Set up as a
+   *  company" (drizzle/0049). */
+  companyKind: string;
   completeness: number;
   verified: boolean;
 };
@@ -70,6 +73,7 @@ export async function getMyProfile(): Promise<{ data: ProfileData; missing: Chec
       practiceRegNumber: p?.practiceRegNumber ?? "",
       practiceCompanyAddress: p?.practiceCompanyAddress ?? "",
       practiceCompanyBio: p?.practiceCompanyBio ?? "",
+      companyKind: p?.companyKind ?? "",
       completeness: c.percent,
       verified: p?.verified ?? false,
     },
@@ -106,6 +110,7 @@ export async function saveProfile(input: {
   practiceStatus?: PracticeStatus;
   licenseNumber?: string; practiceCompanyName?: string; practiceRegNumber?: string;
   practiceCompanyAddress?: string; practiceCompanyBio?: string;
+  companyKind?: string;
   registrationNumber?: string;
 }) {
   const uid = await requireUserId();
@@ -121,8 +126,12 @@ export async function saveProfile(input: {
   // Phone Number" warning's promise — a changed number loses its Tier 1 badge
   // until re-verified.
   const phoneChanged = input.phone !== undefined && (existing?.phone ?? "") !== (input.phone || "");
+  // A blank location is persisted as empty (never garbage): account settings
+  // and onboarding only ever write the profile location from user-entered
+  // parts, so when nothing was typed it must store `null`, not some stale or
+  // legacy string. `undefined` still means "leave untouched" (drizzle skips it).
   const fields = {
-    headline: input.headline, location: input.location, availability: input.availability,
+    headline: input.headline, location: typeof input.location === "string" ? (input.location.trim() || null) : input.location, availability: input.availability,
     bio: input.bio, avatarUrl: input.avatarUrl,
     ...(input.phone !== undefined
       ? { phone: input.phone || null, phoneVerified: phoneChanged ? false : !!existing?.phoneVerified }
@@ -135,6 +144,7 @@ export async function saveProfile(input: {
     ...(input.practiceRegNumber !== undefined || status !== undefined ? { practiceRegNumber: isCompany ? (input.practiceRegNumber ?? null) : null } : {}),
     ...(input.practiceCompanyAddress !== undefined || status !== undefined ? { practiceCompanyAddress: isCompany ? (input.practiceCompanyAddress ?? null) : null } : {}),
     ...(input.practiceCompanyBio !== undefined || status !== undefined ? { practiceCompanyBio: isCompany ? (input.practiceCompanyBio ?? null) : null } : {}),
+    ...(input.companyKind !== undefined ? { companyKind: input.companyKind || null } : {}),
   };
   if (existing) await db.update(profile).set({ ...fields, updatedAt: new Date() }).where(eq(profile.userId, uid));
   else await db.insert(profile).values({ userId: uid, ...fields });
@@ -187,6 +197,8 @@ export async function completeProfessionalOnboarding(input: {
   practiceCompanyName?: string;
   practiceRegNumber?: string;
   practiceCompanyAddress?: string;
+  /** "professional" | "non_professional" — defaults to "professional". */
+  companyKind?: "professional" | "non_professional";
   skills?: string[];
   certifications?: { name: string; issuer?: string; year?: number }[];
   experience?: { title: string; company: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }[];
@@ -211,6 +223,7 @@ export async function completeProfessionalOnboarding(input: {
     ...(input.practiceCompanyName !== undefined ? { practiceCompanyName: input.practiceCompanyName || undefined } : {}),
     ...(input.practiceRegNumber !== undefined ? { practiceRegNumber: input.practiceRegNumber || undefined } : {}),
     ...(input.practiceCompanyAddress !== undefined ? { practiceCompanyAddress: input.practiceCompanyAddress || undefined } : {}),
+    companyKind: input.companyKind ?? "professional",
   });
 
   const skillRows = (input.skills ?? []).filter((s) => s.trim()).map((s) => ({ userId: uid, name: s.trim(), kind: "skill" }));

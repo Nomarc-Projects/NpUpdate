@@ -21,7 +21,7 @@ import { getProfessionals, type ProCard } from "@/lib/services/directory";
  * approve/unhide decision). "Ask for a recommendation" sends a DM via the
  * existing messaging service (there's no separate request table).
  */
-export function RecommendationsPanel({ emptyDescription }: { emptyDescription: string }) {
+export function RecommendationsPanel({ emptyDescription, allowRequests = true }: { emptyDescription: string; allowRequests?: boolean }) {
   const [view, setView] = useState<"list" | "drafts">("list");
   const [published, setPublished] = useState<ReceivedRec[] | null>(null);
   const [drafts, setDrafts] = useState<ReceivedRec[] | null>(null);
@@ -63,12 +63,14 @@ export function RecommendationsPanel({ emptyDescription }: { emptyDescription: s
             </button>
           ))}
         </div>
-        <button
-          onClick={() => setAskOpen(true)}
-          className="rounded-lg bg-[#ffd716] px-3.5 py-2 text-[12.5px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
-        >
-          Ask for a recommendation
-        </button>
+        {allowRequests && (
+          <button
+            onClick={() => setAskOpen(true)}
+            className="rounded-lg bg-[#ffd716] px-3.5 py-2 text-[12.5px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
+          >
+            Ask for a recommendation
+          </button>
+        )}
       </div>
 
       {list === null ? (
@@ -78,7 +80,7 @@ export function RecommendationsPanel({ emptyDescription }: { emptyDescription: s
           icon={ThumbsUp}
           title={view === "list" ? "No recommendations yet" : "No drafts right now"}
           description={view === "list" ? emptyDescription : "Recommendations someone writes for you land here first, so you can approve & publish them."}
-          primary={view === "list" ? { label: "Request Recommendation", onClick: () => setAskOpen(true) } : undefined}
+          primary={view === "list" && allowRequests ? { label: "Request Recommendation", onClick: () => setAskOpen(true) } : undefined}
         />
       ) : (
         <ul className="space-y-3">
