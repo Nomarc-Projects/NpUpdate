@@ -55,6 +55,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/admin");
   }
 
+  // Email-verification gate. A fresh signup can hold a live session before the
+  // OTP is confirmed (`requireEmailVerification` is off so invited/imported
+  // accounts aren't locked out of sign-in itself), so an unverified user could
+  // type /dashboard and walk the whole app. Every dashboard route funnels
+  // through this layout, so this single check closes that hole. The verify
+  // page is outside /dashboard and keeps the session, so there's no loop.
+  // Deliberately after the admin redirect — elevated accounts are never held
+  // out of the platform by this gate.
+  if (!(session.user as { emailVerified?: boolean }).emailVerified) {
+    const from = h.get("x-nm-pathname") || "/dashboard";
+    const q = new URLSearchParams({ email: session.user.email ?? "", redirect: from });
+    redirect(`/verify-email?${q.toString()}`);
+  }
+
   // Viewer (impersonation-aware) drives the client role context + tour audience.
   // Tour audience === the active role (client/professional/exhibitor/employer/
   // admin/super_admin) so the welcome + tours adapt per intent.
