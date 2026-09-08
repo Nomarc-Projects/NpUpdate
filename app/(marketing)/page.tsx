@@ -26,7 +26,7 @@ export default function HomePage() {
       <FAQSection />
       <ContactSection />
       <JoinCommunitySection />
-      {/* Trusted Partners — final section before the footer. */}
+      {/* Trusted Clients — final section before the footer. */}
       <PartnersSection />
     </>
   );

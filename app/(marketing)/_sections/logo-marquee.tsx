@@ -7,7 +7,7 @@ export type Logo = {
   href?: string;
 };
 
-/** "Trusted Partners" strip, last section before the footer. */
+/** "Trusted Clients" strip, last section before the footer. */
 export const partners: Logo[] = [
   { name: "FSB Real Estate", src: "/logos/partners/fsb-real-estate.png" },
   { name: "Punuka", src: "/logos/partners/punuka.png" },
