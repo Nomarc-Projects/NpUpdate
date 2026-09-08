@@ -727,26 +727,41 @@ export async function getAdmins(): Promise<AdminRow[]> {
   }));
 }
 
+/** Admin tiers a super admin can grant from the Super-Admin dashboard. */
+const GRANTABLE_ADMIN_ROLES = ["admin", "super_admin"] as const;
+export type AdminGrantRole = (typeof GRANTABLE_ADMIN_ROLES)[number];
+
 /**
  * "Invite New Admin" (image 111) — super_admin only. There's no email/invite
- * infrastructure yet, so this grants the admin role directly to an EXISTING
- * account by email (they must have already signed up). A real invite-by-email
- * flow is a natural follow-up once the email/Resend invite flow is live.
+ * infrastructure yet, so this grants the role directly to an EXISTING account
+ * by email (they must have already signed up). A real invite-by-email flow is
+ * a natural follow-up once the email/Resend invite flow is live.
+ *
+ * `role` may be "admin" or "super_admin". Granting super_admin over HTTP is a
+ * deliberate exception to the old "bootstrap script only" rule in setUserRole.
+ * It stays triple-guarded: only a super_admin can call this at all
+ * (requireSuperAdmin), every grant is written to the audit log, and
+ * notifySuperAdminsOfPrivilegeChange emails all super admins — a compromised
+ * or rogue actor cannot promote access quietly.
  */
-export async function inviteAdminByEmail(email: string): Promise<{ ok: boolean; error?: string }> {
+export async function inviteAdminByEmail(email: string, role: AdminGrantRole = "admin"): Promise<{ ok: boolean; error?: string }> {
   try {
     const actor = await requireSuperAdmin();
-    const res = await db.execute(sql`SELECT id, role FROM "user" WHERE lower(email) = ${email.trim().toLowerCase()} LIMIT 1`);
+    if (!GRANTABLE_ADMIN_ROLES.includes(role)) return { ok: false, error: "Unknown admin role." };
+    const mail = email.trim().toLowerCase();
+    if (!mail) return { ok: false, error: "Enter an email address first." };
+    const res = await db.execute(sql`SELECT id, role FROM "user" WHERE lower(email) = ${mail} LIMIT 1`);
     const row = (res.rows as { id: string; role?: string }[])[0];
     if (!row) return { ok: false, error: "No Nomarc account found for that email — they need to sign up first." };
     if (row.role === "admin" || row.role === "super_admin") return { ok: false, error: "This person is already an admin." };
-    await db.execute(sql`UPDATE "user" SET role = 'admin' WHERE id = ${row.id}`);
-    await logAudit(actor, "invite_admin", "user", row.id, email);
-    await notifySuperAdminsOfPrivilegeChange(actor, row.id, "admin");
+    await db.execute(sql`UPDATE "user" SET role = ${role} WHERE id = ${row.id}`);
+    await logAudit(actor, role === "super_admin" ? "grant_super_admin" : "invite_admin", "user", row.id, email);
+    await notifySuperAdminsOfPrivilegeChange(actor, row.id, role);
     revalidatePath("/admin");
+    revalidatePath("/admin/users");
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't invite this admin" };
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't grant the role" };
   }
 }
 
