@@ -18,10 +18,11 @@ export function JoinCommunitySection() {
             <p className="text-[#898989] text-[15px] leading-relaxed mb-8 max-w-[440px]">
               Connect with trusted construction professionals and get direct access to construction projects or advice now!
             </p>
-            {/* Already a member — "Join Community" points at /signup, so it goes. */}
+            {/* Where else does a signed-in member go? Straight to the Directory —
+                "Join community" just keeps the label consistent across the page. */}
             {isSignedIn ? (
               <Button href="/dashboard/find-professionals" variant="primary">
-                Find professionals
+                Join community
               </Button>
             ) : (
               <Button href="/signup" variant="primary">
