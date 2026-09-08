@@ -8,6 +8,7 @@ import { ArrowLabel } from "@/components/ui/arrow-label";
 import { CircularText } from "@/components/ui/circular-text";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { cn } from "@/lib/utils";
+import type { AboutTeamSetting } from "@/lib/services/platform-settings-shared";
 
 /* ─── data ──────────────────────────────────────────────────────────────── */
 
@@ -111,16 +112,10 @@ const IMPACT_BODY = [
   "Every new connection strengthens the industry's capacity to deliver better projects.",
 ];
 
-/* The exported filenames are not in the order the team is listed, so the numbers
- * do not line up with the positions — team-1 is Segun, team-3 is Adepero. Mapped
- * explicitly here rather than renaming the files, which would break the URLs of
- * anything already pointing at them. Verified against each image. */
-const TEAM = [
-  { name: "Adepero Abraham",     role: "Founder and CEO",                 img: `${IMG}/team-3.webp` },
-  { name: "Abiola Abraham",      role: "Product Quality Engineer",        img: `${IMG}/team-4.webp` },
-  { name: "Olude Peter",         role: "Communications Manager",          img: `${IMG}/team-2.webp` },
-  { name: "J. Segun Ajanlekoko", role: "Managing Partner at CEP Limited", img: `${IMG}/team-1.webp` },
-];
+/* The team roster lives in the `about_team` platform setting (super-admin
+ * editable); the baked-in counterpart lives in ABOUT_TEAM_DEFAULT in
+ * lib/services/platform-settings-shared.ts. Rendering is driven entirely by the
+ * prop below so an admin edit (or a hide/ship flip) is the single source. */
 
 /* ─── helpers ────────────────────────────────────────────────────────────── */
 
@@ -156,7 +151,7 @@ const rule = "border-t border-[#ececec] dark:border-white/10";
 
 /* ─── main component ─────────────────────────────────────────────────────── */
 
-export function AboutUs() {
+export function AboutUs({ team }: { team: AboutTeamSetting }) {
   return (
     <div className="bg-white dark:bg-[#111]">
 
@@ -349,28 +344,31 @@ export function AboutUs() {
       </section>
 
       {/* ══ 9. THE MINDS BEHIND NOMARC ═══════════════════════════════════════ */}
-      <section className="px-6 md:px-10 lg:px-14 py-16">
-        <div className={cn("max-w-[1180px] mx-auto pt-14", rule)}>
-          <Reveal>
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
-              <div className="max-w-[620px]">
-                <h2 className="text-[clamp(1.7rem,3.4vw,2.6rem)] font-bold tracking-tight text-[#1e1e1e] dark:text-white">
-                  The Minds Behind Nomarc
-                </h2>
-                <p className={cn(body, "mt-3")}>
-                  Our platform is built by people who understand the industry&apos;s challenges firsthand. Meet the individuals
-                  working together to turn our vision for a connected infrastructure into reality.
-                </p>
+      {team.enabled && (
+        <section className="px-6 md:px-10 lg:px-14 py-16">
+          <div className={cn("max-w-[1180px] mx-auto pt-14", rule)}>
+            <Reveal>
+              <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-10">
+                <div className="max-w-[620px]">
+                  <h2 className="text-[clamp(1.7rem,3.4vw,2.6rem)] font-bold tracking-tight text-[#1e1e1e] dark:text-white">
+                    {team.heading}
+                  </h2>
+                  <p className={cn(body, "mt-3")}>{team.subtitle}</p>
+                </div>
+                <p className={cn(eyebrow, "whitespace-nowrap")}>{team.eyebrow}</p>
               </div>
-              <p className={cn(eyebrow, "whitespace-nowrap")}>Meet the team</p>
-            </div>
-          </Reveal>
+            </Reveal>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
-            {TEAM.map((m, i) => <TeamCard key={m.name} {...m} delay={i * 0.06} />)}
+            {team.members.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
+                {team.members.map((m, i) => (
+                  <TeamCard key={m.name} {...m} delay={i * 0.06} />
+                ))}
+              </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ══ 10. JOIN THE MOVEMENT ════════════════════════════════════════════ */}
       <section className="px-6 md:px-10 lg:px-14 pb-20">

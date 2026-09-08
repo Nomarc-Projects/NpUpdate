@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getAboutTeam } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -19,6 +19,9 @@ import {
   EXHIBITION_HUB_TAG,
   normalizeExhibitionHub,
   type ExhibitionHubSetting,
+  ABOUT_TEAM_TAG,
+  normalizeAboutTeam,
+  type AboutTeamSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -183,5 +186,43 @@ export async function setExhibitionHub(
   // Purge immediately so flipping the switch changes the live site now.
   revalidateTag(EXHIBITION_HUB_TAG, { expire: 0 });
   revalidatePath("/exhibition-hub");
+  return next;
+}
+
+/* ── About page team section: the write path ────────────────────────────
+ * Super-admin-only, like the other content that sits directly on the public
+ * site: the section is part of the About page's designed copy, and edits to it
+ * (or hiding it) go out to every visitor, so plain admins don't get the lever.
+ * Members' `img` accepts either a paved path (the /media/about/team-*.webp
+ * files) or an uploaded /media URL from the admin image picker.
+ */
+export async function setAboutTeam(
+  input: Partial<AboutTeamSetting>,
+): Promise<AboutTeamSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getAboutTeam();
+  const next = normalizeAboutTeam({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('about_team', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  // Hiding/showing the section is the visitor-facing event, so record it.
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "about_team_show" : "about_team_hide"}, 'platform_setting', 'about_team', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  // Purge immediately so an edit or a hide/ship flip shows on the live About
+  // page right away, not after the 30s cache window.
+  revalidateTag(ABOUT_TEAM_TAG, { expire: 0 });
+  revalidatePath("/about");
   return next;
 }

@@ -19,6 +19,10 @@ import {
   EXHIBITION_HUB_DEFAULT,
   normalizeExhibitionHub,
   type ExhibitionHubSetting,
+  ABOUT_TEAM_TAG,
+  ABOUT_TEAM_DEFAULT,
+  normalizeAboutTeam,
+  type AboutTeamSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -154,4 +158,31 @@ const readExhibitionHub = unstable_cache(
 
 export async function getExhibitionHub(): Promise<ExhibitionHubSetting> {
   return readExhibitionHub();
+}
+
+/**
+ * About page team section. Same fail-open reasoning as maintenance: an
+ * unreadable value (pre-migration, DB hiccup, build-time prerender) resolves
+ * to the full designed default so the section keeps rendering, content intact.
+ */
+const readAboutTeam = unstable_cache(
+  async (): Promise<AboutTeamSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'about_team' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return ABOUT_TEAM_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeAboutTeam(value);
+    } catch {
+      return ABOUT_TEAM_DEFAULT;
+    }
+  },
+  ["platform-setting-about-team"],
+  { revalidate: 30, tags: [ABOUT_TEAM_TAG] },
+);
+
+export async function getAboutTeam(): Promise<AboutTeamSetting> {
+  return readAboutTeam();
 }

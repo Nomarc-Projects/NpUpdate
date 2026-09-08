@@ -89,6 +89,8 @@ const NAV: Group[] = [
   // Both switches are super-admin only (see setMaintenance / setExhibitionHub):
   // nav hides them from plain admins, the server actions enforce it.
   { title: "Features", items: [
+    // About page team section is super-admin only (see setAboutTeam).
+    { label: "About Team Section", href: "/admin/platform/about-team", icon: Users, superOnly: true },
     // Opening/locking the marketplace is super-admin only (see setExhibitionHub).
     { label: "Exhibition Hub Config", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
     // Taking the public site offline is super-admin only (see setMaintenance).
