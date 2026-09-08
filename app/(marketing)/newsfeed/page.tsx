@@ -1,22 +1,22 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ThumbsUp } from "lucide-react";
-import { AllArticles, BlogNewsletter, type BlogPost } from "./blog-interactive";
-import { getPublishedPosts } from "@/lib/services/blog";
-import { BlogCover } from "@/components/blog/blog-cover";
+import { AllArticles, NewsletterSignup, type NewsPost } from "./newsfeed-interactive";
+import { getPublishedPosts } from "@/lib/services/newsfeed";
+import { NewsCover } from "@/components/newsfeed/news-cover";
 import { r2Url } from "@/lib/r2-public";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Blog — Nomarc Projects",
+  title: "News Feed — Nomarc Projects",
   description:
     "The latest construction news, platform updates, and industry opportunities, written for the professionals building Nigeria.",
 };
 
-export default async function BlogPage() {
+export default async function NewsFeedPage() {
   const published = await getPublishedPosts();
-  const toCard = (p: (typeof published)[number]): BlogPost => ({ slug: p.slug, title: p.title, excerpt: p.excerpt, date: p.date, image: p.coverUrl ?? "" });
+  const toCard = (p: (typeof published)[number]): NewsPost => ({ slug: p.slug, title: p.title, excerpt: p.excerpt, date: p.date, image: p.coverUrl ?? "" });
   const featured = published[0] ? toCard(published[0]) : null;
   const rest = published.slice(1).map(toCard);
 
@@ -51,10 +51,10 @@ export default async function BlogPage() {
                   <ThumbsUp size={14} /> Editor&apos;s Pick
                 </span>
               </div>
-              <Link href={`/blog/${featured.slug}`} className="group block">
+              <Link href={`/newsfeed/${featured.slug}`} className="group block">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-4 md:p-5 hover:border-[#ffd716] hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition-all">
                   <div className="aspect-[4/3] md:aspect-auto rounded-xl overflow-hidden bg-[#f5f5f5] dark:bg-white/5">
-                    <BlogCover src={featured.image} alt={featured.title} className="w-full h-full group-hover:scale-[1.03] transition-transform duration-500" />
+                    <NewsCover src={featured.image} alt={featured.title} className="w-full h-full group-hover:scale-[1.03] transition-transform duration-500" />
                   </div>
                   <div className="flex flex-col justify-center md:pr-6">
                     <h2 className="text-2xl md:text-[32px] font-bold text-[#1e1e1e] dark:text-white leading-tight">{featured.title}</h2>
@@ -78,7 +78,7 @@ export default async function BlogPage() {
         </section>
       )}
 
-      <BlogNewsletter />
+      <NewsletterSignup />
     </div>
   );
 }

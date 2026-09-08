@@ -10,7 +10,7 @@ import { FileUpload } from "@/components/ui/file-upload";
 import { DatePicker } from "@/components/ui/date-picker";
 import { RichEditor } from "@/components/admin/rich-editor";
 import { uploadFile } from "@/lib/upload-client";
-import { savePost, deletePost, getPostForEdit, type AdminPost } from "@/lib/services/blog";
+import { savePost, deletePost, getPostForEdit, type AdminPost } from "@/lib/services/newsfeed";
 import { DashBanner, BannerContent, bannerPrimaryBtn } from "@/components/dashboard/dash-banner";
 import { r2Url } from "@/lib/r2-public";
 
@@ -22,7 +22,7 @@ function slugPreview(title: string, slug: string) {
 type Editing = { id?: string; slug: string; title: string; excerpt: string; body: string; coverUrl: string; tags: string; readMinutes: number; status: "draft" | "published"; publishAt: string };
 const blank: Editing = { slug: "", title: "", excerpt: "", body: "", coverUrl: "", tags: "", readMinutes: 5, status: "draft", publishAt: "" };
 
-export function AdminBlog({ posts = [] }: { posts?: AdminPost[] }) {
+export function AdminNewsFeed({ posts = [] }: { posts?: AdminPost[] }) {
   const router = useRouter();
   const [list, setList] = useState(posts);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -126,13 +126,13 @@ export function AdminBlog({ posts = [] }: { posts?: AdminPost[] }) {
               <div className="rounded-lg border border-[#ececec] dark:border-white/10 p-3 bg-[#fafafa] dark:bg-white/[0.03]">
                 <p className="text-[11px] text-[#9a9a9a] mb-1">Search preview</p>
                 <p className="text-[13px] text-[#1a0dab] dark:text-[#8ab4f8] truncate leading-snug">{editing.title || "Your post title"}</p>
-                <p className="text-[11px] text-[#0f7b34] truncate">nomarcprojects.com › blog › {slugPreview(editing.title, editing.slug)}</p>
+                <p className="text-[11px] text-[#0f7b34] truncate">nomarcprojects.com › newsfeed › {slugPreview(editing.title, editing.slug)}</p>
                 <p className="text-[12px] text-[#4d5156] dark:text-white/55 mt-0.5 line-clamp-2">{editing.excerpt || "Add a meta description to control how this appears in search results."}</p>
               </div>
 
               <Field label="Permalink (slug)" hint="Auto from title if blank">
                 <input className={inputClass} value={editing.slug} onChange={(e) => set({ slug: e.target.value })} placeholder="my-post-url" />
-                <p className="mt-1 text-[11px] text-[#9a9a9a] truncate">nomarcprojects.com/blog/{slugPreview(editing.title, editing.slug)}</p>
+                <p className="mt-1 text-[11px] text-[#9a9a9a] truncate">nomarcprojects.com/newsfeed/{slugPreview(editing.title, editing.slug)}</p>
               </Field>
               <Field label="Meta description" hint={`${editing.excerpt.length}/160 · used on cards & search`}>
                 <textarea rows={3} className={inputClass + " resize-none"} value={editing.excerpt} onChange={(e) => set({ excerpt: e.target.value.slice(0, 200) })} placeholder="A short, compelling summary…" />
@@ -154,8 +154,8 @@ export function AdminBlog({ posts = [] }: { posts?: AdminPost[] }) {
       <DashBanner image={r2Url("site/photo-1504307651254-35680f356dfd.jpg")}>
         <BannerContent
           eyebrow="Content"
-          title="Blog"
-          subtitle="Create and manage blog posts and articles."
+          title="News Feed"
+          subtitle="Create and manage news feed posts and articles."
           actions={<button onClick={() => setEditing(blank)} className={bannerPrimaryBtn}><Plus size={15} /> New post</button>}
         />
       </DashBanner>
@@ -166,7 +166,7 @@ export function AdminBlog({ posts = [] }: { posts?: AdminPost[] }) {
             <div className="flex flex-col items-center justify-center text-center py-14 rounded-xl border border-dashed border-[#e3e3e3] dark:border-white/10">
               <div className="w-12 h-12 rounded-xl bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400]"><FileText size={22} /></div>
               <h3 className="mt-4 text-base font-bold text-[#1e1e1e] dark:text-white">No posts yet</h3>
-              <p className="mt-1.5 text-[13px] text-[#9a9a9a]">Write your first article to power the blog and SEO.</p>
+              <p className="mt-1.5 text-[13px] text-[#9a9a9a]">Write your first article to power the news feed and SEO.</p>
             </div>
           ) : (
             <div className="rounded-xl border border-[#ececec] dark:border-white/10 overflow-hidden">
@@ -174,9 +174,9 @@ export function AdminBlog({ posts = [] }: { posts?: AdminPost[] }) {
                 <div key={p.id} className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-[#f0f0f0] dark:border-white/10 last:border-0 bg-[#fafafa] dark:bg-white/[0.02]">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white truncate flex items-center gap-2">{p.title}{p.scheduled ? <span className="text-[10px] font-bold text-[#0369a1] bg-[#e0f2fe] px-1.5 py-0.5 rounded-full">Scheduled</span> : p.status === "published" ? <span className="text-[10px] font-bold text-[#16803c] bg-[#dcfce7] px-1.5 py-0.5 rounded-full">Live</span> : <span className="text-[10px] font-bold text-[#9a9a9a] bg-[#f0f0f0] dark:bg-white/10 px-1.5 py-0.5 rounded-full">Draft</span>}</p>
-                    <p className="text-[12px] text-[#9a9a9a]">/blog/{p.slug} • {p.date}</p>
+                    <p className="text-[12px] text-[#9a9a9a]">/newsfeed/{p.slug} • {p.date}</p>
                   </div>
-                  {p.status === "published" && !p.scheduled && <Link href={`/blog/${p.slug}`} target="_blank" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#9a9a9a] hover:bg-[#f5f5f5] dark:hover:bg-white/5"><ExternalLink size={15} /></Link>}
+                  {p.status === "published" && !p.scheduled && <Link href={`/newsfeed/${p.slug}`} target="_blank" className="w-9 h-9 rounded-lg flex items-center justify-center text-[#9a9a9a] hover:bg-[#f5f5f5] dark:hover:bg-white/5"><ExternalLink size={15} /></Link>}
                   <button onClick={() => openEdit(p.id)} className="w-9 h-9 rounded-lg flex items-center justify-center text-[#9a9a9a] hover:bg-[#f5f5f5] dark:hover:bg-white/5"><Pencil size={15} /></button>
                   <button onClick={() => setDelId(p.id)} className="w-9 h-9 rounded-lg flex items-center justify-center text-[#9a9a9a] hover:text-[#e5484d] hover:bg-[#fdecec] dark:hover:bg-[#e5484d]/10"><Trash2 size={15} /></button>
                 </div>

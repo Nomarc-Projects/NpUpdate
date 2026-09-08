@@ -11,13 +11,13 @@ import { useViewer } from "@/lib/use-viewer";
  * reading" card. Gating is client-side only (crawlers don't run this effect), so
  * bots always receive the full article for indexing.
  */
-export function BlogGate({ children }: { children: React.ReactNode }) {
+export function NewsGate({ children }: { children: React.ReactNode }) {
   const { signedIn } = useViewer();
   const pathname = usePathname();
   const [gated, setGated] = useState(false);
 
   useEffect(() => {
-    // Blog articles are gated for anyone who isn't signed in.
+    // News feed articles are gated for anyone who isn't signed in.
     setGated(!signedIn);
   }, [signedIn, pathname]);
 

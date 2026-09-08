@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { getPublishedPosts } from "@/lib/services/blog";
-import { BlogCover } from "@/components/blog/blog-cover";
+import { getPublishedPosts } from "@/lib/services/newsfeed";
+import { NewsCover } from "@/components/newsfeed/news-cover";
 import { FadeUp } from "./fade-up";
 
 /**
- * The three latest published posts, read from the same source `/blog` uses.
+ * The three latest published posts, read from the same source `/newsfeed` uses.
  *
  * These cards used to be three hardcoded slugs with one shared placeholder
  * excerpt; only one slug matched a real post, so two of the three linked
@@ -33,16 +33,16 @@ export async function InsightsSection() {
             <h2 className="text-3xl md:text-[38px] font-bold text-[#1e1e1e] dark:text-white tracking-tight leading-[1.1] max-w-[520px]">
               Industry insights, opportunities and platform updates.
             </h2>
-            <Link href="/blog" className="text-[#898989] text-sm hover:text-[#1e1e1e] dark:hover:text-white transition-colors whitespace-nowrap">
+            <Link href="/newsfeed" className="text-[#898989] text-sm hover:text-[#1e1e1e] dark:hover:text-white transition-colors whitespace-nowrap">
               View all articles
             </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {articles.map((a) => (
-              <Link key={a.slug} href={`/blog/${a.slug}`} className="group block">
+              <Link key={a.slug} href={`/newsfeed/${a.slug}`} className="group block">
                 <div className="aspect-[16/10] rounded-xl overflow-hidden mb-4 bg-[#f4f4f4] dark:bg-white/5">
-                  <BlogCover
+                  <NewsCover
                     src={a.coverUrl}
                     alt={a.title}
                     className="w-full h-full group-hover:scale-105 transition-transform duration-500"

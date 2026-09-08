@@ -155,41 +155,41 @@
   }
 }
 
-/* ── Blog prose: shared by the WYSIWYG editor + published article so the
+/* ── News Feed prose: shared by the WYSIWYG editor + published article so the
    author sees exactly what readers get (on-brand, light/dark, responsive). ── */
-.blog-prose { color: #4b4b4b; font-size: 1rem; line-height: 1.75; }
-.dark .blog-prose { color: rgba(255,255,255,0.72); }
-.blog-prose:focus { outline: none; }
-/* TipTap renders its editable div INSIDE .blog-prose, so the reset above never
+.news-prose { color: #4b4b4b; font-size: 1rem; line-height: 1.75; }
+.dark .news-prose { color: rgba(255,255,255,0.72); }
+.news-prose:focus { outline: none; }
+/* TipTap renders its editable div INSIDE .news-prose, so the reset above never
    reached it and the global --ring (brand yellow) painted a box around the
    compose area whenever it had focus. */
-.blog-prose .ProseMirror:focus,
-.blog-prose .ProseMirror:focus-visible,
-.blog-prose [contenteditable]:focus,
-.blog-prose [contenteditable]:focus-visible { outline: none; box-shadow: none; border-color: transparent; }
-.blog-prose h1 { font-family: 'Outfit', sans-serif; font-size: 1.9rem; font-weight: 700; color: #1e1e1e; margin: 2rem 0 1rem; line-height: 1.2; }
-.blog-prose h2 { font-family: 'Outfit', sans-serif; font-size: 1.55rem; font-weight: 700; color: #1e1e1e; margin: 2rem 0 0.9rem; line-height: 1.25; }
-.blog-prose h3 { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #1e1e1e; margin: 1.6rem 0 0.6rem; }
-.dark .blog-prose h1, .dark .blog-prose h2, .dark .blog-prose h3 { color: #fff; }
-.blog-prose p { margin: 0 0 1rem; }
-.blog-prose ul { list-style: disc; padding-left: 1.5rem; margin: 0 0 1rem; }
-.blog-prose ol { list-style: decimal; padding-left: 1.5rem; margin: 0 0 1rem; }
-.blog-prose li { margin: 0.3rem 0; }
-.blog-prose a { color: #caa400; text-decoration: underline; }
-.blog-prose strong { font-weight: 600; color: #1e1e1e; }
-.dark .blog-prose strong { color: #fff; }
-.blog-prose em { font-style: italic; }
-.blog-prose u { text-decoration: underline; }
-.blog-prose s { text-decoration: line-through; }
-.blog-prose blockquote { border-left: 4px solid #ffd716; padding-left: 1rem; font-style: italic; margin: 1.5rem 0; color: #6b6b6b; }
-.dark .blog-prose blockquote { color: rgba(255,255,255,0.7); }
-.blog-prose img { border-radius: 0.75rem; margin: 1.5rem 0; max-width: 100%; height: auto; }
-.blog-prose hr { border: 0; border-top: 1px solid #ececec; margin: 2rem 0; }
-.dark .blog-prose hr { border-top-color: rgba(255,255,255,0.1); }
-.blog-prose code { background: #f4f4f4; border-radius: 0.25rem; padding: 0.1rem 0.35rem; font-size: 0.9em; }
-.dark .blog-prose code { background: rgba(255,255,255,0.1); }
-.blog-prose .is-editor-empty:first-child::before { content: attr(data-placeholder); color: #b3b3b3; float: left; height: 0; pointer-events: none; }
-.blog-prose[contenteditable] { min-height: 360px; }
+.news-prose .ProseMirror:focus,
+.news-prose .ProseMirror:focus-visible,
+.news-prose [contenteditable]:focus,
+.news-prose [contenteditable]:focus-visible { outline: none; box-shadow: none; border-color: transparent; }
+.news-prose h1 { font-family: 'Outfit', sans-serif; font-size: 1.9rem; font-weight: 700; color: #1e1e1e; margin: 2rem 0 1rem; line-height: 1.2; }
+.news-prose h2 { font-family: 'Outfit', sans-serif; font-size: 1.55rem; font-weight: 700; color: #1e1e1e; margin: 2rem 0 0.9rem; line-height: 1.25; }
+.news-prose h3 { font-family: 'Outfit', sans-serif; font-size: 1.25rem; font-weight: 700; color: #1e1e1e; margin: 1.6rem 0 0.6rem; }
+.dark .news-prose h1, .dark .news-prose h2, .dark .news-prose h3 { color: #fff; }
+.news-prose p { margin: 0 0 1rem; }
+.news-prose ul { list-style: disc; padding-left: 1.5rem; margin: 0 0 1rem; }
+.news-prose ol { list-style: decimal; padding-left: 1.5rem; margin: 0 0 1rem; }
+.news-prose li { margin: 0.3rem 0; }
+.news-prose a { color: #caa400; text-decoration: underline; }
+.news-prose strong { font-weight: 600; color: #1e1e1e; }
+.dark .news-prose strong { color: #fff; }
+.news-prose em { font-style: italic; }
+.news-prose u { text-decoration: underline; }
+.news-prose s { text-decoration: line-through; }
+.news-prose blockquote { border-left: 4px solid #ffd716; padding-left: 1rem; font-style: italic; margin: 1.5rem 0; color: #6b6b6b; }
+.dark .news-prose blockquote { color: rgba(255,255,255,0.7); }
+.news-prose img { border-radius: 0.75rem; margin: 1.5rem 0; max-width: 100%; height: auto; }
+.news-prose hr { border: 0; border-top: 1px solid #ececec; margin: 2rem 0; }
+.dark .news-prose hr { border-top-color: rgba(255,255,255,0.1); }
+.news-prose code { background: #f4f4f4; border-radius: 0.25rem; padding: 0.1rem 0.35rem; font-size: 0.9em; }
+.dark .news-prose code { background: rgba(255,255,255,0.1); }
+.news-prose .is-editor-empty:first-child::before { content: attr(data-placeholder); color: #b3b3b3; float: left; height: 0; pointer-events: none; }
+.news-prose[contenteditable] { min-height: 360px; }
 
 /* Messages FAB attention shake — runs every ~8s, brief wiggle then rests */
 @keyframes nm-fab-shake {

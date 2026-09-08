@@ -6,7 +6,7 @@ const quickLinks = [
   { label: "Home",           href: "/" },
   { label: "Join Community", href: "/signup" },
   { label: "FAQs",           href: "/#faq" },
-  { label: "Blog",           href: "/blog" },
+  { label: "News Feed",    href: "/newsfeed" },
 ];
 
 const professionalLinks = [

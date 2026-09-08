@@ -64,7 +64,7 @@ async function requireAdmin(): Promise<string> {
   const session = await auth.api.getSession({ headers: await headers() });
   // Accept both admin tiers (`isAdminRole`) — the real admin console runs as
   // `super_admin`, and the old `role !== "admin"` test here locked that account
-  // out of /admin/blog with a "Forbidden" → "something went wrong" error.
+  // out of /admin/newsfeed with a "Forbidden" → "something went wrong" error.
   if (!isAdminRole((session?.user as { role?: string } | undefined)?.role)) throw new Error("Forbidden");
   return session!.user.name ?? "Nomarc";
 }
@@ -141,15 +141,15 @@ export async function savePost(input: PostInput & { id?: string }) {
   } else {
     await db.insert(blogPost).values({ ...fields, publishedAt: status === "published" ? (scheduled ?? new Date()) : null });
   }
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
-  revalidatePath(`/blog/${slug}`);
+  revalidatePath("/admin/newsfeed");
+  revalidatePath("/newsfeed");
+  revalidatePath(`/newsfeed/${slug}`);
   return slug;
 }
 
 export async function deletePost(id: string) {
   await requireAdmin();
   await db.delete(blogPost).where(eq(blogPost.id, id));
-  revalidatePath("/admin/blog");
-  revalidatePath("/blog");
+  revalidatePath("/admin/newsfeed");
+  revalidatePath("/newsfeed");
 }

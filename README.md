@@ -46,7 +46,7 @@ between the two.
 | Client state | Zustand | 6 stores, `lib/store/` |
 | Server cache | TanStack Query | client components only |
 | Motion | Framer Motion, GSAP, OGL | |
-| Rich text | TipTap 3 | blog + email campaign editors |
+| Rich text | TipTap 3 | news feed + email campaign editors |
 | Object storage | Cloudflare R2 | via `@aws-sdk/client-s3` |
 
 Node is pinned to `22.x` in `engines`. The deployed Vercel project runs `24.x`.
@@ -79,7 +79,7 @@ shared cluster.
 ```
 frontend/
 ├── app/                     # routes (App Router)
-│   ├── (marketing)/         # public: home, about, blog, contact, tools,
+│   ├── (marketing)/         # public: home, about, newsfeed, contact, tools,
 │   │                        #   exhibition-hub, company, profile, settings
 │   ├── (auth)/              # full-screen: login, signup, forgot/reset-password,
 │   │                        #   verify-email
@@ -118,7 +118,7 @@ chrome without appearing in the URL.
 | `pm/` | 15 | project management: Kanban, tasks, timeline |
 | `exhibition-hub/` | 11 | exhibitor showroom |
 | `profile/` | 6 | profile + company tabs, public profile |
-| `blog/` | 5 | listing + detail |
+| `newsfeed/` | 5 | listing + detail |
 | `auth/` | 4 | forms, brand panel, password confirm |
 | `layout/` | 4 | navbar, footer, sidebar, mobile drawer |
 | `marketing/` | 3 | marketing-only blocks |

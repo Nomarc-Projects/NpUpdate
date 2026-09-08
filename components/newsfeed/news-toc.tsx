@@ -9,11 +9,11 @@ import { cn } from "@/lib/utils";
 type Item = { id: string; text: string; level: number };
 
 /**
- * Auto Table-of-Contents + subscribe card for the blog article.
+ * Auto Table-of-Contents + subscribe card for the news feed article.
  * Reads h2/h3 from the rendered article body, assigns ids, and scroll-spies.
  * Renders nothing TOC-wise if the body has no headings (e.g. gated/short posts).
  */
-export function BlogToc({ targetId = "article-body" }: { targetId?: string }) {
+export function NewsToc({ targetId = "article-body" }: { targetId?: string }) {
   const [items, setItems] = useState<Item[]>([]);
   const [active, setActive] = useState("");
   const [email, setEmail] = useState("");
@@ -41,7 +41,7 @@ export function BlogToc({ targetId = "article-body" }: { targetId?: string }) {
   function subscribe(e: React.FormEvent) {
     e.preventDefault();
     if (!email.trim() || pending) return;
-    // Persists as a CRM lead, the same path the blog index uses — this card
+    // Persists as a CRM lead, the same path the news feed index uses — this card
     // previously only raised a toast, so every signup from an article was lost.
     start(async () => {
       try {

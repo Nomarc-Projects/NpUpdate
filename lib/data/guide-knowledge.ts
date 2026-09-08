@@ -253,7 +253,7 @@ Live card payments are still being switched on — the platform currently runs i
 - **Home** (/) — the overview, plans and FAQ.
 - **About** (/about) — Nomarc and Nomadic Architects.
 - **Tools** (/tools) — every tool on the platform, grouped by what it is for.
-- **Blog** (/blog) — industry writing and platform updates.
+- **News Feed** (/newsfeed) — industry writing and platform updates.
 - **Contact** (/contact) — reach the team.
 - **Sign up** (/signup) and **Log in** (/login).
 - **Privacy** (/privacy) and **Terms** (/terms).
@@ -276,14 +276,14 @@ Once signed in, everything else lives under the dashboard — jobs, the director
 Each tool is tagged by who it is for, and anything not yet live is marked as coming soon.`,
   },
   {
-    id: "page-blog",
-    title: "The blog",
+    id: "page-newsfeed",
+    title: "The News Feed",
     category: "navigation",
-    href: "/blog",
-    tags: ["blog", "articles", "news", "insights", "updates", "read"],
-    body: `The Nomarc blog covers Nigerian construction industry topics and platform updates. Articles are free to read; some content prompts you to sign in.
+    href: "/newsfeed",
+    tags: ["newsfeed", "articles", "news", "insights", "updates", "read"],
+    body: `The Nomarc news feed covers Nigerian construction industry topics and platform updates. Articles are free to read; some content prompts you to sign in.
 
-If you are trying to understand the market before committing to a plan, the blog is a reasonable place to start.`,
+If you are trying to understand the market before committing to a plan, the news feed is a reasonable place to start.`,
   },
   {
     id: "page-contact",

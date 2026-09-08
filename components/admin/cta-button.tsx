@@ -12,7 +12,7 @@ import { URL_SHORTCODES } from "./email-shortcodes";
  *
  * It used to be inserted as a Link mark carrying inline styles. That could never
  * look like a button: TipTap's Link mark only preserves href/target/rel/class, so
- * the `style` attribute was dropped on parse, and `.blog-prose a` in globals.css
+ * the `style` attribute was dropped on parse, and `.news-prose a` in globals.css
  * then painted it as underlined #caa400 text. Clicking it also behaved like a
  * link rather than reopening its settings, and there was no way to edit one after
  * insertion.

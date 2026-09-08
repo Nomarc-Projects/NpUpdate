@@ -24,7 +24,7 @@ const mediaHosts = [...new Set([r2Host, LEGACY_R2_HOST])];
  * Content Security Policy.
  *
  * Shipped as report-only first. The app renders admin-authored HTML through
- * dangerouslySetInnerHTML on the blog, and had no CSP at all, so this is the
+ * dangerouslySetInnerHTML on the news feed, and had no CSP at all, so this is the
  * backstop for that — but GSAP, OGL, Framer Motion and TipTap all run here and
  * a policy that breaks them silently is worse than none. Watch the reports,
  * then rename the header to `Content-Security-Policy` to enforce.
@@ -51,7 +51,7 @@ const csp = [
 /**
  * Security headers. There were none — no CSP, no HSTS, no framing control —
  * so the app was clickjackable and had no second line of defence behind the
- * blog sanitiser.
+ * news feed sanitiser.
  */
 const securityHeaders = [
   { key: "Content-Security-Policy-Report-Only", value: csp },

@@ -7,10 +7,10 @@ import { ArrowRight, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { submitLead } from "@/lib/services/crm";
 import { Pagination } from "@/components/ui/pagination";
-import { BlogCover } from "@/components/blog/blog-cover";
+import { NewsCover } from "@/components/newsfeed/news-cover";
 import { r2Url } from "@/lib/r2-public";
 
-export type BlogPost = {
+export type NewsPost = {
   slug: string;
   title: string;
   excerpt: string;
@@ -20,7 +20,7 @@ export type BlogPost = {
 
 const PER_PAGE = 3;
 
-export function AllArticles({ posts }: { posts: BlogPost[] }) {
+export function AllArticles({ posts }: { posts: NewsPost[] }) {
   const [page, setPage] = useState(0);
   const pageCount = Math.ceil(posts.length / PER_PAGE);
   const start = page * PER_PAGE;
@@ -52,9 +52,9 @@ export function AllArticles({ posts }: { posts: BlogPost[] }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] }}
               >
-                <Link href={`/blog/${post.slug}`} className="group block">
+                <Link href={`/newsfeed/${post.slug}`} className="group block">
                   <div className="aspect-[16/10] rounded-xl overflow-hidden mb-4 bg-[#f5f5f5] dark:bg-white/5">
-                    <BlogCover
+                    <NewsCover
                       src={post.image}
                       alt={post.title}
                       className="w-full h-full group-hover:scale-105 transition-transform duration-500"
@@ -93,7 +93,7 @@ export function AllArticles({ posts }: { posts: BlogPost[] }) {
   );
 }
 
-export function BlogNewsletter() {
+export function NewsletterSignup() {
   const [email, setEmail] = useState("");
   const [done, setDone] = useState(false);
   const [pending, start] = useTransition();
@@ -126,7 +126,7 @@ export function BlogNewsletter() {
               Never miss an update
             </h2>
             <p className="mt-4 text-white/70 text-sm leading-relaxed">
-              Subscribe to the blog and get a weekly breakdown of the most important construction
+              Subscribe to the news feed and get a weekly breakdown of the most important construction
               trends, platform updates, and professional insights, delivered directly to your inbox.
             </p>
             {done ? (

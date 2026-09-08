@@ -146,7 +146,7 @@ export function RichEditor({ value, onChange }: { value: string; onChange: (html
       >
         <EditorContent
           editor={editor}
-          className="blog-prose h-full [&>.ProseMirror]:min-h-full [&>.ProseMirror]:outline-none"
+          className="news-prose h-full [&>.ProseMirror]:min-h-full [&>.ProseMirror]:outline-none"
         />
       </div>
     </div>

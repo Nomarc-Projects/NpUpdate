@@ -78,7 +78,7 @@ type Requirement =
 
 export type Capability =
   // public / auth-state gated
-  | "findJobHire" | "openBlog" | "directoryNames" | "directoryFull"
+  | "findJobHire" | "openNewsFeed" | "directoryNames" | "directoryFull"
   | "industryFeed" | "industryEvents"
   // dashboard core
   | "jobBoard" | "exhibitionHubFull" | "aiAssistant"
@@ -93,7 +93,7 @@ export type Capability =
 
 const RULES: Record<Capability, Requirement> = {
   findJobHire: { kind: "signin" },
-  openBlog: { kind: "signin" },
+  openNewsFeed: { kind: "signin" },
   directoryNames: { kind: "signin" },
   directoryFull: { kind: "role" },
   // Phase 1 MVP surfaces — free for every signed-in member per the PRD's

@@ -57,7 +57,7 @@ const NAV: Group[] = [
     { label: "Exhibition Hub", href: "/admin/marketplace/products", icon: Package },
   ]},
   { title: "Content", items: [
-    { label: "Blog", href: "/admin/blog", icon: Newspaper },
+    { label: "News Feed", href: "/admin/newsfeed", icon: Newspaper },
     { label: "News Ticker", href: "/admin/news-ticker", icon: Activity },
     { label: "Taxonomy", href: "/admin/taxonomy", icon: Tags },
   ]},

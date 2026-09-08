@@ -39,7 +39,7 @@ export interface Job {
   requirements?: string[];
 }
 
-export interface BlogPost {
+export interface NewsPost {
   id: string;
   slug: string;
   title: string;

@@ -59,7 +59,7 @@ export async function getIndustryFeed(limit = 40): Promise<FeedItem[]> {
        ORDER BY p.created_at DESC LIMIT ${SOURCES})
       UNION ALL
       (SELECT b.id::text, 'article', b.title, b.excerpt,
-        '/blog/' || b.slug, b.author, b.cover_url,
+        '/newsfeed/' || b.slug, b.author, b.cover_url,
         COALESCE(b.published_at, b.created_at)
        FROM blog_post b WHERE b.status = 'published'
        ORDER BY COALESCE(b.published_at, b.created_at) DESC LIMIT ${SOURCES})
