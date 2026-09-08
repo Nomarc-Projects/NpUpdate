@@ -18,10 +18,11 @@ export function JoinCommunitySection() {
             <p className="text-[#898989] text-[15px] leading-relaxed mb-8 max-w-[440px]">
               Connect with trusted construction professionals and get direct access to construction projects or advice now!
             </p>
-            {/* Where else does a signed-in member go? Straight to the Directory —
-                "Join community" just keeps the label consistent across the page. */}
+            {/* The community itself lives off-platform — joining means following the invite
+                link straight into the WhatsApp group. Opens in a new tab so visitors
+                don't lose the site. */}
             {isSignedIn ? (
-              <Button href="/dashboard/find-professionals" variant="primary">
+              <Button href="https://chat.whatsapp.com/GQ9JFeCxzjf5qrMiZ9lCIc?s=cl&p=a&mlu=4&ilr=4" target="_blank" rel="noreferrer" variant="primary">
                 Join community
               </Button>
             ) : (

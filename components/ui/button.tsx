@@ -35,7 +35,7 @@ type CommonProps = VariantProps<typeof buttonVariants> & {
   fullWidthOnMobile?: boolean;
 };
 
-type LinkProps = CommonProps & { href: string; onClick?: never; type?: never; disabled?: never };
+type LinkProps = CommonProps & { href: string; target?: string; rel?: string; onClick?: never; type?: never; disabled?: never };
 type ButtonElProps = CommonProps & {
   href?: undefined;
   onClick?: () => void;
@@ -57,8 +57,9 @@ export function Button({
   const content = arrow ? <ArrowLabel>{children}</ArrowLabel> : children;
 
   if (href) {
+    const { target, rel } = rest as LinkProps;
     return (
-      <Link href={href} className={classes}>
+      <Link href={href} target={target} rel={rel} className={classes}>
         {content}
       </Link>
     );
