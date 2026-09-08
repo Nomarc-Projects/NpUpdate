@@ -24,8 +24,8 @@ export default function HomePage() {
       <InlineNewsTicker />
       <InsightsSection />
       <FAQSection />
-      <ContactSection />
       <JoinCommunitySection />
+      <ContactSection />
       {/* Trusted Clients — final section before the footer. */}
       <PartnersSection />
     </>
