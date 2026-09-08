@@ -3,7 +3,20 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { job, product, productVariant, company } from "@/lib/db/schema";
+import { getViewer } from "@/lib/viewer-server";
+import { can } from "@/lib/entitlements";
 import type { CatalogProduct } from "@/lib/sample-catalog";
+
+/**
+ * Jobs are a professional-only surface. These exports live in a `"use server"`
+ * module, so a page redirect alone is not enough: the functions themselves are
+ * callable as server actions. Reject callers who haven't completed the
+ * professional profile before touching job data.
+ */
+async function requireJobBoard(): Promise<void> {
+  const viewer = await getViewer();
+  if (!can(viewer, "jobBoard")) throw new Error("Forbidden — a professional profile is required");
+}
 
 export type JobCard = { id: string; title: string; company: string; location: string; desc: string; tags: string[]; salary: string; time: string; ownerUserId: string; recruiterName: string };
 export type AvailabilityKey = "in_stock" | "made_to_order" | "rentable";
@@ -50,6 +63,7 @@ const UNKNOWN_AVAIL = "Availability on request";
 
 /** Open, published jobs for the browse list (newest first). */
 export async function getJobsForBrowse(): Promise<JobCard[]> {
+  await requireJobBoard();
   const rows = await db.select().from(job).where(and(eq(job.status, "open"), eq(job.draft, false))).orderBy(desc(job.createdAt));
   return rows.map((j) => ({
     id: j.id,
@@ -73,6 +87,7 @@ export async function getJobsForBrowse(): Promise<JobCard[]> {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function getJobById(id: string): Promise<JobCard | null> {
+  await requireJobBoard();
   if (!UUID_RE.test(id.trim())) return null;
   const rows = await db.select().from(job).where(eq(job.id, id)).limit(1);
   const j = rows[0];
