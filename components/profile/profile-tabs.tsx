@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BadgeCheck, ThumbsUp, User, Award, GraduationCap, ShieldCheck, type LucideIcon } from "lucide-react";
 import { PublicProfileForm, DEFAULT_AVATAR } from "@/app/(marketing)/profile/public-profile-form";
+import { ProfessionalInfoForm } from "@/components/profile/professional-info-form";
 import { QualificationsContent } from "@/app/(marketing)/profile/qualifications/qualifications-content";
 import { EducationContent } from "@/app/(marketing)/profile/education/education-content";
 import { KycView, VerificationLevelCard } from "@/components/dashboard/kyc-view";
@@ -122,7 +123,12 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
             </div>
           </nav>
           <div className="min-w-0">
-            <div className={tab === "public" ? "" : "hidden"}><PublicProfileForm initial={profile} /></div>
+            <div className={tab === "public" ? "" : "hidden"}>
+              <PublicProfileForm initial={profile} />
+              <div className="mt-10 border-t border-[#f0f0f0] dark:border-white/10 pt-8">
+                <ProfessionalInfoForm initial={profile} />
+              </div>
+            </div>
             <div className={tab === "qualifications" ? "" : "hidden"}><QualificationsContent experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} /></div>
             <div className={tab === "education" ? "" : "hidden"}><EducationContent education={education} /></div>
             <div className={tab === "verification" ? "" : "hidden"}>{kycState && <KycView kycState={kycState} embedded />}</div>

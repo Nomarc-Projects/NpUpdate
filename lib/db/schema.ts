@@ -24,7 +24,7 @@ export const profile = pgTable("profile", {
    *  find-work onboarding — registered | in_progress | not_licensed.
    *  Distinct from `practiceStatus`, which drives the practice-profile page. */
   practiceLicenceStatus: text("practice_licence_status"),
-  /** intern | graduate | consultant | licensed | company — drives the
+  /** intern | graduate | consultant | licensed | registered | company — drives the
    *  conditional fields below. Null on profiles predating 0033. */
   practiceStatus: text("practice_status"),
   /** Set only when practiceStatus = "licensed". */

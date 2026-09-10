@@ -16,7 +16,7 @@ import {
 } from "@/lib/services/profile-checklist";
 
 /** intern | graduate | consultant | licensed | company */
-export type PracticeStatus = "" | "intern" | "graduate" | "consultant" | "licensed" | "company";
+export type PracticeStatus = "" | "intern" | "graduate" | "consultant" | "licensed" | "registered" | "company";
 
 export type ProfileData = {
   name: string;
@@ -28,6 +28,7 @@ export type ProfileData = {
   avatarUrl: string;
   practiceStatus: PracticeStatus;
   licenseNumber: string;
+  registrationNumber: string;
   practiceCompanyName: string;
   practiceRegNumber: string;
   practiceCompanyAddress: string;
@@ -69,6 +70,7 @@ export async function getMyProfile(): Promise<{ data: ProfileData; missing: Chec
       avatarUrl: p?.avatarUrl ?? "",
       practiceStatus: (p?.practiceStatus ?? "") as PracticeStatus,
       licenseNumber: p?.licenseNumber ?? "",
+      registrationNumber: p?.registrationNumber ?? "",
       practiceCompanyName: p?.practiceCompanyName ?? "",
       practiceRegNumber: p?.practiceRegNumber ?? "",
       practiceCompanyAddress: p?.practiceCompanyAddress ?? "",
