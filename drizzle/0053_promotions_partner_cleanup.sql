@@ -20,5 +20,6 @@ WHERE "heading" IN (
   'Award-Winning Sustainable Residential Architecture',
   'Modern Residential Building',
   'West Africa''s Premier Steel Supplier',
+  'West Africa'' Premier Steel Supplier',
   'Showcase your brand to the Global AEC Industry'
 );
