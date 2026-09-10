@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Search, BadgeCheck, Trash2, ShieldCheck, Ban, RotateCcw, Download, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles, Eye, KeyRound, Pencil, LogIn, Users, UserX, MailCheck, Loader2, Store, Briefcase } from "lucide-react";
+import { Search, BadgeCheck, Trash2, ShieldCheck, Ban, RotateCcw, Download, ChevronLeft, ChevronRight, ChevronDown, X, Sparkles, Eye, KeyRound, Pencil, LogIn, Users, UserX, MailCheck, Loader2, Store, Briefcase, Handshake } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Modal, GhostButton } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { KebabMenu, type KebabItem } from "@/components/dashboard/kit";
-import { setUserRole, setUserPlan, setUserBanned, exportUsersCsv, adminDeleteUser, requestPasswordResetAsAdmin, type AdminUser, type AdminUserStats } from "@/lib/services/admin";
+import { setUserRole, setUserPlan, setUserBanned, setUserPartner, exportUsersCsv, adminDeleteUser, requestPasswordResetAsAdmin, type AdminUser, type AdminUserStats } from "@/lib/services/admin";
 import { startImpersonation } from "@/lib/services/impersonation";
 import { cn } from "@/lib/utils";
 
@@ -74,8 +74,8 @@ function KycBadge({ verified }: { verified: boolean }) {
 }
 
 /* ─── Per-row action dropdown ────────────────────────────────────────────── */
-function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails, onResetPassword }: {
-  u: AdminUser; onImpersonate: () => void; onToggleBan: () => void; onDelete: () => void; onViewDetails: () => void; onResetPassword: () => void;
+function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails, onResetPassword, onTogglePartner }: {
+  u: AdminUser; onImpersonate: () => void; onToggleBan: () => void; onDelete: () => void; onViewDetails: () => void; onResetPassword: () => void; onTogglePartner: () => void;
 }) {
   // Portal-based KebabMenu so the dropdown is never clipped by the table's
   // overflow-x-auto container (the inline absolute menu used to be cut off).
@@ -84,6 +84,7 @@ function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails, on
     { icon: KeyRound, label: "Reset password", onClick: onResetPassword },
     { icon: Pencil, label: "Edit user", onClick: () => toast.info("Edit user — coming soon") },
     { icon: LogIn, label: "Login as user", hidden: u.role === "admin", onClick: onImpersonate },
+    { icon: Handshake, label: u.isPartner ? "Remove Partner" : "Mark as Partner", onClick: onTogglePartner },
     { icon: u.banned ? RotateCcw : Ban, label: u.banned ? "Activate" : "Deactivate", onClick: onToggleBan },
     { icon: Trash2, label: "Delete user", danger: true, onClick: onDelete },
   ];
@@ -91,10 +92,10 @@ function RowActions({ u, onImpersonate, onToggleBan, onDelete, onViewDetails, on
 }
 
 /* ─── User detail slide-over panel ───────────────────────────────────────── */
-function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, onImpersonate, onDelete, onResetPassword }: {
+function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, onImpersonate, onDelete, onResetPassword, onTogglePartner }: {
   u: AdminUser; onClose: () => void;
   onChangeRole: (role: string) => void; onChangePlan: (plan: string) => void;
-  onToggleBan: () => void; onImpersonate: () => void; onDelete: () => void; onResetPassword: () => void;
+  onToggleBan: () => void; onImpersonate: () => void; onDelete: () => void; onResetPassword: () => void; onTogglePartner: () => void;
 }) {
   const initials = (u.name || u.email).split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -164,6 +165,11 @@ function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, 
             <DetailRow label="KYC Verification">
               <KycBadge verified={u.verified} />
             </DetailRow>
+            <DetailRow label="Partnership">
+              {u.isPartner
+                ? <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#8a7400] bg-[#fff7cc] dark:bg-[#ffd716]/15 dark:text-[#ffd716] px-2 py-0.5 rounded-full"><Handshake size={11} /> Partner</span>
+                : <span className="text-[12.5px] font-medium text-[#9a9a9a]">—</span>}
+            </DetailRow>
             <DetailRow label="Registered">
               <span className="text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">{u.joined}</span>
             </DetailRow>
@@ -192,6 +198,20 @@ function UserDetailPanel({ u, onClose, onChangeRole, onChangePlan, onToggleBan, 
                   </div>
                 </button>
               )}
+
+              <button onClick={() => { onTogglePartner(); }}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left",
+                  u.isPartner ? "border-[#f59e0b]/30 hover:border-[#f59e0b]" : "border-[#8a7400]/30 hover:border-[#ffd716]"
+                )}>
+                <Handshake size={15} className={u.isPartner ? "text-[#f59e0b]" : "text-[#8a7400]"} />
+                <div>
+                  <p className={cn("text-[13px] font-semibold", u.isPartner ? "text-[#f59e0b]" : "text-[#8a7400]")}>
+                    {u.isPartner ? "Remove Partner" : "Mark as Partner"}
+                  </p>
+                  <p className="text-[11px] text-[#9a9a9a]">{u.isPartner ? "Revoke promotion rights" : "Allow promotions without the Key players plan"}</p>
+                </div>
+              </button>
 
               <button onClick={() => { onToggleBan(); }}
                 className={cn(
@@ -371,6 +391,12 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
     toast.success(`${u.name || u.email} → ${cap(plan)} plan`);
     setUserPlan(u.id, plan as "free").then(() => router.refresh()).catch((e) => { setList(prev); toast.error(e instanceof Error ? e.message : "Failed"); });
   };
+  const togglePartner = (u: AdminUser) => {
+    const next = !u.isPartner; const prev = list;
+    setList((l) => l.map((x) => (x.id === u.id ? { ...x, isPartner: next } : x)));
+    toast.success(next ? `${u.name || u.email} is now a Nomarc partner` : `Partner status removed for ${u.name || u.email}`);
+    setUserPartner(u.id, next).then(() => router.refresh()).catch((e) => { setList(prev); toast.error(e instanceof Error ? e.message : "Failed"); });
+  };
   const confirmDelete = () => {
     if (!delUser) return;
     const prev = list; const u = delUser;
@@ -534,7 +560,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
                       <div className="flex items-center gap-3">
                         <Avatar u={u} />
                         <div className="min-w-0">
-                          <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white flex items-center gap-1.5 truncate">{u.name || "—"} {u.verified && <BadgeCheck size={14} className="text-[#1e9df5] flex-shrink-0" />}</p>
+                          <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white flex items-center gap-1.5 truncate">{u.name || "—"} {u.verified && <BadgeCheck size={14} className="text-[#1e9df5] flex-shrink-0" />} {u.isPartner && <Handshake size={14} className="text-[#f59e0b] flex-shrink-0" />}</p>
                           <p className="text-[11.5px] text-[#9a9a9a] truncate">{u.email}</p>
                         </div>
                       </div>
@@ -545,7 +571,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
                     <td className="px-3 py-3.5"><div className="w-[100px]"><SelectMenu value={cap(u.plan)} options={PLANS.map(cap)} onChange={(l) => changePlan(u, l.toLowerCase())} /></div></td>
                     <td className="px-3 py-3.5 text-[12px] text-[#6b6b6b] dark:text-white/60 whitespace-nowrap">{u.joined}</td>
                     <td className="px-3 py-3.5 text-right">
-                      <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} />
+                      <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} onTogglePartner={() => togglePartner(u)} />
                     </td>
                   </tr>
                 ))}
@@ -571,7 +597,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
                   <SelectMenu value={cap(u.plan)} options={PLANS.map(cap)} onChange={(l) => changePlan(u, l.toLowerCase())} />
                 </div>
                 <div className="mt-2 flex items-center justify-end">
-                  <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} />
+                  <RowActions u={u} onImpersonate={() => impersonate(u)} onToggleBan={() => toggleBan(u)} onDelete={() => setDelUser(u)} onViewDetails={() => setDetailUser(u)} onResetPassword={() => resetPassword(u)} onTogglePartner={() => togglePartner(u)} />
                 </div>
               </div>
             ))}
@@ -673,6 +699,7 @@ export function AdminUsers({ users = [], stats, search = "" }: { users?: AdminUs
           onChangeRole={(role) => { changeRole(detailUser, role); setDetailUser({ ...detailUser, role }); }}
           onChangePlan={(plan) => { changePlan(detailUser, plan); setDetailUser({ ...detailUser, plan }); }}
           onToggleBan={() => { toggleBan(detailUser); setDetailUser({ ...detailUser, banned: !detailUser.banned }); }}
+          onTogglePartner={() => { togglePartner(detailUser); setDetailUser({ ...detailUser, isPartner: !detailUser.isPartner }); }}
           onImpersonate={() => impersonate(detailUser)}
           onDelete={() => { setDelUser(detailUser); setDetailUser(null); }}
           onResetPassword={() => resetPassword(detailUser)}

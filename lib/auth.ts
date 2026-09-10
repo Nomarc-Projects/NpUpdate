@@ -271,6 +271,16 @@ export const auth = betterAuth({
         defaultValue: false,
         input: false,
       },
+      // Admin-managed partnership flag. Grants promotion rights to accounts
+      // not on the Key players exhibitor plan — the "partnerships only" half
+      // of the promotions gate (see lib/services/promotions.ts). Not
+      // user-settable; toggled from the admin User Management console.
+      isPartner: {
+        type: "boolean",
+        required: false,
+        defaultValue: false,
+        input: false,
+      },
     },
   },
   session: {

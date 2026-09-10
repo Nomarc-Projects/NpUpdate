@@ -9,7 +9,7 @@ import {
   ArrowLeft, Sun, Moon, PanelLeft, PanelLeftClose,
   ShoppingBag, Package, MessageSquare, Megaphone, Radio as CampaignIcon,
   UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store, CreditCard,
-  Newspaper, Activity, Tags, Landmark,
+  Newspaper, Activity, Tags, Landmark, GalleryHorizontalEnd, Handshake,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -68,8 +68,15 @@ const NAV: Group[] = [
     { label: "Events", href: "/admin/events", icon: CalendarDays },
   ]},
   { title: "Advertising & Promotions", items: [
+    // The Promotions section's content lives here: the homepage/hub promoted
+    // slots render whatever rows are active on the Ad Board, so this is the
+    // admin control for that section.
+    { label: "Ad Board", href: "/admin/adverts", icon: GalleryHorizontalEnd },
     { label: "Ad Reviews", href: "/admin/advertising/reviews", icon: Megaphone },
     { label: "Active Campaigns", href: "/admin/advertising/campaigns", icon: CampaignIcon },
+    // Partnerships gate who can run promotions without the Key players plan;
+    // the flag is toggled per user on the All Users console.
+    { label: "Partners", href: "/admin/users", icon: Handshake },
   ]},
   { title: "Communications", items: [
     { label: "Send Email", href: "/admin/broadcasts", icon: Mail },

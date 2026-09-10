@@ -28,6 +28,7 @@ const DESTINATIONS: Dest[] = [
   { label: "Exhibition Hub", group: "Marketplace & Catalog", href: "/admin/marketplace/products", icon: Package },
   { label: "Ad Reviews", group: "Advertising", href: "/admin/advertising/reviews", icon: Megaphone },
   { label: "Active Campaigns", group: "Advertising", href: "/admin/advertising/campaigns", icon: Radio },
+  { label: "Ad Board", group: "Advertising", href: "/admin/adverts", icon: Megaphone },
   { label: "Audience Segments", group: "Communications", href: "/admin/audience-segments", icon: UsersRound },
   { label: "Email Campaigns", group: "Communications", href: "/admin/email-campaigns", icon: Mail },
   { label: "Campaign Tracking", group: "Communications", href: "/admin/campaigns", icon: LineChart },

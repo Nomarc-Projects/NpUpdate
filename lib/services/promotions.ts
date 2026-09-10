@@ -61,6 +61,45 @@ function mapRow(r: typeof promotion.$inferSelect): Promotion {
   };
 }
 
+export type PromotionEligibility = { eligible: boolean; via: "partner" | "key_player" | null; planLabel: string };
+
+/**
+ * Who may run promotions (paid campaigns). Two routes qualify, and only two:
+ *  - an exhibitor on the top `key_player` plan (Exhibition Hub premium), or
+ *  - an account manually granted partnership by an admin (`user.is_partner`).
+ * Everything else — free accounts, professional paid plans, the lower
+ * exhibitor tiers — is blocked here AND surfaced as "not eligible" to the
+ * dashboard, so the ads product can't be bought or created off-books.
+ */
+export async function requirePromotionEligibility(uid: string): Promise<PromotionEligibility> {
+  // Guarded: if the is_partner column isn't migrated yet, no one is a partner
+  // (the key_player check below still runs), so eligibility fails closed.
+  let isPartner = false;
+  try {
+    const [u] = (await db.execute(sql`SELECT COALESCE(is_partner, false) AS is_partner FROM "user" WHERE id = ${uid} LIMIT 1`)).rows as { is_partner: boolean | null }[];
+    isPartner = u?.is_partner === true;
+  } catch { /* column not present yet — no partners */ }
+  if (isPartner) return { eligible: true, via: "partner", planLabel: "Partner" };
+
+  const rows = await db
+    .select({ plan: userRole.plan })
+    .from(userRole)
+    .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")));
+  if (rows.some((r) => r.plan === "key_player")) return { eligible: true, via: "key_player", planLabel: PLAN_LABEL.key_player };
+
+  return { eligible: false, via: null, planLabel: PLAN_LABEL.key_player };
+}
+
+/** The signed-in user's own promotion rights, for the dashboard tabs. */
+export async function getPromotionEligibility(): Promise<PromotionEligibility> {
+  const uid = await requireUserId();
+  return requirePromotionEligibility(uid);
+}
+
+/** Shared rejection copy for every blocked promotions entry point. */
+const PROMOTIONS_NOT_ALLOWED_MESSAGE =
+  "Promotions are reserved for Key players on the Exhibition Hub and for Nomarc partners.";
+
 /** The current user's own Ads Board — every promotion they've submitted. */
 export async function getMyPromotions(): Promise<Promotion[]> {
   const uid = await requireUserId();
@@ -115,6 +154,11 @@ export async function createPromotion(input: {
   const uid = await requireUserId();
   if (!input.headline.trim()) throw new Error("Headline is required");
 
+  // Restriction gate: only Key players exhibitors and Nomarc partners may run
+  // promotions. Enforced on the server, not just in the dashboard UI.
+  const eligibility = await requirePromotionEligibility(uid);
+  if (!eligibility.eligible) throw new Error(PROMOTIONS_NOT_ALLOWED_MESSAGE);
+
   // Enforced here, not just in the UI — the server action is callable directly.
   if (input.kind === "profile") {
     const quota = await getProfileAdAllowance();
@@ -158,6 +202,9 @@ export async function pausePromotion(id: string) {
 
 /** Resume a paused campaign. */
 export async function resumePromotion(id: string) {
+  const uid = await requireUserId();
+  const eligibility = await requirePromotionEligibility(uid);
+  if (!eligibility.eligible) throw new Error("Your promotion eligibility has lapsed.");
   await ownedUpdate(id, { status: "active" });
 }
 
@@ -175,6 +222,9 @@ export async function cancelPromotionSubmission(id: string) {
  * extra cost" guarantee shown on the campaign-duration modal.
  */
 export async function resubmitPromotion(id: string, input: { headline: string; description?: string; bannerImageUrl?: string }) {
+  const uid = await requireUserId();
+  const eligibility = await requirePromotionEligibility(uid);
+  if (!eligibility.eligible) throw new Error("Your promotion eligibility has lapsed.");
   await ownedUpdate(id, {
     headline: input.headline.trim(),
     description: input.description?.trim() || null,
@@ -260,8 +310,19 @@ async function adminReview(id: string, status: PromotionStatus, rejectionReason?
  */
 export async function approvePromotion(id: string) {
   const uid = await requireAdmin();
-  const [row] = await db.select({ durationDays: promotion.durationDays }).from(promotion).where(eq(promotion.id, id)).limit(1);
-  const days = row?.durationDays ?? 30;
+  const [row] = await db
+    .select({ durationDays: promotion.durationDays, ownerUserId: promotion.ownerUserId })
+    .from(promotion)
+    .where(eq(promotion.id, id))
+    .limit(1);
+  if (!row) throw new Error("That promotion no longer exists.");
+  // Second line of the restriction gate: don't let a lapsed campaign slip
+  // through approval even though its owner was eligible when it was paid for.
+  const eligibility = await requirePromotionEligibility(row.ownerUserId);
+  if (!eligibility.eligible) throw new Error(
+    "This campaign's owner is no longer eligible to run promotions (Key players exhibitor plan or Nomarc partner required).",
+  );
+  const days = row.durationDays ?? 30;
   const now = new Date();
   await db
     .update(promotion)

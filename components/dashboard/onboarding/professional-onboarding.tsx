@@ -122,18 +122,26 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
 
   function addCert() {
     if (!cert.name.trim()) { toast.error("Enter the certification name."); return; }
+    if (!cert.issuer.trim()) { toast.error("Enter the certification issuer."); return; }
+    if (!cert.year) { toast.error("Select the certification year."); return; }
     setCerts((p) => [...p, { name: cert.name.trim(), issuer: cert.issuer.trim(), year: cert.year }]);
     setCert({ name: "", issuer: "", year: "" });
   }
 
   function addExp() {
     if (!exp.title.trim() || !exp.company.trim()) { toast.error("Role and company are required."); return; }
+    if (!exp.startDate) { toast.error("Select the start year."); return; }
+    if (!exp.current && !exp.endDate) { toast.error("Select the end year (or tick 'Currently work here')."); return; }
     setExperience((p) => [...p, { ...exp, title: exp.title.trim(), company: exp.company.trim() }]);
     setExp({ title: "", company: "", startDate: "", endDate: "", current: false });
   }
 
   function addEdu() {
     if (!edu.school.trim()) { toast.error("School is required."); return; }
+    if (!edu.degree.trim()) { toast.error("Enter a degree / qualification."); return; }
+    if (!edu.field.trim()) { toast.error("Enter a field of study."); return; }
+    if (!edu.startYear) { toast.error("Select the start year."); return; }
+    if (!edu.current && !edu.endYear) { toast.error("Select the end year (or tick 'Currently study here')."); return; }
     setEducation((p) => [...p, { ...edu, school: edu.school.trim(), degree: edu.degree.trim(), field: edu.field.trim() }]);
     setEdu({ school: "", degree: "", field: "", startYear: "", endYear: "", current: false });
   }
@@ -141,6 +149,25 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   async function submit() {
     if (!headline.trim()) { toast.error("Enter your job title."); return; }
     if (!availability) { toast.error("Let us know if you're open to work."); return; }
+    if (!practiceLicenceStatus) { toast.error("Select your professional practice status."); return; }
+    const dbStatus = PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus;
+    if (dbStatus === "licensed" && !licenseNumber.trim()) { toast.error("Enter your licence number."); return; }
+    if (dbStatus === "registered" && !registrationNumber.trim()) { toast.error("Enter your registration number."); return; }
+    if (dbStatus === "company") {
+      if (!practiceCompanyName.trim()) { toast.error("Enter the company name."); return; }
+      if (!practiceRegNumber.trim()) { toast.error("Enter the company registration number."); return; }
+      if (!practiceCompanyAddress.trim()) { toast.error("Enter the company address."); return; }
+    }
+    if (skills.length === 0) { toast.error("Add at least one skill."); return; }
+    if (certs.length === 0) { toast.error("Add at least one certification."); return; }
+    if (experience.length === 0) { toast.error("Add at least one work experience."); return; }
+    if (education.length === 0) { toast.error("Add at least one education entry."); return; }
+    if (!bio.trim()) { toast.error("Write a short bio about yourself."); return; }
+    if (!hasLocation) {
+      if (!country) { toast.error("Select your country."); return; }
+      if (!stateName) { toast.error("Select your state / region."); return; }
+      if (!address.trim()) { toast.error("Enter your address."); return; }
+    }
     setPending(true);
     try {
       await completeProfessionalOnboarding({
@@ -180,6 +207,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
           <div className="border-b border-[#f0f0f0] py-7 dark:border-white/10">
             <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#1e1e1e] dark:text-white">{title}</h1>
             <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/55">{description}</p>
+            <p className="mx-auto mt-2 max-w-md text-[12px] font-medium text-[#caa400] dark:text-[#ffd716]">All fields are required.</p>
           </div>
 
           <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-5 py-6">
@@ -223,27 +251,27 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "licensed" && (
                     <div className="mt-3">
                       <Field label="Licence number">
-                        <input className={inputClass} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="e.g. COREN/XXXXX/12345" />
+                        <input className={inputClass} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="e.g. COREN/XXXXX/12345" required />
                       </Field>
                     </div>
                   )}
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "registered" && (
                     <div className="mt-3">
                       <Field label="Registration number">
-                        <input className={inputClass} value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. ARCON/REG/004512" />
+                        <input className={inputClass} value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. ARCON/REG/004512" required />
                       </Field>
                     </div>
                   )}
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "company" && (
                     <div className="mt-3 grid grid-cols-1 gap-3">
                       <Field label="Company name">
-                        <input className={inputClass} value={practiceCompanyName} onChange={(e) => setPracticeCompanyName(e.target.value)} placeholder="e.g. Arcade Builds Ltd" />
+                        <input className={inputClass} value={practiceCompanyName} onChange={(e) => setPracticeCompanyName(e.target.value)} placeholder="e.g. Arcade Builds Ltd" required />
                       </Field>
                       <Field label="Registration number">
-                        <input className={inputClass} value={practiceRegNumber} onChange={(e) => setPracticeRegNumber(e.target.value)} placeholder="e.g. RAC/004512" />
+                        <input className={inputClass} value={practiceRegNumber} onChange={(e) => setPracticeRegNumber(e.target.value)} placeholder="e.g. RAC/004512" required />
                       </Field>
                       <Field label="Company address">
-                        <input className={inputClass} value={practiceCompanyAddress} onChange={(e) => setPracticeCompanyAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja" />
+                        <input className={inputClass} value={practiceCompanyAddress} onChange={(e) => setPracticeCompanyAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja" required />
                       </Field>
                     </div>
                   )}
@@ -282,7 +310,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
                   <input className={inputClass} placeholder="e.g. COREN Registered Engineer" value={cert.name} onChange={(e) => setCert((p) => ({ ...p, name: e.target.value }))} />
-                  <input className={inputClass} placeholder="Issuer (optional)" value={cert.issuer} onChange={(e) => setCert((p) => ({ ...p, issuer: e.target.value }))} />
+                  <input className={inputClass} placeholder="Issuer" value={cert.issuer} onChange={(e) => setCert((p) => ({ ...p, issuer: e.target.value }))} />
                   <SelectMenu placeholder="Year" value={cert.year} onChange={(v) => setCert((p) => ({ ...p, year: v }))} options={YEAR_OPTIONS} />
                 </div>
                 <button type="button" onClick={addCert} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
@@ -363,8 +391,8 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
             <section className={SECTION_CARD}>
               <h2 className={SECTION_TITLE}>About</h2>
               <div className="mt-4">
-                <Field label="Short bio" hint="Optional">
-                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
+                <Field label="Short bio">
+                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" required />
                 </Field>
               </div>
             </section>

@@ -74,26 +74,8 @@ function PromoBanner({ ad, index }: { ad: PromotedCardData; index: number }) {
 }
 
 /**
- * Nomarc's own advert, shown in the slider only when no paid advert is live.
- * Attributed to Nomarc and badged "Advertise on Nomarc" rather than "Promoted",
- * so it can never be mistaken for a third party's paid placement. No
- * promotionId — there are no metrics to count against a house slot.
+ * How long each promoted banner holds before the row slides to the next one.
  */
-const HOUSE_ADVERT: PromotedCardData = {
-  heading: "Showcase your brand to the Global AEC Industry",
-  body: "Put your brand in front of thousands of active professionals and firms. Claim this spot to drive targeted traffic, generate high-quality leads, and grow your network.",
-  badge: "Advertise on Nomarc",
-  promotedName: "Nomarc Ads Board",
-  promotedMeta: "Targeted Reach · Premium Visibility",
-  ctaLabel: "View Ad Plans",
-  ctaHref: "/dashboard/promotions",
-  ctaLabel2: "Go to Ads Board",
-  ctaHref2: "/dashboard/promotions",
-  imageUrl: "/media/ads/default.webp",
-  accent: "#ffd716",
-};
-
-/** How long each promoted banner holds before the row slides to the next one. */
 const ROW_ROTATE_MS = 30_000;
 
 /** The Exhibition Hub's 3-up banner row: a self-advancing snap carousel below
@@ -151,23 +133,14 @@ export function PromotedListings({ variant = "slider" }: { variant?: "slider" | 
   }, [active?.promotionId]);
   const prev = useCallback(() => setI((n) => (n - 1 + cards.length) % cards.length), [cards.length]);
 
-  // No real adverts. Never invent one attributed to a named professional — that
-  // reads as a genuine paid placement for someone who never advertised, which
-  // is exactly what this used to do. The slot instead carries Nomarc's own
-  // house advert, honestly badged and pointing at the ad plans, so the space
-  // sells the product rather than faking demand for it. The Hub's 3-up row has
-  // no such empty state and still collapses.
+  // No live adverts: render nothing. Placeholder fillers were removed — a
+  // promoted slot has to reflect someone actually advertising, and the
+  // homepage Promotions section is entirely admin-controlled from the Ad
+  // Board (/admin/adverts).
   //
   // Must sit below every hook: bailing out earlier changes the hook count
   // between the empty first paint and the loaded one, which React rejects.
-  if (cards.length === 0) {
-    if (isRow || ads === null) return null;
-    return (
-      <div className="mb-16">
-        <PromotedCard ad={HOUSE_ADVERT} />
-      </div>
-    );
-  }
+  if (cards.length === 0) return null;
 
   // Exhibition Hub: same adverts, presented as a 3-up banner row.
   if (isRow) {

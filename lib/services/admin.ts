@@ -172,6 +172,9 @@ export type AdminUser = {
   // Every role held, so the role tiles and the filter they drive agree. `role`
   // above is the single legacy scalar and undercounts anyone stacking roles.
   roles: string[];
+  // Admin-managed partnership flag — the "partnerships only" half of the
+  // promotions gate (grants promotion rights without the Key players plan).
+  isPartner: boolean;
 };
 
 export type AdminUserStats = {
@@ -269,6 +272,7 @@ export async function getUsers(search = ""): Promise<AdminUser[]> {
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
+           COALESCE(u.is_partner,false) AS is_partner,
            COALESCE(p.verified, c.verified, false) AS verified,
            p.headline AS profession, c.industry, c.contact_person AS primary_contact, c.avatar_url AS logo_url,
            EXISTS (SELECT 1 FROM kyc_document d WHERE d.user_id = u.id AND d.tier = 2 AND d.status = 'approved') AS tier2,
@@ -290,6 +294,7 @@ export async function getUsers(search = ""): Promise<AdminUser[]> {
     primaryContact: (u.primary_contact as string) ?? null,
     logoUrl: (u.logo_url as string) ?? null,
     tier: u.tier2 === true ? 2 : u.verified === true ? 1 : 0,
+    isPartner: u.is_partner === true,
     roles: effectiveRoles(u.roles, String(u.role ?? "professional")),
   }));
 }
@@ -312,6 +317,19 @@ export async function setUserBanned(userId: string, banned: boolean, reason?: st
   if (banned) await db.execute(sql`DELETE FROM session WHERE "userId" = ${userId}`); // force logout
   await logAudit(admin, banned ? "suspend_user" : "unsuspend_user", "user", userId, reason);
   revalidatePath("/admin/users");
+}
+
+/**
+ * Grant/revoke the Nomarc partnership flag. Partners can run promotions
+ * without holding the Key players exhibitor plan — the gate itself lives in
+ * lib/services/promotions.ts; this is just the admin control that sets it.
+ */
+export async function setUserPartner(userId: string, isPartner: boolean) {
+  const admin = await requireAdmin();
+  await db.execute(sql`UPDATE "user" SET is_partner = ${isPartner} WHERE id = ${userId}`);
+  await logAudit(admin, isPartner ? "grant_partner" : "revoke_partner", "user", userId);
+  revalidatePath("/admin/users");
+  revalidatePath("/dashboard");
 }
 
 /** What a "reset password" send reports back to the admin console. */
@@ -364,6 +382,7 @@ export async function getUserDetail(userId: string): Promise<AdminUserDetail | n
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
+           COALESCE(u.is_partner,false) AS is_partner,
            p.avatar_url AS p_avatar, p.headline, p.bio, p.location, p.verified AS p_verified, p.availability,
            c.id AS company_id, c.avatar_url AS c_avatar, c.industry, c.headquarters, c.verified AS c_verified,
            c.about AS c_about, c.year_founded, c.company_size, c.categories
@@ -410,6 +429,7 @@ export async function getUserDetail(userId: string): Promise<AdminUserDetail | n
     id: String(r.id), name: String(r.name ?? ""), email: String(r.email ?? ""), role: String(r.role ?? "professional"),
     roles: effectiveRoles((heldRoles.rows as { role: string }[]).map((x) => x.role), String(r.role ?? "professional")),
     plan: String(r.plan ?? "free"), verified, banned: r.banned === true,
+    isPartner: r.is_partner === true,
     joined: r.joined ? new Date(String(r.joined)).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "",
     avatarUrl: (isExhibitor ? r.c_avatar : r.p_avatar) as string | null,
     headline: r.headline ? String(r.headline) : null,

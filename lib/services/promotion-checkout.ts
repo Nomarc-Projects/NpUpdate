@@ -9,6 +9,7 @@ import { paymentTransaction, promotion } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { CAMPAIGN_PLANS, type CampaignDuration } from "@/lib/entitlements";
+import { requirePromotionEligibility } from "@/lib/services/promotions";
 import { activeProvider, getProvider, type ProviderName } from "@/lib/payments";
 import { resolveSiteUrl } from "@/lib/site-url";
 
@@ -58,6 +59,11 @@ export async function startPromotionCheckout(
   const uid = await requireUserId();
   const row = await ownedDraft(promotionId, uid);
   if (row.status === "active" || row.status === "completed") throw new Error("That campaign has already run.");
+
+  // Restriction gate at the money: only Key players exhibitors and Nomarc
+  // partners can buy a campaign run.
+  const eligibility = await requirePromotionEligibility(uid);
+  if (!eligibility.eligible) throw new Error("Promotions are reserved for Key players on the Exhibition Hub and for Nomarc partners.");
 
   const plan = CAMPAIGN_PLANS[duration];
   if (!plan) throw new Error("Pick a campaign duration.");

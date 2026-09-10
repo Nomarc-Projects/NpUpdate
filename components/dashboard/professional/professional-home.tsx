@@ -23,7 +23,7 @@ import { TourWizardButton } from "@/components/tour/tour-wizard-button";
 import { CompanySetupModal } from "@/components/dashboard/onboarding/company-setup-modal";
 import { getMyProfile, type ProfileData } from "@/lib/services/profile";
 import { shortLocation } from "@/lib/location-format";
-import { useViewer } from "@/lib/use-viewer";
+import { usePromotionEligibility } from "@/lib/use-promotion-eligibility";
 import { getQualifications, type Experience, type Cert } from "@/lib/services/qualifications";
 import { listMyProjects, deleteProject, type PortfolioProject } from "@/lib/services/projects";
 import { getMyApplications } from "@/lib/services/applications";
@@ -365,10 +365,10 @@ export function ProfessionalHome() {
   useEffect(() => setMounted(true), []);
 
   const [tab, setTab] = useState<TabKey>("overview");
-  // Ads Board is a paid-plan surface — free users don't see the tab at all.
-  const viewer = useViewer();
-  const isFree = viewer.plan === "free";
-  const visibleTabs = isFree ? TABS.filter((t) => t.key !== "ads") : TABS;
+  // Ads Board is restricted to Key players exhibitors and Nomarc partners —
+  // everyone else doesn't get the tab at all.
+  const { eligible: canPromote } = usePromotionEligibility();
+  const visibleTabs = canPromote ? TABS : TABS.filter((t) => t.key !== "ads");
   const [showDrafts, setShowDrafts] = useState(false);
   const [companySetupOpen, setCompanySetupOpen] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -561,7 +561,7 @@ export function ProfessionalHome() {
                 <RecommendationsPanel allowRequests={false} emptyDescription="Recommendations build immediate trust and credibility on Nomarc. Ask colleagues, past clients, or employers to endorse your skills and professional work ethic." />
               )}
 
-              {!isFree && tab === "ads" && (
+              {canPromote && tab === "ads" && (
                 <AdsBoardPanel
                   ownerName={profile?.name || (mounted ? u?.name : undefined) || firstName}
                   ownerMeta={profile?.headline || "Construction Professional"}
