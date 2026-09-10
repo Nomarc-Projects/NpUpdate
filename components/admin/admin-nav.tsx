@@ -8,8 +8,8 @@ import {
   BarChart3, Users, ShieldCheck, Fingerprint, Building2, LogOut, X, Menu,
   ArrowLeft, Sun, Moon, PanelLeft, PanelLeftClose,
   ShoppingBag, Package, MessageSquare, Megaphone, Radio as CampaignIcon,
-  UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store,
-  Newspaper, Activity, Tags,
+  UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store, CreditCard,
+  Newspaper, Activity, Tags, Landmark,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -61,6 +61,9 @@ const NAV: Group[] = [
     { label: "News Ticker", href: "/admin/news-ticker", icon: Activity },
     { label: "Taxonomy", href: "/admin/taxonomy", icon: Tags },
   ]},
+  { title: "Directory", items: [
+    { label: "Institutions & Ministries", href: "/admin/directory", icon: Landmark },
+  ]},
   { title: "Industry", items: [
     { label: "Events", href: "/admin/events", icon: CalendarDays },
   ]},
@@ -75,7 +78,7 @@ const NAV: Group[] = [
     { label: "Campaign Tracking", href: "/admin/campaigns", icon: LineChart },
   ]},
   { title: "AI", items: [
-    { label: "Helm", href: "/admin/helm", icon: HelmIcon },
+    { label: "Nomabot", href: "/admin/helm", icon: HelmIcon },
   ]},
   // Linked on its own rather than by un-parking /admin/settings, which stays
   // deliberately unlinked (plans/PARKED-FEATURES.md). A switch that takes the
@@ -93,6 +96,10 @@ const NAV: Group[] = [
     { label: "About Team Section", href: "/admin/platform/about-team", icon: Users, superOnly: true },
     // Opening/locking the marketplace is super-admin only (see setExhibitionHub).
     { label: "Exhibition Hub Config", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
+    // Hiding/showing the tools directory is super-admin only (see setTools).
+    { label: "Tools Page Config", href: "/admin/platform/tools", icon: Wrench, superOnly: true },
+    // Pausing/relaunching payment plans is super-admin only (see setPaymentPlans).
+    { label: "Payment Plans", href: "/admin/platform/payment-plans", icon: CreditCard, superOnly: true },
     // Taking the public site offline is super-admin only (see setMaintenance).
     { label: "Maintenance Page Config", href: "/admin/maintenance", icon: Wrench, superOnly: true },
   ]},

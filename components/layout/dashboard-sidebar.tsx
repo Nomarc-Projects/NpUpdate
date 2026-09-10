@@ -48,10 +48,10 @@ const navGroups: Group[] = [
       { label: "Messages",  href: "/dashboard/messages", icon: MessageSquare },
     ],
   },
-  { title: "People", items: [
-    { label: "Directory",           href: "/dashboard/people",                icon: User },
-    { label: "Find professionals",  href: "/dashboard/find-professionals",    icon: Search },
-    { label: "Saved Profile",       href: "/dashboard/people/saved",          icon: BookmarkCheck },
+  { title: "Directory", items: [
+    { label: "Directory",           href: "/dashboard/directory",          icon: User },
+    { label: "Find professionals",  href: "/dashboard/find-professionals", icon: Search },
+    { label: "Saved Profile",       href: "/dashboard/people/saved",       icon: BookmarkCheck },
   ]},
   { title: "Jobs", items: [
     { label: "Find Jobs",    href: "/dashboard/jobs",          icon: Search },

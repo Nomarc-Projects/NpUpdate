@@ -285,7 +285,7 @@ export async function getHelmKnowledgeStatus(): Promise<HelmKnowledgeStatus> {
       error: null,
     };
   } catch (e) {
-    return { configured: true, health: null, error: e instanceof Error ? e.message : "Helm did not respond" };
+    return { configured: true, health: null, error: e instanceof Error ? e.message : "Nomabot did not respond" };
   }
 }
 
@@ -354,7 +354,7 @@ export async function reindexHelmKnowledge(
   namespace?: string,
 ): Promise<{ ok: boolean; chunks: number; error?: string }> {
   await requireAdmin();
-  if (!helmConfigured) return { ok: false, chunks: 0, error: "Helm is not connected yet — set HELM_API_URL and the Access token pair." };
+  if (!helmConfigured) return { ok: false, chunks: 0, error: "Nomabot is not connected yet — set HELM_API_URL and the Access token pair." };
   try {
     const res = await reindexKnowledge(namespace?.trim() || undefined);
     revalidatePath("/admin/helm/knowledge");

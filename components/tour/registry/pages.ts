@@ -119,7 +119,7 @@ const plansPage: TourDef = {
   kind: "page",
   route: "/dashboard/plans",
   steps: [
-    centerStep({ key: "plans-intro", icon: "creditCard", showEstimate: true, title: "Plans", content: "Free, Plus, Pro and Premium — each unlocks more reach, more listings and more Helm allowance." }),
+    centerStep({ key: "plans-intro", icon: "creditCard", showEstimate: true, title: "Plans", content: "Free, Plus, Pro and Premium — each unlocks more reach, more listings and more Nomabot allowance." }),
     bodyStep("plans-compare", { key: "plans-compare", icon: "barChart", title: "Compare", content: "See what each tier includes for professionals and exhibitors before you upgrade." }),
   ],
 };

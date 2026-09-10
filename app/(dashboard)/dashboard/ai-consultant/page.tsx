@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const GATE_CONFIG = {
   cap: "aiConsultant" as const,
-  name: "Helm",
+  name: "Nomabot",
   tagline: "Your personal construction industry advisor",
   description:
     "An AI consultant with deep knowledge of the Nigerian construction industry — advise on codes, procurement, contracts, materials, and career strategy. It adapts to your discipline and remembers your projects across sessions.",
@@ -21,18 +21,18 @@ const GATE_CONFIG = {
   requiredPlan: "plus" as const,
   points: [
     { title: "Adapts to your discipline", desc: "Answers framed for an architect, QS, structural engineer, MEP engineer, builder or surveyor." },
-    { title: "Grounded in real sources", desc: "Answers cite the documents they came from, and Helm says so plainly when it doesn't know." },
+    { title: "Grounded in real sources", desc: "Answers cite the documents they came from, and Nomabot says so plainly when it doesn't know." },
     { title: "Persistent memory", desc: "Remembers your projects, preferences and history across every conversation." },
     { title: "Contract & BOQ review", desc: "Analyse contracts and bills of quantities, flag risk clauses, get plain-English summaries." },
     { title: "Plans your projects", desc: "Proposes tasks and programmes on your project board — nothing changes until you confirm." },
     { title: "Private by design", desc: "Your documents are indexed on Nomarc's own server and never shared with other users." },
   ],
   comingSoonNote:
-    "Helm runs on Nomarc's own infrastructure — your documents are indexed privately and never pooled with other users. Plus members get access at launch.",
+    "Nomabot runs on Nomarc's own infrastructure — your documents are indexed privately and never pooled with other users. Plus members get access at launch.",
 };
 
 /**
- * Helm — the gated AI consultant. Locked viewers get the upgrade screen and we
+ * Nomabot — the gated AI consultant. Locked viewers get the upgrade screen and we
  * never fetch their conversations; granted viewers get the live chat.
  */
 export default async function AiConsultantPage() {

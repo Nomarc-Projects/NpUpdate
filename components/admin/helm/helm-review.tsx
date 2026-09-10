@@ -133,7 +133,7 @@ export function HelmReviewView({ items }: { items: HelmReviewItem[] }) {
                     <p className="mt-0.5 text-sm text-[#1e1e1e] dark:text-white/85">{it.question || "—"}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9a9a9a]">Helm answered</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#9a9a9a]">Nomabot answered</p>
                     <p className="mt-0.5 whitespace-pre-wrap text-sm text-[#3d3d3d] dark:text-white/70 line-clamp-6">{it.answer}</p>
                   </div>
                   {it.citations.length > 0 && (

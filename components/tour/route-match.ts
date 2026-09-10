@@ -71,6 +71,7 @@ const ROUTE_TO_TOUR: Record<string, string> = {
   "/dashboard/find-professionals": "find-professionals-page",
   // Shared
   "/dashboard/messages": "messages-page",
+  "/dashboard/directory": "people-page",
   "/dashboard/people": "people-page",
   "/dashboard/companies": "companies-page",
   "/dashboard/lists": "lists-page",

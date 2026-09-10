@@ -3,6 +3,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { GuideFab } from "@/components/guide/guide-fab";
 import { MaintenanceBanner } from "@/components/maintenance-banner";
 import { enforceMaintenance } from "@/lib/maintenance-gate";
+import { getExhibitionHub, getTools } from "@/lib/services/platform-settings-read";
 
 // The gate has to be evaluated per request, so the public pages can no longer be
 // prerendered. Without this the build happily emitted them as static (they came
@@ -21,10 +22,19 @@ export default async function MarketingLayout({ children }: { children: React.Re
   // there. Cost is one cached lookup (30s) per request.
   const { maintenance, bypassing } = await enforceMaintenance();
 
+  // The super-admin Exhibition Hub toggle decides whether the public menus
+  // advertise the hub. Off → the navbar drops the link (the route stays gated
+  // by exhibition-hub/layout.tsx for direct visits).
+  const { enabled: exhibitionEnabled } = await getExhibitionHub();
+
+  // Same for the Tools page — off → the navbar drops the link, and the route
+  // is gated by tools/layout.tsx for direct visits.
+  const { enabled: toolsEnabled } = await getTools();
+
   return (
     <>
       {bypassing && <MaintenanceBanner etaText={maintenance.etaText} />}
-      <MarketingNavbar />
+      <MarketingNavbar exhibitionEnabled={exhibitionEnabled} toolsEnabled={toolsEnabled} />
       <main>{children}</main>
       <MarketingFooter />
       {/* Public site assistant — marketing chrome only, never the dashboard. */}

@@ -8,6 +8,7 @@ import { SlideOverDrawer } from "@/components/dashboard/kit";
 import {
   createAdminJob, updateAdminJob, getAdminUserPicker, type AdminUserOption, type AdminJobDetail,
 } from "@/lib/services/admin";
+import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
 
 const inputCls = "w-full rounded-lg border border-[#e3e3e3] bg-white px-3 py-2 text-[13px] text-[#1e1e1e] placeholder:text-[#b3b3b3] focus:border-[#ffd716] focus:outline-none dark:border-white/15 dark:bg-[#1e1e1e] dark:text-white";
 const labelCls = "mb-1 block text-[11.5px] font-semibold uppercase tracking-wide text-[#9a9a9a]";
@@ -191,9 +192,7 @@ export function AdminJobFormDrawer({ open, onClose, initial }: { open: boolean; 
             <label className={labelCls}>Experience</label>
             <select value={experienceLevel} onChange={(e) => setExperienceLevel(e.target.value)} className={inputCls}>
               <option value="">Any</option>
-              <option value="Junior">Junior</option>
-              <option value="Mid-level">Mid-level</option>
-              <option value="Senior">Senior</option>
+              {EXPERIENCE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </div>
           <div className={fieldCls}>

@@ -22,11 +22,11 @@ export async function POST(req: Request) {
 
   const viewer = await getViewer();
   if (!can(viewer, "aiConsultant")) {
-    return NextResponse.json({ error: "Upgrade required to use Helm" }, { status: 403 });
+    return NextResponse.json({ error: "Upgrade required to use Nomabot" }, { status: 403 });
   }
 
   if (!helmConfigured) {
-    return NextResponse.json({ error: "Helm isn't available yet." }, { status: 503 });
+    return NextResponse.json({ error: "Nomabot isn't available yet." }, { status: 503 });
   }
 
   // Fair use: a spent monthly allowance is a soft stop, not an error state —
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
   const quota = await getQuotaState(viewer.plan);
   if (quota.remaining !== null && quota.remaining <= 0) {
     return NextResponse.json(
-      { error: "You've used this month's Helm allowance.", quota },
+      { error: "You've used this month's Nomabot allowance.", quota },
       { status: 429 },
     );
   }
@@ -66,6 +66,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ...result, quota: { ...quota, used: quota.used + 1 } });
   } catch (err) {
     console.error("[helm] chat relay failed:", err);
-    return NextResponse.json({ error: "Helm is temporarily unavailable." }, { status: 502 });
+    return NextResponse.json({ error: "Nomabot is temporarily unavailable." }, { status: 502 });
   }
 }

@@ -8,11 +8,12 @@ import { Field, inputClass } from "@/components/ui/modal";
 import { DatePicker } from "@/components/ui/date-picker";
 import { createJob } from "@/lib/services/jobs";
 import { getAccountInfo } from "@/lib/services/account";
+import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
 import { cn } from "@/lib/utils";
 
 const EMPLOYMENT = ["Full-time", "Part-time", "Contract", "Internship", "Project-based"];
 const WORK_MODEL = ["On-site", "Hybrid", "Remote"];
-const EXPERIENCE = ["Entry level", "Intermediate level", "Senior level"];
+const EXPERIENCE: readonly string[] = EXPERIENCE_LEVELS;
 const CURRENCIES = ["NGN", "USD", "GBP", "EUR"];
 const COMPANY_TYPES = ["Company", "Individual"];
 const APPLY_OPTS = [
@@ -149,7 +150,7 @@ export function JobsPostWizard() {
   const router = useRouter();
   const [f, setF] = useState({
     title: "", companyType: "Company", company: "", location: "", employmentType: "Full-time",
-    experienceLevel: "Intermediate level", workModel: "On-site",
+    experienceLevel: "Intermediate (3–5 yrs)", workModel: "On-site",
     currency: "NGN", salaryMin: "", salaryMax: "",
     description: "", recruiterName: "", recruiterTitle: "", applyTarget: "",
   });

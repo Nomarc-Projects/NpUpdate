@@ -15,6 +15,7 @@ import {
 import { getQualifications, type Experience } from "@/lib/services/qualifications";
 import { toggleSaved } from "@/lib/services/saved";
 import { ShareMenu } from "@/components/ui/share";
+import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
 // SAMPLE_JOBS no longer padded into the list (see `data` below). OVERVIEW is
 // still the shared copy shown in the quick-look drawer.
 import { JOB_OVERVIEW as OVERVIEW } from "@/lib/sample-jobs";
@@ -32,7 +33,7 @@ type JobCard = {
 /* ─── Filter config ─────────────────────────────────────────────── */
 
 const FILTER_SECTIONS = [
-  { key: "Experience level", options: ["Entry level (0–2 yrs)", "Intermediate (3–5 yrs)", "Senior (6–9 yrs)", "Director (10+ yrs)"] },
+  { key: "Experience level", options: [...EXPERIENCE_LEVELS] },
   { key: "Employment type",  options: ["Full-time", "Part-time", "Internship", "Remote", "Contract"] },
   { key: "Work model",       options: ["On-site", "Hybrid", "Remote"] },
   { key: "Salary Range",     options: ["Under ₦250k/mo", "₦250k–₦500k/mo", "₦500k–₦1M/mo", "₦1M+/mo"] },

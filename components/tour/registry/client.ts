@@ -51,7 +51,7 @@ export const clientWelcome: TourDef = {
       interact: { hint: "Open Browse jobs to see what's waiting" },
       title: "Looking for work?",
       content:
-        "Browse jobs freely. The first time you apply, you'll write a short headline and bio and take a 10-question aptitude quiz — pass it and the Professional dashboard unlocks: portfolio, recommendations and Helm AI.",
+        "Browse jobs freely. The first time you apply, you'll write a short headline and bio and take a 10-question aptitude quiz — pass it and the Professional dashboard unlocks: portfolio, recommendations and Nomabot AI.",
     }),
     centerStep({
       key: "client-exhibitor",

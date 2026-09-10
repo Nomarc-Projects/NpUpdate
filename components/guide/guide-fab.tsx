@@ -119,7 +119,7 @@ function AssistantMarkdown({ content }: { content: string }) {
 /** Three breathing dots while a reply is in flight. */
 function TypingDots() {
   return (
-    <span className="flex items-center gap-1.5 py-1" role="status" aria-label="Helm is thinking">
+    <span className="flex items-center gap-1.5 py-1" role="status" aria-label="Nomabot is thinking">
       {[0, 0.15, 0.3].map((delay) => (
         <motion.span
           key={delay}
@@ -303,7 +303,7 @@ export function GuideFab() {
           setOpen((o) => !o);
           if (!open) focusInput();
         }}
-        aria-label={open ? "Close Helm" : "Ask Helm"}
+        aria-label={open ? "Close Nomabot" : "Ask Nomabot"}
         aria-expanded={open}
         initial={{ scale: 0, opacity: 0 }}
         // Steps aside entirely while the mobile nav panel covers the screen.
@@ -350,7 +350,7 @@ export function GuideFab() {
 
         {/* desktop hover label */}
         <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-lg bg-[#1e1e1e] px-3 py-1.5 text-[12.5px] font-medium text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100 md:block dark:bg-white dark:text-[#1e1e1e]">
-          Ask Helm
+          Ask Nomabot
         </span>
       </motion.button>
 
@@ -371,7 +371,7 @@ export function GuideFab() {
             <motion.div
               key="panel"
               role="dialog"
-              aria-label="Helm"
+              aria-label="Nomabot"
               initial={{ opacity: 0, y: 18, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 14, scale: 0.97 }}
@@ -392,7 +392,7 @@ export function GuideFab() {
                   <HelmIcon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14.5px] font-bold text-[#1e1e1e] dark:text-white">Helm</p>
+                  <p className="truncate text-[14.5px] font-bold text-[#1e1e1e] dark:text-white">Nomabot</p>
                   <p className="truncate text-[12px] text-[#898989]">
                     {unavailable ? "Currently offline" : loading ? "Thinking…" : "Ask me anything about Nomarc"}
                   </p>
@@ -431,7 +431,7 @@ export function GuideFab() {
                       <span className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-[#ffd716]/15 text-[#caa400] dark:text-[#ffd716]">
                         <HelmIcon className="h-7 w-7" />
                       </span>
-                      <h3 className="text-[17px] font-bold text-[#1e1e1e] dark:text-white">Hi, I&apos;m Helm</h3>
+                      <h3 className="text-[17px] font-bold text-[#1e1e1e] dark:text-white">Hi, I&apos;m Nomabot</h3>
                       <p className="mx-auto mt-1.5 max-w-[19rem] text-[13.5px] leading-relaxed text-[#898989]">
                         I can explain how Nomarc works, who it&apos;s for, what the plans cost, and point you to the
                         right page. What would you like to know?
@@ -579,7 +579,7 @@ export function GuideFab() {
                       maxLength={MAX_CHARS}
                       disabled={loading}
                       placeholder="Ask about Nomarc…"
-                      aria-label="Message Helm"
+                      aria-label="Message Nomabot"
                       className="max-h-[120px] min-h-[36px] w-full resize-none bg-transparent px-2 py-2 text-[14px] leading-relaxed text-[#1e1e1e] outline-none placeholder:text-[#a5a5a5] disabled:opacity-60 dark:text-white dark:placeholder:text-[#6b6b6b]"
                     />
                     <button
@@ -595,7 +595,7 @@ export function GuideFab() {
                 )}
 
                 <p className="mt-2 text-center text-[11px] text-[#a5a5a5] dark:text-[#6b6b6b]">
-                  Helm can make mistakes. This chat isn&apos;t saved.
+                  Nomabot can make mistakes. This chat isn&apos;t saved.
                 </p>
               </div>
             </motion.div>

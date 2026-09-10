@@ -13,9 +13,9 @@ export const helmPage: TourDef = {
       placement: "center",
       icon: "helm",
       showEstimate: true,
-      title: "Meet Helm",
+      title: "Meet Nomabot",
       content:
-        "Helm is your construction consultant — it plans projects, reviews contracts and BOQs, looks up codes, and drafts changes for your board. Here's the two-minute tour.",
+        "Nomabot is your construction consultant — it plans projects, reviews contracts and BOQs, looks up codes, and drafts changes for your board. Here's the two-minute tour.",
     },
     {
       key: "helm-composer",
@@ -24,7 +24,7 @@ export const helmPage: TourDef = {
       icon: "penSquare",
       title: "Ask anything",
       content:
-        "Type a question or a task. Helm answers grounded in real sources and tells you plainly when it doesn't know — it won't invent a code clause or a rate.",
+        "Type a question or a task. Nomabot answers grounded in real sources and tells you plainly when it doesn't know — it won't invent a code clause or a rate.",
     },
     {
       key: "helm-persona",
@@ -33,7 +33,7 @@ export const helmPage: TourDef = {
       icon: "compass",
       title: "It adapts to your discipline",
       content:
-        "Helm frames answers for your field automatically. Working across a boundary? Switch personas here to consult as an architect, QS, structural, MEP, builder or surveyor.",
+        "Nomabot frames answers for your field automatically. Working across a boundary? Switch personas here to consult as an architect, QS, structural, MEP, builder or surveyor.",
     },
     {
       key: "helm-history",
@@ -91,9 +91,9 @@ export const pmPage: TourDef = {
       placement: "left",
       icon: "helm",
       optional: true,
-      title: "Let Helm plan it",
+      title: "Let Nomabot plan it",
       content:
-        "Ask Helm to draft a programme or tasks. It proposes the changes as a diff — nothing lands on your board until you confirm.",
+        "Ask Nomabot to draft a programme or tasks. It proposes the changes as a diff — nothing lands on your board until you confirm.",
     },
   ],
 };
@@ -127,7 +127,7 @@ export const professionalWelcome: TourDef = {
       key: "welcome-helm",
       icon: "helm",
       optional: true,
-      title: "Meet Helm, under Tools",
+      title: "Meet Nomabot, under Tools",
       content: "Your AI consultant lives here — advice for your discipline, contract and BOQ review, and a hand planning projects.",
     }),
     navStep("nav-jobs", {
@@ -168,12 +168,12 @@ export const professionalWalkthrough: TourDef = {
   audience: "professional",
   kind: "walkthrough",
   steps: [
-    centerStep({ key: "wt-pro-intro", icon: "compass", showEstimate: true, title: "The full tour", content: "A stop on each page of your dashboard — jobs, applications, the marketplace, your network and Helm." }),
+    centerStep({ key: "wt-pro-intro", icon: "compass", showEstimate: true, title: "The full tour", content: "A stop on each page of your dashboard — jobs, applications, the marketplace, your network and Nomabot." }),
     { ...centerStep({ key: "wt-pro-jobs", icon: "briefcase", title: "Browse jobs", content: "Filter by location, salary and work model, then apply straight from a listing." }), route: "/dashboard/jobs", page: "Jobs" },
     { ...centerStep({ key: "wt-pro-apps", icon: "fileText", title: "Track your applications", content: "See status at a glance, and pick up drafts right where you left off." }), route: "/dashboard/applications", page: "Applications" },
     { ...centerStep({ key: "wt-pro-hub", icon: "store", title: "Source materials & equipment", content: "Browse the Exhibition Hub, save favourites, and request quotes from exhibitors." }), route: "/dashboard/products", page: "Exhibition Hub" },
     { ...centerStep({ key: "wt-pro-directory", icon: "users", title: "Your network", content: "Search professionals and companies, and save leads into custom lists." }), route: "/dashboard/people", page: "Directory" },
-    { ...centerStep({ key: "wt-pro-helm", icon: "helm", title: "Ask Helm", content: "Your AI construction consultant — contract review, BOQs, and code lookups, grounded in real sources." }), route: "/dashboard/ai-consultant", page: "Helm" },
+    { ...centerStep({ key: "wt-pro-helm", icon: "helm", title: "Ask Nomabot", content: "Your AI construction consultant — contract review, BOQs, and code lookups, grounded in real sources." }), route: "/dashboard/ai-consultant", page: "Nomabot" },
     { ...centerStep({ key: "wt-pro-done", icon: "thumbsUp", title: "That's the tour", content: "Head back to your dashboard home to check your profile completeness and recent activity." }), route: "/dashboard", page: "Dashboard" },
   ],
 };

@@ -19,6 +19,14 @@ import {
   EXHIBITION_HUB_DEFAULT,
   normalizeExhibitionHub,
   type ExhibitionHubSetting,
+  TOOLS_TAG,
+  TOOLS_DEFAULT,
+  normalizeTools,
+  type ToolsSetting,
+  PAYMENT_PLANS_TAG,
+  PAYMENT_PLANS_DEFAULT,
+  normalizePaymentPlans,
+  type PaymentPlansSetting,
   ABOUT_TEAM_TAG,
   ABOUT_TEAM_DEFAULT,
   normalizeAboutTeam,
@@ -158,6 +166,59 @@ const readExhibitionHub = unstable_cache(
 
 export async function getExhibitionHub(): Promise<ExhibitionHubSetting> {
   return readExhibitionHub();
+}
+
+/**
+ * Tools page availability. Same fail-open reasoning as maintenance: an
+ * unreadable value falls back to the open default rather than a bad query
+ * accidentally hiding the tools directory.
+ */
+const readTools = unstable_cache(
+  async (): Promise<ToolsSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'tools' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return TOOLS_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeTools(value);
+    } catch {
+      return TOOLS_DEFAULT;
+    }
+  },
+  ["platform-setting-tools"],
+  { revalidate: 30, tags: [TOOLS_TAG] },
+);
+
+export async function getTools(): Promise<ToolsSetting> {
+  return readTools();
+}
+
+/**
+ * Payment Plans availability. When the section was never enabled or the read
+ * fails, it stays hidden — exactly the paused behavior we ship now.
+ */
+const readPaymentPlans = unstable_cache(
+  async (): Promise<PaymentPlansSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'payment-plans' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return PAYMENT_PLANS_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizePaymentPlans(value);
+    } catch {
+      return PAYMENT_PLANS_DEFAULT;
+    }
+  },
+  ["platform-setting-payment-plans"],
+  { revalidate: 30, tags: [PAYMENT_PLANS_TAG] },
+);
+
+export async function getPaymentPlans(): Promise<PaymentPlansSetting> {
+  return readPaymentPlans();
 }
 
 /**

@@ -31,7 +31,7 @@ const STATUS_STYLE: Record<string, string> = {
  * changes and checkout already live at /dashboard/plans and /dashboard/billing,
  * so this links there rather than duplicating a second checkout flow.
  */
-export function BillingPanel() {
+export function BillingPanel({ paymentPlansEnabled = true }: { paymentPlansEnabled?: boolean }) {
   const { plan } = useViewer();
   const [rows, setRows] = useState<TxRow[] | null>(null);
   const [trial, setTrial] = useState<TrialState | null>(null);
@@ -63,12 +63,14 @@ export function BillingPanel() {
                   : "Published listings have moved back to drafts. Activate a subscription to publish again — nothing was deleted."}
               </p>
             </div>
-            <Link
-              href="/dashboard/plans"
-              className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-[#ffd716] px-4 py-2 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
-            >
-              Activate Subscription
-            </Link>
+            {paymentPlansEnabled && (
+              <Link
+                href="/dashboard/plans"
+                className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-[#ffd716] px-4 py-2 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
+              >
+                Activate Subscription
+              </Link>
+            )}
           </div>
         </section>
       )}
@@ -87,12 +89,14 @@ export function BillingPanel() {
               <p className="text-[12px] text-[#9a9a9a]">{isFree ? "No active subscription" : "Active subscription"}</p>
             </div>
           </div>
-          <Link
-            href="/dashboard/plans"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#ffd716] px-4 py-2 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
-          >
-            {isFree ? "View plans" : "Change plan"}
-          </Link>
+          {paymentPlansEnabled && (
+            <Link
+              href="/dashboard/plans"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#ffd716] px-4 py-2 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114]"
+            >
+              {isFree ? "View plans" : "Change plan"}
+            </Link>
+          )}
         </div>
       </section>
 

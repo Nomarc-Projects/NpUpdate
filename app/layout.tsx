@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s — Nomarc Projects",
   },
   description:
-    "Nomarc Projects is the digital marketplace connecting Nigerian construction professionals, exhibitors, and buyers. Find jobs, hire verified talent, source materials, and grow your practice — all in one place.",
+    "Nomadic Architects is building Nigeria's leading construction marketplace — connecting verified architects, engineers, quantity surveyors, material suppliers and buyers through a modern digital platform.",
   keywords: [
     "construction jobs Nigeria",
     "hire construction professionals",
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     siteName: "Nomarc Projects",
     title: "Nomarc Projects — Digital home for everything construction",
     description:
-      "The digital marketplace connecting Nigerian construction professionals, exhibitors, and buyers. One platform, one community.",
+      "Learn how Nomadic Architects is building Nigeria's construction marketplace — connecting verified professionals, exhibitors and buyers through a modern digital platform.",
     url: BASE,
     locale: "en_NG",
   },
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Nomarc Projects — Digital home for everything construction",
     description:
-      "The digital marketplace connecting Nigerian construction professionals, exhibitors, and buyers.",
+      "Nigeria's leading construction marketplace connecting architects, engineers, quantity surveyors, material suppliers and buyers.",
   },
   robots: { index: true, follow: true },
 };

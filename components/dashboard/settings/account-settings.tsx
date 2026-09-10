@@ -56,7 +56,7 @@ const tabs: { key: Tab; label: string; subtitle: string; Icon: LucideIcon; dange
  * viewer actually holds (professional/exhibitor/employer), stacked on a
  * single page, in place of the old single-`variant` swap.
  */
-export function AccountSettings({ heldRoles, initialTab = "info" }: { heldRoles: StackableRole[]; initialTab?: Tab }) {
+export function AccountSettings({ heldRoles, initialTab = "info", paymentPlansEnabled = true }: { heldRoles: StackableRole[]; initialTab?: Tab; paymentPlansEnabled?: boolean }) {
   // A ?tab= pointing at an identity section (now a link-out) has no panel to
   // show, so fall back to Account Information rather than rendering an empty
   // shell. Old bookmarks and the hub's existing deep links both land here.
@@ -159,7 +159,7 @@ export function AccountSettings({ heldRoles, initialTab = "info" }: { heldRoles:
                     whole page. */}
                 <PanelBoundary label={active.label}>
                   {tab === "info" && <InfoPanel heldRoles={heldRoles} />}
-                  {tab === "billing" && <BillingPanel />}
+                  {tab === "billing" && <BillingPanel paymentPlansEnabled={paymentPlansEnabled} />}
                   {tab === "notifications" && <NotificationsPanel heldRoles={heldRoles} />}
                   {tab === "email" && <EmailPanel heldRoles={heldRoles} />}
                   {tab === "password" && <PasswordPanel />}

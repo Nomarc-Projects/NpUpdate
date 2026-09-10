@@ -29,7 +29,7 @@ export default async function HelmAdminLayout({ children }: { children: React.Re
   return (
     <div className="px-6 py-6 md:px-8">
       <AdminPageHeader
-        title="Helm"
+        title="Nomabot"
         subtitle="Usage, knowledge base, fair-use allowances and answer quality for the AI consultant."
       />
 

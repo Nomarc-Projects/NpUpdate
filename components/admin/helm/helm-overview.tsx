@@ -85,7 +85,7 @@ export function HelmOverviewView({ data }: { data: HelmOverview }) {
         <div className="rounded-2xl border border-[#ffd716]/50 bg-[#fffdf2] dark:bg-[#ffd716]/[0.06] p-4 sm:p-5 flex items-start gap-3">
           <Database size={18} className="text-[#b89500] flex-shrink-0 mt-0.5" />
           <div>
-            <p className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Helm tables not created yet</p>
+            <p className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Nomabot tables not created yet</p>
             <p className="text-[12px] text-[#6b6b6b] dark:text-white/60 mt-1 leading-relaxed">
               Analytics will populate once migration{" "}
               <span className="font-mono text-[11px] bg-[#f0f0f0] dark:bg-white/10 px-1 rounded">0016_helm_ai.sql</span>{" "}
@@ -167,7 +167,7 @@ export function HelmOverviewView({ data }: { data: HelmOverview }) {
               </div>
             </>
           ) : (
-            <p className="text-[13px] text-[#9a9a9a] py-10 text-center">No Helm conversations yet.</p>
+            <p className="text-[13px] text-[#9a9a9a] py-10 text-center">No Nomabot conversations yet.</p>
           )}
         </Panel>
 

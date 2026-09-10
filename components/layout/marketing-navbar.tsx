@@ -33,7 +33,7 @@ const menuItems: StaggeredMenuItem[] = [
   { label: "Contact",        link: "/contact",        ariaLabel: "Get in touch" },
 ];
 
-export function MarketingNavbar() {
+export function MarketingNavbar({ exhibitionEnabled = true, toolsEnabled = true }: { exhibitionEnabled?: boolean; toolsEnabled?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -42,6 +42,15 @@ export function MarketingNavbar() {
   // full-screen panel is up — see lib/store/nav-ui.ts.
   const setMenuOpen = useNavUi((s) => s.setMenuOpen);
   useEffect(() => setMenuOpen(open), [open, setMenuOpen]);
+
+  // Withhold the Exhibition Hub and Tools doorways when the super-admin
+  // toggles are off.
+  const links = desktopNavLinks
+    .filter((l) => exhibitionEnabled || l.href !== "/exhibition-hub")
+    .filter((l) => toolsEnabled || l.href !== "/tools");
+  const items = menuItems
+    .filter((i) => exhibitionEnabled || i.link !== "/exhibition-hub")
+    .filter((i) => toolsEnabled || i.link !== "/tools");
 
   async function handleLogout() {
     setOpen(false);
@@ -70,7 +79,7 @@ export function MarketingNavbar() {
 
           {/* ── CENTER: Nav links — desktop only ── */}
           <nav className="hidden md:flex items-center gap-7" aria-label="Main navigation">
-            {desktopNavLinks.map(({ label, href }) => {
+            {links.map(({ label, href }) => {
               const active = isActive(href);
               return (
                 <Link
@@ -159,7 +168,7 @@ export function MarketingNavbar() {
       <StaggeredMenu
         open={open}
         onClose={() => setOpen(false)}
-        items={menuItems}
+        items={items}
         accentColor="#ffd716"
         colors={["#ffd716", "#1e1e1e"]}
         user={isSignedIn && user ? { name: user.name, role: user.email, avatar: user.avatar } : null}

@@ -1321,3 +1321,24 @@ export const eventRsvp = pgTable("event_rsvp", {
   status: text("status").notNull().default("going"), // going | interested
   createdAt: ts(),
 }, (t) => [uniqueIndex("event_rsvp_event_user_unique").on(t.eventId, t.userId)]);
+
+/* ── Directory catalogue (admin-curated) ──────────────────────────────
+ * Institutions and government ministries listed on the tabbed Directory.
+ * Not user accounts — admins create/edit them; members browse + export. */
+export const catalogueEntry = pgTable("catalogue_entry", {
+  id: id(),
+  kind: text("kind").notNull(), // institution | ministry
+  name: text("name").notNull(),
+  acronym: text("acronym"),
+  category: text("category"),
+  location: text("location"),
+  email: text("email"),
+  phone: text("phone"),
+  website: text("website"),
+  about: text("about"),
+  logoUrl: text("logo_url"),
+  published: boolean("published").notNull().default(true),
+  createdBy: text("created_by"),
+  createdAt: ts(),
+  updatedAt: upd(),
+});

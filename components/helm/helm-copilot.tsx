@@ -66,10 +66,10 @@ export function HelmCopilot({
         const body = await res.json().catch(() => ({}));
         setNotice(
           res.status === 429
-            ? "You've used this month's Helm allowance."
+            ? "You've used this month's Nomabot allowance."
             : res.status === 503
-              ? "Helm isn't switched on yet."
-              : (body.error as string) || "Helm couldn't answer that.",
+              ? "Nomabot isn't switched on yet."
+              : (body.error as string) || "Nomabot couldn't answer that.",
         );
         setMessages((p) => p.filter((m) => !m.pending));
         return;
@@ -80,7 +80,7 @@ export function HelmCopilot({
         { role: "assistant", content: data.answer ?? "", citations: data.citations ?? [], proposal: data.proposal ?? null },
       ]);
     } catch {
-      setNotice("Couldn't reach Helm.");
+      setNotice("Couldn't reach Nomabot.");
       setMessages((p) => p.filter((m) => !m.pending));
     } finally {
       setBusy(false);
@@ -113,7 +113,7 @@ export function HelmCopilot({
         className="fixed bottom-24 right-5 md:bottom-6 md:right-6 z-40 inline-flex items-center gap-2 rounded-full bg-[#1e1e1e] dark:bg-[#ffd716] px-4 py-3 text-sm font-semibold text-white dark:text-[#1e1e1e] shadow-lg transition hover:scale-[1.03] active:scale-95"
       >
         <HelmIcon className="h-5 w-5" />
-        <span className="hidden sm:inline">Ask Helm</span>
+        <span className="hidden sm:inline">Ask Nomabot</span>
       </button>
 
       <AnimatePresence>
@@ -136,7 +136,7 @@ export function HelmCopilot({
               <header className="flex items-center gap-3 border-b border-black/10 dark:border-white/10 px-4 py-3">
                 <HelmIcon className="h-6 w-6 text-[#1e1e1e] dark:text-[#ffd716]" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Helm</p>
+                  <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Nomabot</p>
                   {context && <p className="truncate text-[11px] text-[#6b6b6b] dark:text-white/45">{context}</p>}
                 </div>
                 <Link
@@ -160,7 +160,7 @@ export function HelmCopilot({
                   <div className="pt-6 text-center">
                     <HelmIcon className="mx-auto h-10 w-10 text-[#ffd716]" />
                     <p className="mt-3 text-sm text-[#6b6b6b] dark:text-white/55">
-                      Helm knows what you're looking at. Ask about it, or have it draft changes.
+                      Nomabot knows what you're looking at. Ask about it, or have it draft changes.
                     </p>
                     <div className="mt-4 space-y-2 text-left">
                       {starters.map((s) => (

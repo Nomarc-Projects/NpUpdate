@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { getMyProfile } from "@/lib/services/profile";
 import { getAccountInfo } from "@/lib/services/account";
 import { getViewer } from "@/lib/viewer-server";
+import { getPaymentPlans } from "@/lib/services/platform-settings-read";
 import { PLAN_LABEL, type Plan } from "@/lib/entitlements";
 import { SettingsHub } from "@/components/dashboard/settings-hub";
 import { AccountSettings } from "@/components/dashboard/settings/account-settings";
@@ -23,11 +24,12 @@ export const metadata = { title: "Settings" };
  * disagree between server and client render.
  */
 export default async function SettingsPage() {
-  const [profile, account, viewer, session] = await Promise.all([
+  const [profile, account, viewer, session, paymentPlans] = await Promise.all([
     getMyProfile().catch(() => ({ data: { name: "", availability: "", avatarUrl: "", completeness: 0 } })),
     getAccountInfo().catch(() => ({ email: "" })),
     getViewer().catch(() => null),
     auth.api.getSession({ headers: await headers() }),
+    getPaymentPlans().catch(() => ({ enabled: false })),
   ]);
   const d = profile.data as { name: string; availability: string; avatarUrl: string; completeness: number };
   const rawRole = (session?.user as { role?: string } | undefined)?.role;
@@ -45,10 +47,11 @@ export default async function SettingsPage() {
           availability={d.availability}
           planLabel={PLAN_LABEL[plan]}
           role={role}
+          paymentPlansEnabled={paymentPlans.enabled}
         />
       </div>
       <div className="hidden lg:block">
-        <AccountSettings heldRoles={heldRoles} initialTab="info" />
+        <AccountSettings heldRoles={heldRoles} initialTab="info" paymentPlansEnabled={paymentPlans.enabled} />
       </div>
     </>
   );

@@ -10,6 +10,8 @@ export const MAINTENANCE_TAG = "platform-setting:maintenance";
 export const MAIL_THROUGHPUT_TAG = "platform-setting:mail-throughput";
 export const TICKER_SPEED_TAG = "platform-setting:ticker-speed";
 export const EXHIBITION_HUB_TAG = "platform-setting:exhibition-hub";
+export const TOOLS_TAG = "platform-setting:tools";
+export const PAYMENT_PLANS_TAG = "platform-setting:payment-plans";
 export const ABOUT_TEAM_TAG = "platform-setting:about-team";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
@@ -117,6 +119,51 @@ export const EXHIBITION_HUB_DEFAULT: ExhibitionHubSetting = { enabled: false };
 /** Coerce whatever is in the jsonb column into a complete, safe object. */
 export function normalizeExhibitionHub(raw: unknown): ExhibitionHubSetting {
   const v = (raw ?? {}) as Partial<ExhibitionHubSetting>;
+  return {
+    enabled: v.enabled === true,
+  };
+}
+
+/* ── Tools page availability ───────────────────────────────────────────
+ * Decides whether the public /tools page (the "Everything you need…" tool
+ * directory) is live. When OFF, non-admin visitors land on the Coming Soon
+ * screen; admins always get through. Super-admin-editable like the Exhibition
+ * Hub switch.
+ */
+export interface ToolsSetting {
+  /** True = the tools page is open to all visitors. False = non-admins see Coming Soon. */
+  enabled: boolean;
+}
+
+/** Default: tools are open. Unlike the hub, /tools is a build-time-live page
+ *  (not a launch-gated product), so the toggle starts on rather than locking it. */
+export const TOOLS_DEFAULT: ToolsSetting = { enabled: true };
+
+/** Coerce whatever is in the jsonb column into a complete, safe object. */
+export function normalizeTools(raw: unknown): ToolsSetting {
+  const v = (raw ?? {}) as Partial<ToolsSetting>;
+  return {
+    enabled: v.enabled !== false,
+  };
+}
+
+/* ── Payment Plans (Plans & upgrades) availability ─────────────────────
+ * Decides whether the "Plans & upgrades" / payment-plan surfaces are visible
+ * in Account Settings and reachable in the dashboard. Paused for the current
+ * phase of the project; super-admin-editable so relaunch is a toggle, not a
+ * deploy.
+ */
+export interface PaymentPlansSetting {
+  /** True = the Plans & upgrades entry and pricing page are available. False = hidden across the dashboard. */
+  enabled: boolean;
+}
+
+/** Default: locked (hidden) — payment plans are paused until the next phase. */
+export const PAYMENT_PLANS_DEFAULT: PaymentPlansSetting = { enabled: false };
+
+/** Coerce whatever is in the jsonb column into a complete, safe object. */
+export function normalizePaymentPlans(raw: unknown): PaymentPlansSetting {
+  const v = (raw ?? {}) as Partial<PaymentPlansSetting>;
   return {
     enabled: v.enabled === true,
   };

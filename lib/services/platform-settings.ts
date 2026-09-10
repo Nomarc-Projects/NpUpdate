@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getAboutTeam } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -19,6 +19,12 @@ import {
   EXHIBITION_HUB_TAG,
   normalizeExhibitionHub,
   type ExhibitionHubSetting,
+  TOOLS_TAG,
+  normalizeTools,
+  type ToolsSetting,
+  PAYMENT_PLANS_TAG,
+  normalizePaymentPlans,
+  type PaymentPlansSetting,
   ABOUT_TEAM_TAG,
   normalizeAboutTeam,
   type AboutTeamSetting,
@@ -186,6 +192,69 @@ export async function setExhibitionHub(
   // Purge immediately so flipping the switch changes the live site now.
   revalidateTag(EXHIBITION_HUB_TAG, { expire: 0 });
   revalidatePath("/exhibition-hub");
+  return next;
+}
+
+/* ── Tools page: the write path ─────────────────────────────────────────
+ * Super-admin-only, like the hub: taking the public tools directory live or
+ * hiding it is a platform-wide, launcher-grade act.
+ */
+export async function setTools(input: Partial<ToolsSetting>): Promise<ToolsSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getTools();
+  const next = normalizeTools({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('tools', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "tools_open" : "tools_lock"}, 'platform_setting', 'tools', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  revalidateTag(TOOLS_TAG, { expire: 0 });
+  revalidatePath("/tools");
+  return next;
+}
+
+/* ── Payment Plans (Plans & upgrades): the write path ───────────────────
+ * Super-admin-only: pausing or relaunching payment plans is a commercial,
+ * platform-wide decision, so plain admins don't get the lever.
+ */
+export async function setPaymentPlans(input: Partial<PaymentPlansSetting>): Promise<PaymentPlansSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getPaymentPlans();
+  const next = normalizePaymentPlans({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('payment-plans', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "payment_plans_open" : "payment_plans_hide"}, 'platform_setting', 'payment-plans', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  // Purge immediately so the Account Settings entry resolves now, not after
+  // the 30s cache window.
+  revalidateTag(PAYMENT_PLANS_TAG, { expire: 0 });
+  revalidatePath("/dashboard/settings");
+  revalidatePath("/dashboard/plans");
   return next;
 }
 

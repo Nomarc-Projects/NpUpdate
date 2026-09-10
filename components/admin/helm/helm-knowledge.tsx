@@ -70,7 +70,7 @@ export function HelmKnowledgeView({
 
   function runReindex(namespace: string, key: string) {
     if (!status.configured) {
-      toast.error("Helm is not connected yet — nothing to reindex.");
+      toast.error("Nomabot is not connected yet — nothing to reindex.");
       return;
     }
     setBusy(key);
@@ -110,7 +110,7 @@ export function HelmKnowledgeView({
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Helm brain (OCI VM)</h2>
+                  <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Nomabot brain (OCI VM)</h2>
                   <span
                     className={cn(
                       "text-[10.5px] font-bold px-2 py-0.5 rounded-full",
@@ -273,7 +273,7 @@ export function HelmKnowledgeView({
               </p>
               <p className="text-[12px] text-[#9a9a9a] mt-1 max-w-sm mx-auto leading-relaxed">
                 {documents.length === 0
-                  ? "Documents professionals give Helm appear here with their index status and chunk count. The curated corpus itself lives on the VM."
+                  ? "Documents professionals give Nomabot appear here with their index status and chunk count. The curated corpus itself lives on the VM."
                   : "Try a different status or clear the search."}
               </p>
             </div>

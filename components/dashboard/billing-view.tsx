@@ -40,7 +40,7 @@ function exportInvoices(txs: TxRow[], fmt: "csv" | "xls") {
   else { const esc = (v: unknown) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); const b = [cols, ...data].map((r, i) => `<tr>${r.map((v) => `<t${i === 0 ? "h" : "d"}>${esc(v)}</t${i === 0 ? "h" : "d"}>`).join("")}</tr>`).join(""); out("application/vnd.ms-excel", `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"></head><body><table border="1">${b}</table></body></html>`); }
 }
 
-export function BillingView({ planLabel, isFree, txs }: { planLabel: string; isFree: boolean; txs: TxRow[] }) {
+export function BillingView({ planLabel, isFree, txs, paymentPlansEnabled = true }: { planLabel: string; isFree: boolean; txs: TxRow[]; paymentPlansEnabled?: boolean }) {
   const [autoRenew, setAutoRenew] = useState(true);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -76,7 +76,9 @@ export function BillingView({ planLabel, isFree, txs }: { planLabel: string; isF
             {!isFree && perMonth > 0 && <div className="text-right"><p className="text-xl font-bold text-[#1e1e1e] dark:text-white">{naira(perMonth)}</p><p className="text-[11px] text-[#9a9a9a]">/month</p></div>}
             <div className="flex items-center gap-2">
               {!isFree && <button onClick={() => setConfirmCancel(true)} className="px-4 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-medium text-[#6b6b6b] dark:text-white/60 hover:text-[#e5484d] hover:border-[#e5484d]/40 transition-colors">Cancel plan</button>}
-              <Link href="/dashboard/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><Sparkles size={15} /> {isFree ? "Upgrade plan" : "Change plan"}</Link>
+              {paymentPlansEnabled && (
+                <Link href="/dashboard/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><Sparkles size={15} /> {isFree ? "Upgrade plan" : "Change plan"}</Link>
+              )}
             </div>
           </div>
         </div>

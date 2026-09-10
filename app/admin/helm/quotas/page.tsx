@@ -1,7 +1,7 @@
 import { listHelmQuotas } from "@/lib/services/helm-admin";
 import { HelmQuotasView } from "@/components/admin/helm/helm-quotas";
 
-export const metadata = { title: "Helm quotas & tiers — Admin" };
+export const metadata = { title: "Nomabot quotas & tiers — Admin" };
 
 export default async function AdminHelmQuotasPage() {
   const { plans, overrides, period } = await listHelmQuotas();

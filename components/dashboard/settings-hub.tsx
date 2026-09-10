@@ -47,8 +47,8 @@ function Group({ title, rows }: { title: string; rows: Row[] }) {
   );
 }
 
-export function SettingsHub({ name, email, avatarUrl, availability, planLabel, role }: {
-  name: string; email: string; avatarUrl: string; availability: string; planLabel: string; role: "professional" | "exhibitor";
+export function SettingsHub({ name, email, avatarUrl, availability, planLabel, role, paymentPlansEnabled = true }: {
+  name: string; email: string; avatarUrl: string; availability: string; planLabel: string; role: "professional" | "exhibitor"; paymentPlansEnabled?: boolean;
 }) {
   const router = useRouter();
   const { resolvedTheme, setTheme } = useTheme();
@@ -91,7 +91,11 @@ export function SettingsHub({ name, email, avatarUrl, availability, planLabel, r
     { label: "Change password", href: "/dashboard/settings/account?tab=password", icon: Lock },
   ];
   const membership: Row[] = [
-    { label: "Plans & upgrades", sub: `Current: ${planLabel}`, href: "/dashboard/plans", icon: Sparkles },
+    // "Plans & upgrades" is hidden while payment plans are paused (super-admin
+    // toggle); Billing & invoices (past charges) stays.
+    ...(paymentPlansEnabled
+      ? [{ label: "Plans & upgrades", sub: `Current: ${planLabel}`, href: "/dashboard/plans", icon: Sparkles }]
+      : []),
     { label: "Billing & invoices", sub: "Payment method, receipts", href: "/dashboard/billing", icon: FileText },
   ];
   // One notifications row, not two. "Email notifications" here and "Email

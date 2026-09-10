@@ -346,10 +346,10 @@ export function HelmChat({
         const body = await res.json().catch(() => ({}));
         const message =
           res.status === 429
-            ? "You've used this month's Helm allowance. Upgrade your plan for more."
+            ? "You've used this month's Nomabot allowance. Upgrade your plan for more."
             : res.status === 503
-              ? "Helm isn't switched on yet — it'll be available shortly."
-              : (body.error as string) || "Helm couldn't answer that right now.";
+              ? "Nomabot isn't switched on yet — it'll be available shortly."
+              : (body.error as string) || "Nomabot couldn't answer that right now.";
         setNotice(message);
         if (res.status === 429 && quota.monthlyMessages !== null) setUsed(quota.monthlyMessages);
         setMessages((prev) => prev.filter((m) => !m.pending));
@@ -386,7 +386,7 @@ export function HelmChat({
       setMessages((prev) => [...prev.filter((m) => !m.pending), assistant]);
       void refreshHistory(search);
     } catch {
-      setNotice("Couldn't reach Helm. Check your connection and try again.");
+      setNotice("Couldn't reach Nomabot. Check your connection and try again.");
       setMessages((prev) => prev.filter((m) => !m.pending));
     } finally {
       setBusy(false);
@@ -523,7 +523,7 @@ export function HelmChat({
           </button>
           <HelmIcon className="h-6 w-6 text-[#1e1e1e] dark:text-[#ffd716]" />
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Helm</p>
+            <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Nomabot</p>
             <p className="text-[11px] text-[#6b6b6b] dark:text-white/45">Your construction consultant</p>
           </div>
 
@@ -698,7 +698,7 @@ export function HelmChat({
                     void send();
                   }
                 }}
-                placeholder={exhausted ? "Monthly allowance used — upgrade to continue" : "Ask Helm anything…"}
+                placeholder={exhausted ? "Monthly allowance used — upgrade to continue" : "Ask Nomabot anything…"}
                 className="flex-1 resize-none bg-transparent py-1.5 text-[15px] text-[#1e1e1e] dark:text-white placeholder:text-[#9a9a9a] outline-none disabled:cursor-not-allowed"
               />
               <button
@@ -711,7 +711,7 @@ export function HelmChat({
               </button>
             </div>
             <p className="mt-1.5 text-center text-[11px] text-[#9a9a9a] dark:text-white/35">
-              Helm can make mistakes — verify anything safety-critical against the source.
+              Nomabot can make mistakes — verify anything safety-critical against the source.
             </p>
           </div>
         </div>
