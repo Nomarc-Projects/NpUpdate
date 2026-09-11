@@ -6,7 +6,7 @@ import { DataTable, CopyChip, SlideOverDrawer, ExportCsvDialog, type DataTableCo
 import { CATEGORIES_BY_KIND, CATALOGUE_KIND_LABEL, type CatalogueKind } from "@/lib/constants/catalogue-categories";
 import type { CatalogueEntry } from "@/lib/services/directory-catalogue";
 
-/** The Institutions / Government Ministries tab of the Directory. Entries are
+/** The Institutions / Ministries tab of the Directory. Entries are
  *  admin-curated, so rows are served server-side and filtered client-side. */
 export function CatalogueDirectory({ kind, rows }: { kind: CatalogueKind; rows: CatalogueEntry[] }) {
   const [query, setQuery] = useState("");

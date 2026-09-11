@@ -84,7 +84,7 @@ export function AdminDirectory({ initial }: { initial: CatalogueEntry[] }) {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-extrabold text-[#1e1e1e] dark:text-white">Directory</h1>
-          <p className="text-[13px] text-[#9a9a9a]">Curate the institutions and government ministries shown on the Directory page.</p>
+          <p className="text-[13px] text-[#9a9a9a]">Curate the institutions and ministries shown on the Directory page.</p>
         </div>
         <PrimaryButton onClick={openNew}><Plus size={15} /> New entry</PrimaryButton>
       </div>

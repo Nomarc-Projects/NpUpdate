@@ -23,7 +23,7 @@ export const CATEGORIES_BY_KIND: Record<CatalogueKind, readonly string[]> = {
 
 export const CATALOGUE_KIND_LABEL: Record<CatalogueKind, string> = {
   institution: "Institutions",
-  ministry: "Government Ministries",
+  ministry: "Ministries",
 };
 
 export const CATALOGUE_KIND_NAME: Record<CatalogueKind, string> = {

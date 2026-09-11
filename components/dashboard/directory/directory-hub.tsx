@@ -14,7 +14,7 @@ const TABS = [
   { key: "people", label: "People" },
   { key: "companies", label: "Companies" },
   { key: "institutions", label: "Institutions" },
-  { key: "ministries", label: "Government Ministries" },
+  { key: "ministries", label: "Ministries" },
 ];
 
 /** The single Directory page: People · Companies · Institutions · Government
@@ -38,7 +38,7 @@ export function DirectoryHub({
       <div className="mb-5">
         <h1 className="text-[20px] font-bold text-[#1e1e1e] dark:text-white">Directory</h1>
         <p className="mt-0.5 text-[13px] text-[#9a9a9a]">
-          Discover and connect with professionals, companies, institutions, and government ministries.
+          Discover and connect with professionals, companies, institutions, and ministries.
         </p>
       </div>
 

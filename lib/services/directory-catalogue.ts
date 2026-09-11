@@ -41,7 +41,7 @@ const map = (r: typeof catalogueEntry.$inferSelect): CatalogueEntry => ({
 const bump = () => { revalidatePath("/admin/directory"); revalidatePath("/dashboard/directory"); };
 
 /** Published catalogue entries for signed-in members, one kind at a time (the
- *  Directory splits Institutions and Government Ministries into their own tabs). */
+ *  Directory splits Institutions and Ministries into their own tabs). */
 export async function listCatalogue(kind: CatalogueKind): Promise<CatalogueEntry[]> {
   await requireUserId();
   const rows = await db

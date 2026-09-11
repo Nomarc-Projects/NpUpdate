@@ -1323,7 +1323,7 @@ export const eventRsvp = pgTable("event_rsvp", {
 }, (t) => [uniqueIndex("event_rsvp_event_user_unique").on(t.eventId, t.userId)]);
 
 /* ── Directory catalogue (admin-curated) ──────────────────────────────
- * Institutions and government ministries listed on the tabbed Directory.
+ * Institutions and ministries listed on the tabbed Directory.
  * Not user accounts — admins create/edit them; members browse + export. */
 export const catalogueEntry = pgTable("catalogue_entry", {
   id: id(),
