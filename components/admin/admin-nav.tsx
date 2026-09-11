@@ -252,7 +252,7 @@ export function AdminSidebar() {
       >
         {!expanded ? (
           <div className="px-3 pt-4 pb-2 space-y-0.5">
-            <Link href="/admin" aria-label="Admin home" className="flex w-full items-center justify-center rounded-xl py-2.5 hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">
+            <Link href="/" aria-label="Nomarc home" className="flex w-full items-center justify-center rounded-xl py-2.5 hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">
               <NomarcMark size={20} className="text-[#1e1e1e] dark:text-white" />
             </Link>
             <button onClick={() => setCollapsed(false)} className="flex w-full items-center justify-center rounded-xl py-2.5 text-[#9a9a9a] hover:bg-[#f7f7f7] dark:hover:bg-white/5 hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label="Pin sidebar open"><PanelLeft size={18} /></button>
@@ -261,7 +261,7 @@ export function AdminSidebar() {
           /* px-6 so the wordmark's left edge lines up with the nav rows below
              (nav container px-3 + each row's own px-3 = 24px). */
           <div className="px-6 py-5 flex items-center justify-between">
-            <Link href="/admin" aria-label="Admin home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
+<Link href="/" aria-label="Nomarc home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
             <button onClick={() => { setCollapsed(true); setHovered(false); }} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label="Collapse sidebar"><PanelLeftClose size={18} /></button>
           </div>
         )}
@@ -271,7 +271,7 @@ export function AdminSidebar() {
       {/* mobile top bar */}
       <header className="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-white dark:bg-[#1e1e1e] border-b border-[#e5e5e5] dark:border-white/10 flex items-center justify-between px-4">
         <button onClick={() => setMobileOpen(true)} aria-label="Open menu" className="text-[#1e1e1e] dark:text-white"><Menu size={22} /></button>
-        <Link href="/admin" aria-label="Admin home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
+        <Link href="/" aria-label="Nomarc home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
         <span className="w-9" />
       </header>
 
@@ -282,7 +282,7 @@ export function AdminSidebar() {
             <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileOpen(false)} />
             <motion.aside className="absolute left-0 top-0 h-full w-[280px] max-w-[85%] bg-white dark:bg-[#1e1e1e] flex flex-col shadow-2xl" initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }}>
               <div className="px-6 py-5 flex items-center justify-between">
-                <Link href="/admin" onClick={() => setMobileOpen(false)} aria-label="Admin home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
+                <Link href="/" onClick={() => setMobileOpen(false)} aria-label="Nomarc home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
                 <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
               </div>
               <SidebarInner collapsed={false} onNavigate={() => setMobileOpen(false)} />
