@@ -19,23 +19,21 @@ async function realAdmin() {
 export type ImpersonationState = { impersonating: boolean; target?: { id: string; name: string; email: string; role: string; plan: string } };
 
 /**
- * Begin acting as another user. **Super admin only**, and a reason is required.
+ * Begin acting as another user. **Admin tier only**, and a reason is required.
  *
- * This is the single most powerful capability in the console: it grants the
+ * This is the most powerful capability in the console: it grants the
  * caller the target's full session, including their messages, documents,
- * payment history and the ability to act irreversibly as them. It was available
- * to every plain admin, which made "admin" effectively equivalent to "any user
- * on the platform" and put it well above the privileges an ordinary admin is
- * meant to hold.
+ * payment history and the ability to act irreversibly as them. Only admin-tier
+ * accounts (`admin` or `super_admin`) may start one.
  *
  * Impersonating another admin is refused outright: it would be a route around
- * every super-admin gate (impersonate a super admin, then release a campaign or
+ * every admin gate (impersonate an admin, then release a campaign or
  * grant yourself privilege as them, with the audit trail pointing at them).
  */
 export async function startImpersonation(targetUserId: string, reason: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   const u = session?.user as { id: string; role?: string } | undefined;
-  if (!u || u.role !== "super_admin") throw new Error("Forbidden — only a super admin can impersonate a user");
+  if (!u || !isAdminRole(u.role)) throw new Error("Forbidden — only admins can impersonate a user");
   if (targetUserId === u.id) throw new Error("You can't impersonate yourself");
 
   const why = reason.trim();

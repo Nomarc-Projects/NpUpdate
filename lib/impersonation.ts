@@ -1,6 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import crypto from "node:crypto";
+import { isAdminRole } from "@/lib/authz";
 
 const COOKIE = "nm-impersonate";
 
@@ -34,10 +35,10 @@ export async function clearImpersonationCookie() {
 
 /** The impersonated target user id, only if a valid cookie exists for this admin. */
 export async function getImpersonatedUserId(realUser: { id: string; role?: string } | undefined | null): Promise<string | null> {
-  // super_admin ONLY, matching startImpersonation. This accepted plain admins
-  // too, which meant a held cookie kept working after a super admin was demoted,
-  // and left a second path to the capability independent of the start gate.
-  if (!realUser || realUser.role !== "super_admin") return null;
+  // Any admin tier, matching startImpersonation. Previously super_admin only —
+  // a plain admin demoted from super_admin kept working, blocking every other
+  // way to read a held cookie. Now both admin tiers share the capability.
+  if (!realUser || !isAdminRole(realUser.role)) return null;
   const raw = (await cookies()).get(COOKIE)?.value;
   if (!raw) return null;
   const idx = raw.lastIndexOf(".");
