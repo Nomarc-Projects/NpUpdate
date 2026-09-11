@@ -46,12 +46,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
   await enforceMaintenance();
 
   // Admins belong in the admin console, not the professional/exhibitor dashboard
-  // shell — send them there before anything renders so there's no flash of the
-  // wrong homepage. Skipped while impersonating (getImpersonatedUserId already
-  // requires the real user to be an admin, so presence of the cookie is enough).
+  // shell. Bouncing them at the dashboard *root* avoids a flash of the wrong
+  // homepage, but member sub-pages (find-professionals, directory, people, …)
+  // stay reachable so admins can browse the app a regular user would. Skipped
+  // while impersonating (getImpersonatedUserId already requires the real user
+  // to be an admin, so presence of the cookie is enough).
   const rawRole = (session.user as { role?: string }).role;
   const isRealAdmin = rawRole === "admin" || rawRole === "super_admin";
-  if (isRealAdmin && !(await getImpersonatedUserId(session.user as { id: string; role?: string }))) {
+  const requestedPath = h.get("x-nm-pathname") || "/dashboard";
+  if (isRealAdmin && requestedPath === "/dashboard" && !(await getImpersonatedUserId(session.user as { id: string; role?: string }))) {
     redirect("/admin");
   }
 
