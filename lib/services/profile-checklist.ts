@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import {
   profile, workExperience, education, profileSkill, service,
   company, product, companyCertification, job, employerProfile,
+  certification,
 } from "@/lib/db/schema";
 
 /* ── The single definition of "how complete is this profile" ─────────────
@@ -101,6 +102,40 @@ export async function professionalChecklist(uid: string): Promise<ChecklistItem[
 export async function meetsTier1(uid: string): Promise<boolean> {
   const items = await professionalChecklist(uid);
   return items.every((i) => i.optional || i.done);
+}
+
+/**
+ * Checks whether every field required by the professional onboarding form is
+ * actually filled. Mirrors the validation in `ProfessionalOnboarding` (all-
+ * fields-required gate).
+ *
+ * Fields checked:
+ *   headline, availability, practiceStatus (+ conditional: licenseNumber /
+ *   registrationNumber / practiceCompanyName+RegNumber+Address), bio, location,
+ *   ≥1 skill, ≥1 certification, ≥1 experience, ≥1 education.
+ */
+export async function professionalOnboardingComplete(uid: string): Promise<boolean> {
+  const [[p], [sk], [ce], [ex], [ed]] = await Promise.all([
+    db.select().from(profile).where(eq(profile.userId, uid)).limit(1),
+    db.select({ v: count() }).from(profileSkill).where(eq(profileSkill.userId, uid)),
+    db.select({ v: count() }).from(certification).where(eq(certification.userId, uid)),
+    db.select({ v: count() }).from(workExperience).where(eq(workExperience.userId, uid)),
+    db.select({ v: count() }).from(education).where(eq(education.userId, uid)),
+  ]);
+  if (!p) return false;
+  const filled = (v: string | null | undefined) => !!v && v.trim().length > 0;
+  if (!filled(p.headline) || !filled(p.bio) || !filled(p.availability) || !filled(p.location)) return false;
+  if (!filled(p.practiceStatus)) return false;
+  if (p.practiceStatus === "licensed" && !filled(p.licenseNumber)) return false;
+  if (p.practiceStatus === "registered" && !filled(p.registrationNumber)) return false;
+  if (p.practiceStatus === "company") {
+    if (!filled(p.practiceCompanyName) || !filled(p.practiceRegNumber) || !filled(p.practiceCompanyAddress)) return false;
+  }
+  if ((sk?.v ?? 0) < 1) return false;
+  if ((ce?.v ?? 0) < 1) return false;
+  if ((ex?.v ?? 0) < 1) return false;
+  if ((ed?.v ?? 0) < 1) return false;
+  return true;
 }
 
 /** The required Tier 1 items still outstanding — drives the locked-state copy. */

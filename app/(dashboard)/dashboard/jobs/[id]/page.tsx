@@ -3,8 +3,11 @@ import { getJobById, getJobsForBrowse } from "@/lib/services/catalog";
 import { getJobPostingDetail } from "@/lib/services/jobs";
 import { JOB_OVERVIEW, type SampleJob } from "@/lib/sample-jobs";
 import { JobDetail } from "@/components/dashboard/professional/job-detail";
+import { ProfessionalGate } from "@/components/dashboard/onboarding/professional-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
+import { getCurrentUserId } from "@/lib/server-user";
+import { professionalOnboardingComplete } from "@/lib/services/profile-checklist";
 
 /**
  * Real jobs only.
@@ -18,6 +21,15 @@ import { can } from "@/lib/entitlements";
 export default async function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const viewer = await getViewer();
   if (!can(viewer, "jobBoard")) redirect("/dashboard/jobs");
+  const uid = await getCurrentUserId();
+  if (!uid || !(await professionalOnboardingComplete(uid))) {
+    return (
+      <ProfessionalGate
+        title="Complete your profile to find jobs"
+        description="All fields must be filled before you can view job details."
+      />
+    );
+  }
 
   const { id } = await params;
 
