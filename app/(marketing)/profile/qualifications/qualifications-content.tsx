@@ -65,11 +65,16 @@ const NO_NAMED: Named[] = [];
 const NO_CERTS: Cert[] = [];
 
 export function QualificationsContent({
-  experience = NO_EXPERIENCE, skills = NO_NAMED, specializations = NO_NAMED, certifications = NO_CERTS,
-}: { experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[] }) {
+  experience = NO_EXPERIENCE, skills = NO_NAMED, specializations = NO_NAMED, certifications = NO_CERTS, practiceStatus = "",
+}: { experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; practiceStatus?: string }) {
   const router = useRouter();
   const [open, setOpen] = useState<Which>(null);
   const close = () => setOpen(null);
+
+  // Certifications and professional registrations only apply to registered or
+  // licensed professionals — mirroring the onboarding gate. Everyone else keeps
+  // experience/skills/specializations but not the credential sections.
+  const canEditCredentials = practiceStatus === "registered" || practiceStatus === "licensed";
 
   // ── optimistic local lists (seeded from props, reconciled after server refresh) ──
   const [exp, setExp] = useState<Experience[]>(experience);
@@ -205,39 +210,43 @@ export function QualificationsContent({
         <div className="flex flex-wrap gap-2.5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
       </div>
 
-      {/* Certifications */}
-      <div className="mt-8">
-        <AddRow Icon={Award} label="Certifications" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
-        <div className="mt-5 space-y-4">
-          {ce.map((c) => (
-            <div key={c.id} className="group relative">
-              <button onClick={() => removeCert(c.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-              <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white flex items-center gap-1.5">
-                {c.name}
-                {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-[#1e9df5] hover:underline" title="View credential"><LinkIcon size={13} /></a>}
-              </p>
-              <p className="text-[13px] text-[#9a9a9a]">{[c.issuer, c.year].filter(Boolean).join(" • ")}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Professional registration */}
-      <div className="mt-8">
-        <AddRow Icon={ShieldCheck} label="Professional registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />
-        <div className="mt-5 space-y-3">
-          {regs.map((r) => (
-            <div key={r.id} className="group relative flex items-start gap-3 rounded-xl border border-[#ececec] dark:border-white/10 p-4">
-              <span className="w-9 h-9 rounded-lg bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400] flex-shrink-0"><ShieldCheck size={17} /></span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[14px] font-semibold text-[#1e1e1e] dark:text-white">{bodyLabel(r.body)}</p>
-                {r.registrationNumber && <p className="text-[13px] text-[#9a9a9a]">Reg. no: {r.registrationNumber}</p>}
+      {/* Certifications — registered / licensed professionals only */}
+      {canEditCredentials && (
+        <div className="mt-8">
+          <AddRow Icon={Award} label="Certifications" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
+          <div className="mt-5 space-y-4">
+            {ce.map((c) => (
+              <div key={c.id} className="group relative">
+                <button onClick={() => removeCert(c.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+                <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white flex items-center gap-1.5">
+                  {c.name}
+                  {c.url && <a href={c.url} target="_blank" rel="noopener noreferrer" className="text-[#1e9df5] hover:underline" title="View credential"><LinkIcon size={13} /></a>}
+                </p>
+                <p className="text-[13px] text-[#9a9a9a]">{[c.issuer, c.year].filter(Boolean).join(" • ")}</p>
               </div>
-              <button onClick={() => removeReg(r.id)} className="text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Professional registration — registered / licensed professionals only */}
+      {canEditCredentials && (
+        <div className="mt-8">
+          <AddRow Icon={ShieldCheck} label="Professional registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />
+          <div className="mt-5 space-y-3">
+            {regs.map((r) => (
+              <div key={r.id} className="group relative flex items-start gap-3 rounded-xl border border-[#ececec] dark:border-white/10 p-4">
+                <span className="w-9 h-9 rounded-lg bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400] flex-shrink-0"><ShieldCheck size={17} /></span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1e1e1e] dark:text-white">{bodyLabel(r.body)}</p>
+                  {r.registrationNumber && <p className="text-[13px] text-[#9a9a9a]">Reg. no: {r.registrationNumber}</p>}
+                </div>
+                <button onClick={() => removeReg(r.id)} className="text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Modals ── */}
       <Modal open={open === "work"} onClose={close} title="Add Work Experience" subtitle="Up to 5 of your most recent roles" maxWidth="max-w-[520px]"

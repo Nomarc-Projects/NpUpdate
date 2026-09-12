@@ -42,9 +42,11 @@ type Quals = Awaited<ReturnType<typeof getQualifications>>;
 
 export function QualificationsPanel() {
   const [quals, setQuals] = useState<Quals | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [edu, setEdu] = useState<Edu[]>([]);
   useEffect(() => {
     getQualifications().then(setQuals).catch(() => setQuals(null));
+    getMyProfile().then((r) => setProfile(r.data)).catch(() => setProfile(null));
     getEducationList().then(setEdu).catch(() => {});
   }, []);
   if (!quals) return <Loading />;
@@ -55,6 +57,7 @@ export function QualificationsPanel() {
         skills={quals.skills}
         specializations={quals.specializations}
         certifications={quals.certifications}
+        practiceStatus={profile?.practiceStatus}
       />
       <EducationContent education={edu} />
     </div>
