@@ -112,7 +112,8 @@ export async function meetsTier1(uid: string): Promise<boolean> {
  * Fields checked:
  *   headline, availability, practiceStatus (+ conditional: licenseNumber /
  *   registrationNumber / practiceCompanyName+RegNumber+Address), bio, location,
- *   ≥1 skill, ≥1 certification, ≥1 experience, ≥1 education.
+ *   ≥1 skill, ≥1 certification (registered/licensed only), ≥1 experience,
+ *   ≥1 education.
  */
 export async function professionalOnboardingComplete(uid: string): Promise<boolean> {
   const [[p], [sk], [ce], [ex], [ed]] = await Promise.all([
@@ -132,7 +133,8 @@ export async function professionalOnboardingComplete(uid: string): Promise<boole
     if (!filled(p.practiceCompanyName) || !filled(p.practiceRegNumber) || !filled(p.practiceCompanyAddress)) return false;
   }
   if ((sk?.v ?? 0) < 1) return false;
-  if ((ce?.v ?? 0) < 1) return false;
+  // Certifications only apply to registered or licensed professionals.
+  if ((p.practiceStatus === "licensed" || p.practiceStatus === "registered") && (ce?.v ?? 0) < 1) return false;
   if ((ex?.v ?? 0) < 1) return false;
   if ((ed?.v ?? 0) < 1) return false;
   return true;

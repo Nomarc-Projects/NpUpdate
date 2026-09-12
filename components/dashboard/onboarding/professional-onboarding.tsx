@@ -86,6 +86,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   const [skill, setSkill] = useState("");
   const [skills, setSkills] = useState<string[]>([]);
   const [practiceLicenceStatus, setPracticeLicenceStatus] = useState("");
+  const isLicensedOrRegistered = ["licensed", "registered"].includes(PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? "");
   const [licenseNumber, setLicenseNumber] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [practiceCompanyName, setPracticeCompanyName] = useState("");
@@ -166,7 +167,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
       if (!practiceCompanyAddress.trim()) { toast.error("Enter the company address."); return; }
     }
     if (skills.length === 0) { toast.error("Add at least one skill."); return; }
-    if (certs.length === 0) { toast.error("Add at least one certification."); return; }
+    if (isLicensedOrRegistered && certs.length === 0) { toast.error("Add at least one certification."); return; }
     if (experience.length === 0) { toast.error("Add at least one work experience."); return; }
     if (education.length === 0) { toast.error("Add at least one education entry."); return; }
     if (!bio.trim()) { toast.error("Write a short bio about yourself."); return; }
@@ -311,8 +312,10 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   </div>
                 </div>
 
-                <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Certifications / Licenses</p>
-                {certs.length > 0 && (
+                {isLicensedOrRegistered && (
+                  <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Certifications / Licenses</p>
+                )}
+                {isLicensedOrRegistered && certs.length > 0 && (
                   <ul className="mt-2 space-y-2">
                     {certs.map((c, i) => (
                       <li key={i} className={cn(ROW, "flex items-center justify-between gap-2")}>
@@ -322,12 +325,16 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                     ))}
                   </ul>
                 )}
-                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                  <input className={inputClass} placeholder="e.g. COREN Registered Engineer" value={cert.name} onChange={(e) => setCert((p) => ({ ...p, name: e.target.value }))} />
-                  <input className={inputClass} placeholder="Issuer" value={cert.issuer} onChange={(e) => setCert((p) => ({ ...p, issuer: e.target.value }))} />
-                  <SelectMenu placeholder="Year" value={cert.year} onChange={(v) => setCert((p) => ({ ...p, year: v }))} options={YEAR_OPTIONS} />
-                </div>
-                <button type="button" onClick={addCert} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+                {isLicensedOrRegistered && (
+                  <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                    <input className={inputClass} placeholder="e.g. COREN Registered Engineer" value={cert.name} onChange={(e) => setCert((p) => ({ ...p, name: e.target.value }))} />
+                    <input className={inputClass} placeholder="Issuer" value={cert.issuer} onChange={(e) => setCert((p) => ({ ...p, issuer: e.target.value }))} />
+                    <SelectMenu placeholder="Year" value={cert.year} onChange={(v) => setCert((p) => ({ ...p, year: v }))} options={YEAR_OPTIONS} />
+                  </div>
+                )}
+                {isLicensedOrRegistered && (
+                  <button type="button" onClick={addCert} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+                )}
               </div>
 
               {/* Work experience */}
