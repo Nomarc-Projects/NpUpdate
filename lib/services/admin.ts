@@ -272,7 +272,7 @@ export async function getUsers(search = ""): Promise<AdminUser[]> {
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
-           COALESCE(u.is_partner,false) AS is_partner,
+           COALESCE(u."isPartner",false) AS is_partner,
            COALESCE(p.verified, c.verified, false) AS verified,
            p.headline AS profession, c.industry, c.contact_person AS primary_contact, c.avatar_url AS logo_url,
            EXISTS (SELECT 1 FROM kyc_document d WHERE d.user_id = u.id AND d.tier = 2 AND d.status = 'approved') AS tier2,
@@ -326,7 +326,7 @@ export async function setUserBanned(userId: string, banned: boolean, reason?: st
  */
 export async function setUserPartner(userId: string, isPartner: boolean) {
   const admin = await requireAdmin();
-  await db.execute(sql`UPDATE "user" SET is_partner = ${isPartner} WHERE id = ${userId}`);
+  await db.execute(sql`UPDATE "user" SET "isPartner" = ${isPartner} WHERE id = ${userId}`);
   await logAudit(admin, isPartner ? "grant_partner" : "revoke_partner", "user", userId);
   revalidatePath("/admin/users");
   revalidatePath("/dashboard");
@@ -382,7 +382,7 @@ export async function getUserDetail(userId: string): Promise<AdminUserDetail | n
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
-           COALESCE(u.is_partner,false) AS is_partner,
+           COALESCE(u."isPartner",false) AS is_partner,
            p.avatar_url AS p_avatar, p.headline, p.bio, p.location, p.verified AS p_verified, p.availability,
            c.id AS company_id, c.avatar_url AS c_avatar, c.industry, c.headquarters, c.verified AS c_verified,
            c.about AS c_about, c.year_founded, c.company_size, c.categories

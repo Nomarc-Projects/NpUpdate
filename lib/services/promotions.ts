@@ -66,17 +66,17 @@ export type PromotionEligibility = { eligible: boolean; via: "partner" | "key_pl
 /**
  * Who may run promotions (paid campaigns). Two routes qualify, and only two:
  *  - an exhibitor on the top `key_player` plan (Exhibition Hub premium), or
- *  - an account manually granted partnership by an admin (`user.is_partner`).
+ *  - an account manually granted partnership by an admin (`user."isPartner"`).
  * Everything else — free accounts, professional paid plans, the lower
  * exhibitor tiers — is blocked here AND surfaced as "not eligible" to the
  * dashboard, so the ads product can't be bought or created off-books.
  */
 export async function requirePromotionEligibility(uid: string): Promise<PromotionEligibility> {
-  // Guarded: if the is_partner column isn't migrated yet, no one is a partner
+  // Guarded: if the "isPartner" column isn't migrated yet, no one is a partner
   // (the key_player check below still runs), so eligibility fails closed.
   let isPartner = false;
   try {
-    const [u] = (await db.execute(sql`SELECT COALESCE(is_partner, false) AS is_partner FROM "user" WHERE id = ${uid} LIMIT 1`)).rows as { is_partner: boolean | null }[];
+    const [u] = (await db.execute(sql`SELECT COALESCE("isPartner", false) AS is_partner FROM "user" WHERE id = ${uid} LIMIT 1`)).rows as { is_partner: boolean | null }[];
     isPartner = u?.is_partner === true;
   } catch { /* column not present yet — no partners */ }
   if (isPartner) return { eligible: true, via: "partner", planLabel: "Partner" };
