@@ -20,6 +20,8 @@ const AVAIL_OPTIONS = [
 
 const PROFESSIONS = [
   "Architect",
+  "Architectural Designer",
+  "Contractor",
   "Architectural Technologist / Technician",
   "Landscape Architect",
   "Urban / Town Planner",
@@ -44,7 +46,10 @@ const PROFESSIONS = [
   "BIM (Building Information Modeling) Manager / Coordinator",
   "Facility Manager",
   "Real Estate Developer",
+  "Other",
 ];
+
+const OTHER_PROFESSION = "Other";
 
 const PRACTICE_STATUS_OPTIONS = [
   { label: "Intern", value: "intern" },
@@ -74,6 +79,8 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
 
   // Profession (job title)
   const [headline, setHeadline] = useState("");
+  const [customHeadline, setCustomHeadline] = useState("");
+  const finalHeadline = headline === OTHER_PROFESSION ? customHeadline.trim() : headline.trim();
 
   // Qualification — skills + certifications
   const [skill, setSkill] = useState("");
@@ -147,7 +154,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   }
 
   async function submit() {
-    if (!headline.trim()) { toast.error("Enter your job title."); return; }
+    if (!finalHeadline) { toast.error("Enter your job title."); return; }
     if (!availability) { toast.error("Let us know if you're open to work."); return; }
     if (!practiceLicenceStatus) { toast.error("Select your professional practice status."); return; }
     const dbStatus = PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus;
@@ -171,7 +178,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
     setPending(true);
     try {
       await completeProfessionalOnboarding({
-        headline: headline.trim(),
+        headline: finalHeadline,
         bio,
         location,
         availability: AVAIL_TO_DB[availability] ?? availability,
@@ -237,6 +244,13 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                       options={PROFESSIONS}
                     />
                   </Field>
+                  {headline === OTHER_PROFESSION && (
+                    <div className="mt-3">
+                      <Field label="Enter your job title">
+                        <input className={inputClass} value={customHeadline} onChange={(e) => setCustomHeadline(e.target.value)} placeholder="e.g. Project Architect" required />
+                      </Field>
+                    </div>
+                  )}
                 </div>
               </div>
 
