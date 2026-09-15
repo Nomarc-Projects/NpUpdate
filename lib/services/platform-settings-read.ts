@@ -31,6 +31,10 @@ import {
   ABOUT_TEAM_DEFAULT,
   normalizeAboutTeam,
   type AboutTeamSetting,
+  PWA_TAG,
+  PWA_DEFAULT,
+  normalizePwa,
+  type PwaSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -246,4 +250,31 @@ const readAboutTeam = unstable_cache(
 
 export async function getAboutTeam(): Promise<AboutTeamSetting> {
   return readAboutTeam();
+}
+
+/**
+ * PWA availability. Same fail-open reasoning as the other settings: an
+ * unreadable value resolves to the on default rather than a bad query silently
+ * stripping the install prompt and service worker from every visitor.
+ */
+const readPwa = unstable_cache(
+  async (): Promise<PwaSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'pwa' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return PWA_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizePwa(value);
+    } catch {
+      return PWA_DEFAULT;
+    }
+  },
+  ["platform-setting-pwa"],
+  { revalidate: 30, tags: [PWA_TAG] },
+);
+
+export async function getPwa(): Promise<PwaSetting> {
+  return readPwa();
 }

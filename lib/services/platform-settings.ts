@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -28,6 +28,9 @@ import {
   ABOUT_TEAM_TAG,
   normalizeAboutTeam,
   type AboutTeamSetting,
+  PWA_TAG,
+  normalizePwa,
+  type PwaSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -293,5 +296,42 @@ export async function setAboutTeam(
   // page right away, not after the 30s cache window.
   revalidateTag(ABOUT_TEAM_TAG, { expire: 0 });
   revalidatePath("/about");
+  return next;
+}
+
+/* ── PWA: the write path ────────────────────────────────────────────────
+ * Super-admin-only, like the other feature switches: turning installability on
+ * or off for every visitor is a platform-wide, launcher-grade act.
+ */
+export async function getPwaSetting(): Promise<PwaSetting> {
+  await requireAdmin();
+  return getPwa();
+}
+
+export async function setPwa(input: Partial<PwaSetting>): Promise<PwaSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getPwa();
+  const next = normalizePwa({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('pwa', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "pwa_enabled" : "pwa_disabled"}, 'platform_setting', 'pwa', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  // Purge immediately so flipping the switch changes the installed experience
+  // now, not after the 30s cache window.
+  revalidateTag(PWA_TAG, { expire: 0 });
+  revalidatePath("/", "layout");
   return next;
 }

@@ -10,7 +10,7 @@ import {
   ShoppingBag, Package, MessageSquare, Megaphone, Radio as CampaignIcon,
   UsersRound, Mail, Wrench, ScrollText, LineChart, CalendarDays, Store, CreditCard,
   Newspaper, Activity, Tags, Landmark, GalleryHorizontalEnd, Handshake,
-  type LucideIcon,
+  Smartphone, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
 import { Logo } from "@/components/ui/logo";
@@ -107,6 +107,8 @@ const NAV: Group[] = [
     { label: "Tools Page Config", href: "/admin/platform/tools", icon: Wrench, superOnly: true },
     // Pausing/relaunching payment plans is super-admin only (see setPaymentPlans).
     { label: "Payment Plans", href: "/admin/platform/payment-plans", icon: CreditCard, superOnly: true },
+    // Enabling/disabling PWA installability is super-admin only (see setPwa).
+    { label: "PWA Config", href: "/admin/platform/pwa", icon: Smartphone, superOnly: true },
     // Taking the public site offline is super-admin only (see setMaintenance).
     { label: "Maintenance Page Config", href: "/admin/maintenance", icon: Wrench, superOnly: true },
   ]},

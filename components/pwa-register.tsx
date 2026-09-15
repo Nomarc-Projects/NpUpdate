@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-export function PwaRegister() {
+export function PwaRegister({ enabled }: { enabled: boolean }) {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
@@ -10,6 +10,13 @@ export function PwaRegister() {
     // across edits, so the cache-first strategy in sw.js would keep serving
     // stale code after every change. Actively unregister any leftover SW.
     if (process.env.NODE_ENV !== "production") {
+      navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
+      return;
+    }
+
+    // PWA toggle is off: unregister any service worker left over from before it
+    // was flipped, so the toggle takes effect for visitors who already had one.
+    if (!enabled) {
       navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister())).catch(() => {});
       return;
     }

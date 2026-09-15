@@ -4,6 +4,8 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PwaRegister } from "@/components/pwa-register";
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
+import { getPwa } from "@/lib/services/platform-settings-read";
+import { PWA_DEFAULT } from "@/lib/services/platform-settings-shared";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -13,44 +15,48 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 // pointing at nomarcdatagig.com for content served from nomarcprojects.com.
 const BASE = "https://www.nomarcprojects.com";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(BASE),
-  title: {
-    default: "Nomarc Projects — Digital home for everything construction",
-    template: "%s — Nomarc Projects",
-  },
-  description:
-    "Nomadic Architects is building Nigeria's leading construction marketplace — connecting verified architects, engineers, quantity surveyors, material suppliers and buyers through a modern digital platform.",
-  keywords: [
-    "construction jobs Nigeria",
-    "hire construction professionals",
-    "building materials suppliers Nigeria",
-    "architects engineers quantity surveyors",
-    "construction marketplace",
-    "Nomarc Projects",
-  ],
-  applicationName: "Nomarc Projects",
-  authors: [{ name: "Nomadic Architects" }],
-  manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Nomarc" },
-  alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    siteName: "Nomarc Projects",
-    title: "Nomarc Projects — Digital home for everything construction",
+export async function generateMetadata(): Promise<Metadata> {
+  const { enabled: pwaEnabled } = await getPwa().catch(() => PWA_DEFAULT);
+  return {
+    metadataBase: new URL(BASE),
+    title: {
+      default: "Nomarc Projects — Digital home for everything construction",
+      template: "%s — Nomarc Projects",
+    },
     description:
-      "Learn how Nomadic Architects is building Nigeria's construction marketplace — connecting verified professionals, exhibitors and buyers through a modern digital platform.",
-    url: BASE,
-    locale: "en_NG",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Nomarc Projects — Digital home for everything construction",
-    description:
-      "Nigeria's leading construction marketplace connecting architects, engineers, quantity surveyors, material suppliers and buyers.",
-  },
-  robots: { index: true, follow: true },
-};
+      "Nomadic Architects is building Nigeria's leading construction marketplace — connecting verified architects, engineers, quantity surveyors, material suppliers and buyers through a modern digital platform.",
+    keywords: [
+      "construction jobs Nigeria",
+      "hire construction professionals",
+      "building materials suppliers Nigeria",
+      "architects engineers quantity surveyors",
+      "construction marketplace",
+      "Nomarc Projects",
+    ],
+    applicationName: "Nomarc Projects",
+    authors: [{ name: "Nomadic Architects" }],
+    ...(pwaEnabled
+      ? { manifest: "/manifest.json", appleWebApp: { capable: true, statusBarStyle: "black-translucent" as const, title: "Nomarc" } }
+      : {}),
+    alternates: { canonical: "/" },
+    openGraph: {
+      type: "website",
+      siteName: "Nomarc Projects",
+      title: "Nomarc Projects — Digital home for everything construction",
+      description:
+        "Learn how Nomadic Architects is building Nigeria's construction marketplace — connecting verified professionals, exhibitors and buyers through a modern digital platform.",
+      url: BASE,
+      locale: "en_NG",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "Nomarc Projects — Digital home for everything construction",
+      description:
+        "Nigeria's leading construction marketplace connecting architects, engineers, quantity surveyors, material suppliers and buyers.",
+    },
+    robots: { index: true, follow: true },
+  };
+}
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -90,7 +96,8 @@ const jsonLd = {
 // client-rendered component, which React 19 would refuse to execute.
 const themeInit = `(function(){try{var t=localStorage.getItem("theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";var c=document.documentElement.classList;c.remove("light","dark");c.add(d);document.documentElement.style.colorScheme=d;}catch(e){}})();`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const { enabled: pwaEnabled } = await getPwa().catch(() => PWA_DEFAULT);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -102,8 +109,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <Providers>{children}</Providers>
-        <PwaRegister />
-        <PwaInstallPrompt />
+        <PwaRegister enabled={pwaEnabled} />
+        <PwaInstallPrompt enabled={pwaEnabled} />
       </body>
     </html>
   );

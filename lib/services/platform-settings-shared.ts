@@ -13,6 +13,7 @@ export const EXHIBITION_HUB_TAG = "platform-setting:exhibition-hub";
 export const TOOLS_TAG = "platform-setting:tools";
 export const PAYMENT_PLANS_TAG = "platform-setting:payment-plans";
 export const ABOUT_TEAM_TAG = "platform-setting:about-team";
+export const PWA_TAG = "platform-setting:pwa";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
  * Seconds for one full marquee pass. Higher = slower. Adjustable without a
@@ -232,5 +233,27 @@ export function normalizeAboutTeam(raw: unknown): AboutTeamSetting {
     subtitle: typeof v.subtitle === "string" && v.subtitle.trim() ? v.subtitle.trim() : ABOUT_TEAM_DEFAULT.subtitle,
     eyebrow: typeof v.eyebrow === "string" && v.eyebrow.trim() ? v.eyebrow.trim() : ABOUT_TEAM_DEFAULT.eyebrow,
     members: members.length ? members : ABOUT_TEAM_DEFAULT.members,
+  };
+}
+
+/* ── Progressive Web App (PWA) availability ───────────────────────────
+ * Decides whether the app installs as a PWA: the /sw.js service worker is only
+ * registered and the install prompt is only shown when this is on. Super-admin
+ * editable like the other feature switches so turning PWA on/off is a toggle,
+ * not a deploy.
+ */
+export interface PwaSetting {
+  /** True = PWA behaviour (service worker + install prompt) is enabled. */
+  enabled: boolean;
+}
+
+/** Default: on. PWA ships live at launch, so the out-of-the-box state stays on. */
+export const PWA_DEFAULT: PwaSetting = { enabled: true };
+
+/** Coerce whatever is in the jsonb column into a complete, safe object. */
+export function normalizePwa(raw: unknown): PwaSetting {
+  const v = (raw ?? {}) as Partial<PwaSetting>;
+  return {
+    enabled: v.enabled === true,
   };
 }

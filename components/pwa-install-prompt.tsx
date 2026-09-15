@@ -14,12 +14,13 @@ const DISMISSED_KEY = "nomarc-pwa-dismissed";
 
 type Phase = "idle" | "installing" | "success";
 
-export function PwaInstallPrompt() {
+export function PwaInstallPrompt({ enabled }: { enabled: boolean }) {
   const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<Phase>("idle");
 
   useEffect(() => {
+    if (!enabled) return;
     if (typeof window === "undefined") return;
     if (window.matchMedia("(display-mode: standalone)").matches) return;
     if (sessionStorage.getItem(DISMISSED_KEY)) return;
