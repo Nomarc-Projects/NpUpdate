@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
-import { sendEmail, emailLayout, isEmailConfigured, siteUrl } from "@/lib/email/mailer";
+import { sendEmail, sendBulkEmails, emailLayout, isEmailConfigured, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes, previewRecipient } from "@/lib/email/shortcodes";
 import { unsubscribeUrlFor } from "@/lib/email/unsubscribe";
 import { withTracking } from "@/lib/email/tracking";
@@ -676,27 +676,28 @@ export async function sendCampaignNow(id: string): Promise<{ ok: boolean; error?
     let sentCount = 0;
     let failedCount = 0;
     for (const batch of chunk(recipients, CHUNK)) {
-      const results = await Promise.allSettled(
-        batch.map((r) =>
-          sendEmail({
-            to: r.email,
-            subject: c.subject,
-            html: emailLayout({
-              heading: c.subject,
-              body: withTracking(
-                applyShortcodes(c.bodyHtml, r, { baseUrl: siteUrl(), unsubscribeUrl: unsubscribeUrlFor(r.id) }),
-                id,
-                r.id,
-              ),
-              preheader: c.previewText ?? undefined,
-              unsubscribeUrl: unsubscribeUrlFor(r.id),
-            }),
-            fromName: c.fromName ?? undefined,
-            replyTo: c.replyTo ?? undefined,
-          }),
-        ),
-      );
-      for (const res of results) res.status === "fulfilled" ? sentCount++ : failedCount++;
+      const messages = batch.map((r) => ({
+        to: r.email,
+        subject: c.subject,
+        html: emailLayout({
+          heading: c.subject,
+          body: withTracking(
+            applyShortcodes(c.bodyHtml, r, { baseUrl: siteUrl(), unsubscribeUrl: unsubscribeUrlFor(r.id) }),
+            id,
+            r.id,
+          ),
+          preheader: c.previewText ?? undefined,
+          unsubscribeUrl: unsubscribeUrlFor(r.id),
+        }),
+        replyTo: c.replyTo ?? undefined,
+      }));
+      const results = await sendBulkEmails(messages).catch((e) => {
+        // Both the old allSettled path and this one must absorb a batch-wide
+        // failure (network, provider 5xx) without tripping the outer catch and
+        // marking the whole campaign failed — those addresses just didn't go out.
+        return messages.map(() => ({ to: "", error: e instanceof Error ? e.message : "send failed" }));
+      });
+      for (const res of results) res.error ? failedCount++ : sentCount++;
       if (recipients.length > CHUNK) await sleep(300);
     }
 

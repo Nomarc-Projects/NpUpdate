@@ -39,8 +39,7 @@ function getResend() {
 export async function sendEmail({ to, subject, html, text, replyTo, fromName: _fromName }: {
   to: string; subject: string; html: string; text?: string; replyTo?: string; fromName?: string;
 }) {
-  const r = getResend();
-  if (!r) {
+  if (!RESEND_API_KEY) {
     // In dev/preview a missing mailer is expected, so no-op rather than break
     // every auth flow. In production it means verification and password-reset
     // mail is silently vanishing — throw so it surfaces instead of leaving
@@ -51,7 +50,7 @@ export async function sendEmail({ to, subject, html, text, replyTo, fromName: _f
     console.warn(`[mailer] Resend not configured — skipped email "${subject}" → ${to}`);
     return { skipped: true };
   }
-  await r.emails.send({
+  await getResend()!.emails.send({
     from: RESEND_FROM,
     to,
     subject,
@@ -60,6 +59,60 @@ export async function sendEmail({ to, subject, html, text, replyTo, fromName: _f
     replyTo: replyTo?.trim() || undefined,
   });
   return { skipped: false };
+}
+
+export type BulkEmail = {
+  to: string; subject: string; html: string; text?: string; replyTo?: string;
+};
+
+export type BulkEmailResult = {
+  to: string;
+  /** Set when Resend accepted the message. */
+  id?: string;
+  /** Set when Resend rejected the message inside the batch. */
+  error?: string;
+};
+
+/**
+ * Send many emails in one API call via Resend's batch endpoint
+ * (`POST /emails/batch`), with permissive validation so a single bad address
+ * doesn't reject the whole slice — each message is attributed to its recipient
+ * through the response's `errors[].index`.
+ *
+ * Used by the campaign drain instead of N sequential `emails.send` calls: one
+ * round-trip per slice rather than one per recipient, which is what lets a
+ * large blast finish inside the drain route's wall-clock budget.
+ */
+export async function sendBulkEmails(emails: BulkEmail[]): Promise<BulkEmailResult[]> {
+  if (!RESEND_API_KEY) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(`Email not configured — refusing to silently drop ${emails.length} email(s)`);
+    }
+    console.warn(`[mailer] Resend not configured — skipped bulk send of ${emails.length} email(s)`);
+    return emails.map((e) => ({ to: e.to }));
+  }
+  if (emails.length === 0) return [];
+
+  const r = getResend()!;
+  const payload = emails.map((e) => ({
+    from: RESEND_FROM,
+    to: e.to,
+    subject: e.subject,
+    html: e.html,
+    text: e.text || stripHtml(e.html),
+    replyTo: e.replyTo?.trim() || undefined,
+  }));
+  const { data, error } = await r.batch.send(payload, { batchValidation: "permissive" });
+  if (error) throw new Error(error.message);
+
+  const accepted = ((data as { data?: { id: string }[] })?.data ?? []);
+  const failures = (data as { errors?: { index: number; message: string }[] })?.errors ?? [];
+  const errorByIndex = new Map(failures.map((f) => [f.index, f.message]));
+
+  return emails.map((e, i) => {
+    const err = errorByIndex.get(i);
+    return err ? { to: e.to, error: err } : { to: e.to, id: accepted[i]?.id };
+  });
 }
 
 function stripHtml(html: string) {

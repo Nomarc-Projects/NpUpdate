@@ -2,7 +2,7 @@ import "server-only";
 import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
-import { sendEmail, emailLayout, siteUrl } from "@/lib/email/mailer";
+import { sendBulkEmails, emailLayout, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes } from "@/lib/email/shortcodes";
 import { unsubscribeUrlFor } from "@/lib/email/unsubscribe";
 import { withTracking } from "@/lib/email/tracking";
@@ -104,13 +104,50 @@ export async function drainCampaign(id: string, limit: number): Promise<{ sent: 
   let sent = 0;
   let failed = 0;
 
-  // Sequential, not Promise.all: the mailer's own rate limiting is what
-  // paces this, and firing the whole slice at once would just queue the
-  // sends while making a partial failure harder to attribute.
-  for (const r of rows) {
-    const unsubscribeUrl = unsubscribeUrlFor(r.user_id);
-    try {
-      await sendEmail({
+  /**
+   * Resend's batch API accepts at most 100 messages per call. Slices above that
+   * are split here; permissive validation keeps a bad address from rejecting
+   * the slice, and `errors[].index` lets us attribute it back to the recipient.
+   */
+  const MAX_BATCH = 100;
+  const slice = (a: typeof rows, n: number): typeof rows[] =>
+    Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
+
+  /**
+   * Mark one recipient failed/retried. Shared by per-message batch errors and a
+   * whole-slice failure (e.g. the batch call itself threw) — same policy, one code path.
+   */
+  const recordFailure = async (r: { user_id: string; attempts: number; email: string }, message: string) => {
+    const attempts = Number(r.attempts) + 1;
+    // A transient failure gets bounded backoff and stays pending; a hard
+    // bounce (4xx, e.g. unknown user) is marked failed immediately so it
+    // can't stall the queue behind an address that will never accept mail.
+    if (attempts < MAX_ATTEMPTS && isTransient(message)) {
+      // Exponential backoff: 1 tick, 2 ticks, … (≈5 min and 10 min at the
+      // default scheduler interval).
+      await db.execute(sql`
+        UPDATE email_campaign_delivery
+        SET attempts = ${attempts}, error = ${message.slice(0, 500)},
+            next_attempt_at = now() + (interval '5 minutes' * ${Math.pow(2, attempts - 1)})
+        WHERE campaign_id = ${id} AND user_id = ${r.user_id}
+      `);
+    } else {
+      await db.execute(sql`
+        UPDATE email_campaign_delivery
+        SET status = 'failed', attempts = ${attempts}, error = ${message.slice(0, 500)}, next_attempt_at = NULL
+        WHERE campaign_id = ${id} AND user_id = ${r.user_id}
+      `);
+    }
+    failed++;
+  };
+
+  // One bulk call per slice instead of one send per recipient — the batch API
+  // keeps the drain within its wall-clock budget, and the mailer's rate limit
+  // is enforced by the slice count per tick in the drain route, unchanged.
+  for (const batch of slice(rows, MAX_BATCH)) {
+    const messages = batch.map((r) => {
+      const unsubscribeUrl = unsubscribeUrlFor(r.user_id);
+      return {
         to: r.email,
         subject: c.subject,
         html: emailLayout({
@@ -123,37 +160,33 @@ export async function drainCampaign(id: string, limit: number): Promise<{ sent: 
           preheader: c.previewText ?? undefined,
           unsubscribeUrl,
         }),
-        fromName: c.fromName ?? undefined,
         replyTo: c.replyTo ?? undefined,
-      });
-      await db.execute(sql`
-        UPDATE email_campaign_delivery SET status = 'sent', sent_at = now(), error = NULL
-        WHERE campaign_id = ${id} AND user_id = ${r.user_id}
-      `);
-      sent++;
+      };
+    });
+
+    let results;
+    try {
+      results = await sendBulkEmails(messages);
     } catch (e) {
+      // The whole slice went down (e.g. network/provider 5xx) — every recipient
+      // in it is transient and stays pending for retry.
       const message = e instanceof Error ? e.message : "send failed";
-      const attempts = Number(r.attempts) + 1;
-      // A transient failure gets bounded backoff and stays pending; a hard
-      // bounce (4xx, e.g. unknown user) is marked failed immediately so it
-      // can't stall the queue behind an address that will never accept mail.
-      if (attempts < MAX_ATTEMPTS && isTransient(e)) {
-        // Exponential backoff: 1 tick, 2 ticks, … (≈5 min and 10 min at the
-        // default scheduler interval).
-        await db.execute(sql`
-          UPDATE email_campaign_delivery
-          SET attempts = ${attempts}, error = ${message.slice(0, 500)},
-              next_attempt_at = now() + (interval '5 minutes' * ${Math.pow(2, attempts - 1)})
-          WHERE campaign_id = ${id} AND user_id = ${r.user_id}
-        `);
+      for (const r of batch) await recordFailure(r, message);
+      continue;
+    }
+
+    for (let i = 0; i < batch.length; i++) {
+      const r = batch[i];
+      const res = results[i];
+      if (res?.error) {
+        await recordFailure(r, res.error);
       } else {
         await db.execute(sql`
-          UPDATE email_campaign_delivery
-          SET status = 'failed', attempts = ${attempts}, error = ${message.slice(0, 500)}, next_attempt_at = NULL
+          UPDATE email_campaign_delivery SET status = 'sent', sent_at = now(), error = NULL
           WHERE campaign_id = ${id} AND user_id = ${r.user_id}
         `);
+        sent++;
       }
-      failed++;
     }
   }
 
