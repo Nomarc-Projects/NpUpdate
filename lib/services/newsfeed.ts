@@ -127,7 +127,8 @@ export async function savePost(input: PostInput & { id?: string }) {
   // with `blob:https://…` as its cover and rendered as a broken image for every
   // reader. Never store one; treat it as "no cover" and let the placeholder run.
   const cover = input.coverUrl?.trim();
-  const coverUrl = cover && !cover.startsWith("blob:") ? cover : null;
+  if (!cover || cover.startsWith("blob:")) throw new Error("Featured image is required");
+  const coverUrl = cover;
 
   const fields = {
     slug, title: input.title.trim(), excerpt: input.excerpt || null, body: input.body ? sanitize(input.body) : null,

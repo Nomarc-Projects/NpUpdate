@@ -88,7 +88,10 @@ export function MarketingFooter() {
         {/* Divider + bottom bar */}
         <div className="mt-16 pt-6 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-[13px] text-[#9a9a9a]">
-            © 2026 Nomarc Projects by Nomadic Architect. All rights Reserved.
+            All rights Reserved by Nomarc Projects, Developed by{" "}
+            <Link href="https://14eter.org" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline">
+              14Eter Limited
+            </Link>
           </p>
           <div className="flex items-center gap-8">
             <Link href="/privacy" className="text-[13px] text-[#9a9a9a] hover:text-white transition-colors">
