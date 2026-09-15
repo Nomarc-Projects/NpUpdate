@@ -53,6 +53,7 @@ export function AdminNewsFeed({ posts = [] }: { posts?: AdminPost[] }) {
   function save(status: "draft" | "published") {
     if (!editing) return;
     if (!editing.title.trim()) { toast.error("Title is required"); return; }
+    if (editing.coverUrl.startsWith("blob:")) { toast.error("Cover image is still uploading — wait for it to finish"); return; }
     const scheduling = status === "published" && !!editing.publishAt && new Date(`${editing.publishAt}T09:00:00`).getTime() > Date.now();
     start(async () => {
       try {
@@ -107,7 +108,7 @@ export function AdminNewsFeed({ posts = [] }: { posts?: AdminPost[] }) {
             {/* Featured image */}
             <div className="rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-4">
               <h3 className="text-sm font-bold text-[#1e1e1e] dark:text-white mb-3 flex items-center gap-2"><ImageIcon size={15} /> Featured image</h3>
-              {editing.coverUrl ? (
+              {editing.coverUrl && !editing.coverUrl.startsWith("blob:") ? (
                 <div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={editing.coverUrl} alt="cover" className="w-full h-36 rounded-lg object-cover" />
