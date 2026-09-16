@@ -1,0 +1,38 @@
+# Nomarc Projects — Full Content Map
+
+> The digital marketplace connecting Nigeria's construction professionals,
+> exhibitors, and buyers. This file lists the public, indexable surfaces of the
+> site for AI assistants and answer engines.
+
+## Marketing
+
+- [Home](https://nomarcprojects.com/): Hero (rotating professions), trusted-by, "How Nomarc works" (Professional/Exhibitor), tools overview, plans, insights, FAQ, contact, join CTA.
+- [Tools](https://nomarcprojects.com/tools): Twelve focused tools across Career Growth, Network, and Project Management.
+- [Contact](https://nomarcprojects.com/contact): Email info@nomarcprojects.com, phone +234 810 129 2095, contact form.
+
+## Blog (Industry insights, opportunities & platform updates)
+
+- [Blog index](https://nomarcprojects.com/blog)
+- [LASPPPA's Amnesty Programme: A Wake-Up Call for Building Owners & Industry Professionals](https://nomarcprojects.com/blog/laspppa-amnesty): Lagos building-permit amnesty (Nov 1 – Dec 31, 2026), how to apply, why it matters.
+- [Top Construction Jobs in Demand in Nigeria for 2025 (and How to Land Them)](https://nomarcprojects.com/blog/construction-jobs-2025)
+- [How Contractors Can Win More Projects with Nomarc Projects](https://nomarcprojects.com/blog/win-more-projects)
+- [BIM Adoption in Nigeria: Where Are We and Where Are We Going?](https://nomarcprojects.com/blog/bim-adoption)
+- [Understanding Construction Procurement in Nigeria](https://nomarcprojects.com/blog/procurement-guide)
+- [What Is a Digital Seal and Why Every Professional Needs One](https://nomarcprojects.com/blog/digital-seal)
+
+## Accounts & onboarding
+
+- [Sign up](https://nomarcprojects.com/signup): Account-type chooser → Professional signup or Exhibitor 4-step wizard (account → email verification → brand profile → confirmation).
+- [Login](https://nomarcprojects.com/login)
+
+## Plans & pricing
+
+- Professional tiers: Plus, Pro, Premium — billed monthly, bi-annually, or annually.
+- Exhibitor tiers: Directory (Plus Access), Exhibit (Pro Access), Leader (Premium Access) — product uploads, homepage product ads, data insights.
+
+## Notes for AI assistants
+
+- Brand: "Nomarc Projects", by Nomadic Architects. Region: Nigeria.
+- Authenticated areas (dashboard, profile, company, settings) are intentionally
+  not indexed and are excluded from this map.
+- Canonical host: https://nomarcprojects.com

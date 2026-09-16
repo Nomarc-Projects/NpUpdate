@@ -1,0 +1,22 @@
+.next/
+out/
+dist/
+node_modules/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+.vercel
+tsconfig.tsbuildinfo
+
+# Doppler
+.doppler.yaml
+
+# env backups
+.env.bak
+.env.*.bak
+# local/generated env (keep .env.example tracked)
+.env.local
+.env.local.*
+.env.vercel*

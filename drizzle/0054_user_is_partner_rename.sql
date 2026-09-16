@@ -1,0 +1,11 @@
+-- Auth: rename user.is_partner -> user."isPartner".
+--
+-- Better Auth persists additionalFields using the field name verbatim as the
+-- column name (camelCase, like its own "createdAt"/"emailVerified" columns).
+-- This column was added by 0053 as snake_case "is_partner", so the INSERT on
+-- every sign-up referenced a nonexistent column and failed with
+-- `column "isPartner" does not exist` (FAILED_TO_CREATE_USER). Rename it so
+-- Better Auth's "isPartner" field maps to a real column.
+-- Idempotent-guarded: rename only if the snake_case variant still exists.
+-- Apply: doppler run -p nomarc -c prd -- node scripts/apply-migration.cjs drizzle/0054_user_is_partner_rename.sql
+ALTER TABLE "user" RENAME COLUMN "is_partner" TO "isPartner";--> statement-breakpoint
