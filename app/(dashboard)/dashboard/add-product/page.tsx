@@ -1,9 +1,7 @@
 import { AddProductForm } from "./add-product-form";
 import { ExhibitorGate } from "@/components/dashboard/onboarding/exhibitor-gate";
-import { VerificationRequired } from "@/components/dashboard/exhibitor/verification-required";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
-import { getMyCompany } from "@/lib/services/company";
 import { getTrialState } from "@/lib/services/exhibitor-trial";
 import { TrialExhausted } from "@/components/dashboard/exhibitor/trial-exhausted";
 
@@ -19,9 +17,6 @@ export default async function AddProductPage() {
       />
     );
   }
-  // Trusted-marketplace gate: exhibitors must be verified before uploading (image 73).
-  const { data: company } = await getMyCompany();
-  if (!company.verified) return <VerificationRequired />;
 
   // The dashboard raises a modal before sending anyone here, but the URL is
   // typeable — so the allowance is checked again on the way in. Drafting is
