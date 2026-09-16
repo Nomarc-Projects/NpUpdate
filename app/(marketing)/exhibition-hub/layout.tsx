@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ComingSoon } from "@/components/coming-soon";
 import { getExhibitionHub } from "@/lib/services/platform-settings-read";
@@ -25,8 +26,16 @@ import { getExhibitionHub } from "@/lib/services/platform-settings-read";
 export const dynamic = "force-dynamic";
 
 export default async function ExhibitionHubLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  const role = (session?.user as { role?: string } | undefined)?.role;
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+
+  // Require login — the Exhibition Hub marketplace is for signed-in users only.
+  if (!session?.user) {
+    const pathname = h.get("x-nm-pathname") || "/exhibition-hub";
+    redirect(`/login?redirect=${encodeURIComponent(pathname)}`);
+  }
+
+  const role = (session.user as { role?: string } | undefined)?.role;
   const isAdmin = role === "admin" || role === "super_admin";
 
   // Fail open to CLOSED: if the setting can't be read, the hub stays locked

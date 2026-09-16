@@ -4,14 +4,12 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getBrowseProductById, getProductsForBrowse, type ProductCard } from "@/lib/services/catalog";
 import { pickRelated } from "@/lib/product-adapter";
-import { getCatalogProduct, sampleBrowseCards, type CatalogProduct } from "@/lib/sample-catalog";
+import type { CatalogProduct } from "@/lib/sample-catalog";
 import { ProductView } from "@/components/dashboard/buyer/product-view";
 
-/** Real published product → sample fallback (mirrors the shop's resilient reads). */
+/** Real published product only — the hub markets real listings, not samples. */
 async function loadProduct(id: string): Promise<CatalogProduct | null> {
-  let real: CatalogProduct | null = null;
-  try { real = await getBrowseProductById(id); } catch { real = null; }
-  return real ?? getCatalogProduct(id) ?? null;
+  try { return await getBrowseProductById(id); } catch { return null; }
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
@@ -34,7 +32,6 @@ export default async function HubProductPage({ params }: { params: Promise<{ id:
 
   let all: ProductCard[] = [];
   try { all = await getProductsForBrowse(); } catch { all = []; }
-  if (!all.length) all = sampleBrowseCards();
   const related = pickRelated(all, id, product.tags);
 
   return (

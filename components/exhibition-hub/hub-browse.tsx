@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -116,6 +117,7 @@ export function HubBrowse({
    *  exhibitor stores are behind auth — same convention as `handleSave`. */
   const gated = (path: string) => (signedIn ? path : `/signup?redirect=${path}`);
   const shopHref = gated("/dashboard/products");
+  const sellHref = gated("/dashboard/add-product");
 
   /** Category names and their card images are admin-managed (Admin → Taxonomy →
    *  Product categories). Read from the client so the hub keeps its one server
@@ -383,8 +385,23 @@ export function HubBrowse({
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center py-20">
               <div className="w-12 h-12 rounded-xl bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center text-[#9a9a9a]"><PackageSearch size={22} /></div>
-              <p className="mt-4 text-[15px] font-bold text-[#1e1e1e] dark:text-white">No products found</p>
-              <p className="mt-1 text-[13px] text-[#9a9a9a]">Try a different search or category.</p>
+              {products.length === 0 ? (
+                <>
+                  <p className="mt-4 text-[15px] font-bold text-[#1e1e1e] dark:text-white">No products listed yet</p>
+                  <p className="mt-1 text-[13px] text-[#9a9a9a]">The marketplace opens as soon as the first exhibitor lists a product.</p>
+                  <Link
+                    href={sellHref}
+                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#ffd716] text-[#1e1e1e] px-5 py-3 text-[13.5px] font-bold hover:bg-[#e6c114] transition-colors"
+                  >
+                    Become an exhibitor
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <p className="mt-4 text-[15px] font-bold text-[#1e1e1e] dark:text-white">No products found</p>
+                  <p className="mt-1 text-[13px] text-[#9a9a9a]">Try a different search or category.</p>
+                </>
+              )}
             </div>
           ) : (
             <motion.div layout className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
