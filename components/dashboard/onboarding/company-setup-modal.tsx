@@ -31,6 +31,7 @@ export function CompanySetupModal({ open, onClose }: { open: boolean; onClose: (
     e.preventDefault();
     if (!headline.trim()) { toast.error("Enter your company's profession / headline."); return; }
     if (!practiceCompanyName.trim()) { toast.error("Enter the company name."); return; }
+    if (!practiceRegNumber.trim()) { toast.error("Enter the company registration number."); return; }
     start(async () => {
       try {
         await completeProfessionalOnboarding({
@@ -79,7 +80,7 @@ export function CompanySetupModal({ open, onClose }: { open: boolean; onClose: (
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field label="Registration number" hint="Optional">
+          <Field label="Registration number" required>
             <input className={inputClass} value={practiceRegNumber} onChange={(e) => setPracticeRegNumber(e.target.value)} placeholder="e.g. RAC/004512" />
           </Field>
           <Field label="Availability">

@@ -169,8 +169,9 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
     }
     if (skills.length === 0) { toast.error("Add at least one skill."); return; }
     if (isLicensedOrRegistered && certs.length === 0) { toast.error("Add at least one certification."); return; }
-    if (experience.length === 0) { toast.error("Add at least one work experience."); return; }
+    if (!isPracticeCompany && experience.length === 0) { toast.error("Add at least one work experience."); return; }
     if (isPracticeCompany && education.length === 0) { toast.error("Add at least one education entry."); return; }
+    if (!isPracticeCompany && !bio.trim()) { toast.error("Write a short bio about yourself."); return; }
     if (!hasLocation) {
       if (!country) { toast.error("Select your country."); return; }
       if (!stateName) { toast.error("Select your state / region."); return; }
@@ -339,7 +340,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
 
               {/* Work experience */}
               <div className="mt-5 border-b border-[#f0f0f0] pb-5 dark:border-white/10">
-                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Briefcase size={15} className="text-[#9a9a9a]" /> Work experience</h3>
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Briefcase size={15} className="text-[#9a9a9a]" /> Work experience {isPracticeCompany ? <span className="text-[11px] font-medium text-[#9a9a9a]">(Optional)</span> : <span className="text-[#e5484d]">*</span>}</h3>
                 {experience.length > 0 && (
                   <ul className="mt-3 space-y-2">
                     {experience.map((x, i) => (
@@ -354,7 +355,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   </ul>
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input className={inputClass} placeholder="Role / title *" value={exp.title} onChange={(e) => setExp((p) => ({ ...p, title: e.target.value }))} />
+                  <input className={inputClass} placeholder={isPracticeCompany ? "Role / title" : "Role / title *"} value={exp.title} onChange={(e) => setExp((p) => ({ ...p, title: e.target.value }))} />
                   <input className={inputClass} placeholder="Company (optional)" value={exp.company} onChange={(e) => setExp((p) => ({ ...p, company: e.target.value }))} />
                   <SelectMenu placeholder="Start" value={exp.startDate} onChange={(v) => setExp((p) => ({ ...p, startDate: v }))} options={YEAR_OPTIONS} />
                   {!exp.current ? (
@@ -412,7 +413,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
             <section className={SECTION_CARD}>
               <h2 className={SECTION_TITLE}>About</h2>
               <div className="mt-4">
-                <Field label="Short bio" hint="Optional">
+                <Field label="Short bio" hint={isPracticeCompany ? "Optional" : undefined} required={!isPracticeCompany}>
                   <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
                 </Field>
               </div>

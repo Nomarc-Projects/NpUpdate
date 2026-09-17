@@ -72,17 +72,17 @@ export async function professionalChecklist(uid: string): Promise<ChecklistItem[
   ]);
 
   const filled = (v: string | null | undefined) => !!v && v.trim().length > 0;
-  // Education is only a requirement for members practising as a company.
-  const educationRequired = p?.practiceStatus === "company";
+  // Company practices don't need work experience or a bio; other members do.
+  const isCompanyPractice = p?.practiceStatus === "company";
 
   return [
     { key: "photo", label: "Add a profile photo", done: filled(p?.avatarUrl), href: "/dashboard/profile", tab: "public" },
     { key: "headline", label: "Add your occupation", done: filled(p?.headline), href: "/dashboard/profile", tab: "public" },
-    { key: "bio", label: "Add a short bio", done: filled(p?.bio), href: "/dashboard/profile", tab: "public", optional: true },
+    { key: "bio", label: "Add a short bio", done: filled(p?.bio), href: "/dashboard/profile", tab: "public", optional: isCompanyPractice },
     { key: "location", label: "Add your location", done: filled(p?.location), href: "/dashboard/profile", tab: "public" },
-    { key: "experience", label: "Add work experience", done: (ex?.v ?? 0) > 0, href: "/dashboard/profile?tab=qualifications", tab: "qualifications" },
+    { key: "experience", label: "Add work experience", done: (ex?.v ?? 0) > 0, href: "/dashboard/profile?tab=qualifications", tab: "qualifications", optional: isCompanyPractice },
     { key: "skills", label: "Add at least 3 skills", done: (sk?.v ?? 0) >= 3, href: "/dashboard/profile?tab=qualifications", tab: "qualifications" },
-    { key: "education", label: "Add your education", done: (ed?.v ?? 0) > 0, href: "/dashboard/profile?tab=education", tab: "education", optional: !educationRequired },
+    { key: "education", label: "Add your education", done: (ed?.v ?? 0) > 0, href: "/dashboard/profile?tab=education", tab: "education", optional: !isCompanyPractice },
     // Off-page and genuinely optional, so it neither carries a tab nor counts.
     { key: "service", label: "Publish a service", done: (sv?.v ?? 0) > 0, href: "/dashboard/services", optional: true },
   ];
@@ -115,8 +115,9 @@ export async function meetsTier1(uid: string): Promise<boolean> {
  * Fields checked:
  *   headline, availability, practiceStatus (+ conditional: licenseNumber /
  *   registrationNumber / practiceCompanyName+RegNumber+Address), location,
- *   ≥1 skill, ≥1 certification (registered/licensed only), ≥1 experience,
- *   ≥1 education (only for "company" practice status).
+ *   ≥1 skill, ≥1 certification (registered/licensed only), ≥1 experience and
+ *   a bio (both except for "company" practice status), ≥1 education (only for
+ *   "company" practice status).
  */
 export async function professionalOnboardingComplete(uid: string): Promise<boolean> {
   const [[p], [sk], [ce], [ex], [ed]] = await Promise.all([
@@ -138,7 +139,8 @@ export async function professionalOnboardingComplete(uid: string): Promise<boole
   if ((sk?.v ?? 0) < 1) return false;
   // Certifications only apply to registered or licensed professionals.
   if ((p.practiceStatus === "licensed" || p.practiceStatus === "registered") && (ce?.v ?? 0) < 1) return false;
-  if ((ex?.v ?? 0) < 1) return false;
+  if (p.practiceStatus !== "company" && (ex?.v ?? 0) < 1) return false;
+  if (p.practiceStatus !== "company" && !filled(p.bio)) return false;
   // Education is only required when practising as a company.
   if (p.practiceStatus === "company" && (ed?.v ?? 0) < 1) return false;
   return true;
