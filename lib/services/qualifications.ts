@@ -79,11 +79,11 @@ export async function removeReference(id: string) {
   bump();
 }
 
-export async function addExperience(input: { title: string; company: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }) {
+export async function addExperience(input: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }) {
   const uid = await requireUserId();
-  if (!input.title.trim() || !input.company.trim()) throw new Error("Role and company are required");
+  if (!input.title.trim()) throw new Error("Role is required");
   await db.insert(workExperience).values({
-    userId: uid, title: input.title.trim(), company: input.company.trim(), description: input.description || null,
+    userId: uid, title: input.title.trim(), company: input.company?.trim() || "", description: input.description || null,
     location: input.location || null, workplaceType: input.workplaceType || null,
     startDate: input.startDate || null, endDate: input.current ? null : input.endDate || null, current: !!input.current,
   });

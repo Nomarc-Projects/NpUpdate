@@ -107,7 +107,7 @@ export function UserDetailView({ user, backHref }: { user: AdminUserDetail; back
                 <div className="space-y-3">
                   {user.workExperience.slice(0, 3).map((w, i) => (
                     <div key={i}>
-                      <p className="text-[12.5px] font-semibold text-[#1e1e1e] dark:text-white">{w.title} · {w.company}</p>
+                      <p className="text-[12.5px] font-semibold text-[#1e1e1e] dark:text-white">{w.title}{w.company ? ` · ${w.company}` : ""}</p>
                       <p className="text-[11px] text-[#9a9a9a]">{w.period}{w.location ? ` · ${w.location}` : ""}</p>
                       {w.description && <p className="mt-0.5 text-[11.5px] leading-relaxed text-[#6b6b6b] dark:text-white/50 line-clamp-2">{w.description}</p>}
                     </div>

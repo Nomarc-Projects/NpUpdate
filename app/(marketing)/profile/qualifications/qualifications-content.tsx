@@ -118,7 +118,7 @@ export function QualificationsContent({
 
   // ── optimistic handlers ──
   function submitExperience() {
-    if (!w.title.trim() || !w.company.trim()) { toast.error("Role and company are required"); return; }
+    if (!w.title.trim()) { toast.error("Role is required"); return; }
     const id = tmp();
     const row: Experience = { id, title: w.title.trim(), company: w.company.trim(), description: w.description || null, location: w.location || null, workplaceType: w.workplaceType || null, startDate: expStart || null, endDate: w.current ? null : expEnd || null, current: w.current };
     setExp((p) => [row, ...p]);
@@ -188,7 +188,7 @@ export function QualificationsContent({
           {exp.map((x) => (
             <div key={x.id} className="group relative">
               <button onClick={() => removeExperience(x.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-              <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{x.title} • {x.company}</p>
+              <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{x.title}{x.company ? ` • ${x.company}` : ""}</p>
               <p className="text-[13px] text-[#9a9a9a] mt-0.5">{fmtRange(x.startDate, x.endDate, x.current)}</p>
               {(x.location || x.workplaceType) && <p className="text-[13px] text-[#9a9a9a]">{[x.location, x.workplaceType].filter(Boolean).join(" • ")}</p>}
               {x.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-3 max-w-[560px]">{x.description}</p>}
@@ -253,7 +253,7 @@ export function QualificationsContent({
         footer={<><GhostButton type="button" onClick={close}>Cancel</GhostButton><PrimaryButton type="button" onClick={submitExperience}>Add</PrimaryButton></>}>
         <div className="space-y-4">
           <Field label="Role / Job title"><input className={inputClass} value={w.title} onChange={(e) => setW({ ...w, title: e.target.value })} placeholder="Architect" /></Field>
-          <Field label="Company Name"><input className={inputClass} value={w.company} onChange={(e) => setW({ ...w, company: e.target.value })} placeholder="Company name" /></Field>
+          <Field label="Company Name" hint="Optional"><input className={inputClass} value={w.company} onChange={(e) => setW({ ...w, company: e.target.value })} placeholder="Company name" /></Field>
           <Field label="Description"><input className={inputClass} value={w.description} onChange={(e) => setW({ ...w, description: e.target.value })} placeholder="What did you do?" /></Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Location"><input className={inputClass} value={w.location} onChange={(e) => setW({ ...w, location: e.target.value })} placeholder="City, State" /></Field>

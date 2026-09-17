@@ -26,13 +26,14 @@ const DESCRIPTION_MAX = 2500;
 
 /** One panel of the form. The design is a single scroll of titled cards rather
  *  than a stepper, so each section is its own card with a lead-in line. */
-function Section({ title, hint, optional, children }: {
-  title: string; hint?: string; optional?: boolean; children: React.ReactNode;
+function Section({ title, hint, optional, required, children }: {
+  title: string; hint?: string; optional?: boolean; required?: boolean; children: React.ReactNode;
 }) {
   return (
     <section className="rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-white/[0.02] p-4 sm:p-5">
       <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">
         {title}
+        {required && <span className="ml-1 text-[#e5484d]">*</span>}
         {optional && <span className="ml-1.5 font-medium text-[#9a9a9a]">(Optional)</span>}
       </h2>
       {hint && <p className="mt-0.5 mb-4 text-[12.5px] text-[#9a9a9a]">{hint}</p>}
@@ -273,7 +274,7 @@ export function JobsPostWizard() {
         <div className="space-y-4">
           <Section title="Role basics" hint="The headline information candidates see first.">
             <div className={two}>
-              <Field label="Role title"><input className={inputClass} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g Senior Architect" /></Field>
+              <Field label="Role title" required><input className={inputClass} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g Senior Architect" /></Field>
               <Field label="Work model"><Select value={f.workModel} onChange={(v) => set("workModel", v)} options={WORK_MODEL} /></Field>
               <Field label="Posting as">
                 <Select value={f.companyType} onChange={onCompanyType} options={COMPANY_TYPES} />
@@ -295,7 +296,7 @@ export function JobsPostWizard() {
             </div>
           </Section>
 
-          <Section title="Job Description" hint="Describe responsibilities, the team, and what success looks like.">
+          <Section title="Job Description" hint="Describe responsibilities, the team, and what success looks like." required>
             <p className="mb-1.5 text-right text-[11.5px] text-[#9a9a9a]">{f.description.length}/{DESCRIPTION_MAX.toLocaleString()}</p>
             <textarea
               rows={6}

@@ -87,6 +87,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   const [skills, setSkills] = useState<string[]>([]);
   const [practiceLicenceStatus, setPracticeLicenceStatus] = useState("");
   const isLicensedOrRegistered = ["licensed", "registered"].includes(PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? "");
+  const isPracticeCompany = (PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus) === "company";
   const [licenseNumber, setLicenseNumber] = useState("");
   const [registrationNumber, setRegistrationNumber] = useState("");
   const [practiceCompanyName, setPracticeCompanyName] = useState("");
@@ -137,7 +138,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   }
 
   function addExp() {
-    if (!exp.title.trim() || !exp.company.trim()) { toast.error("Role and company are required."); return; }
+    if (!exp.title.trim()) { toast.error("Role is required."); return; }
     if (!exp.startDate) { toast.error("Select the start year."); return; }
     if (!exp.current && !exp.endDate) { toast.error("Select the end year (or tick 'Currently work here')."); return; }
     setExperience((p) => [...p, { ...exp, title: exp.title.trim(), company: exp.company.trim() }]);
@@ -169,8 +170,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
     if (skills.length === 0) { toast.error("Add at least one skill."); return; }
     if (isLicensedOrRegistered && certs.length === 0) { toast.error("Add at least one certification."); return; }
     if (experience.length === 0) { toast.error("Add at least one work experience."); return; }
-    if (education.length === 0) { toast.error("Add at least one education entry."); return; }
-    if (!bio.trim()) { toast.error("Write a short bio about yourself."); return; }
+    if (isPracticeCompany && education.length === 0) { toast.error("Add at least one education entry."); return; }
     if (!hasLocation) {
       if (!country) { toast.error("Select your country."); return; }
       if (!stateName) { toast.error("Select your state / region."); return; }
@@ -215,7 +215,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
           <div className="border-b border-[#f0f0f0] py-7 dark:border-white/10">
             <h1 className="text-[26px] font-bold leading-tight tracking-tight text-[#1e1e1e] dark:text-white">{title}</h1>
             <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/55">{description}</p>
-            <p className="mx-auto mt-2 max-w-md text-[12px] font-medium text-[#caa400] dark:text-[#ffd716]">All fields are required.</p>
+            <p className="mx-auto mt-2 max-w-md text-[12px] font-medium text-[#caa400] dark:text-[#ffd716]">All fields are required unless marked optional.</p>
           </div>
 
           <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-5 py-6">
@@ -345,7 +345,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                     {experience.map((x, i) => (
                       <li key={i} className={cn(ROW, "flex items-center justify-between gap-2")}>
                         <span className="truncate">
-                          <span className="font-semibold">{x.title}</span> · {x.company}
+                          <span className="font-semibold">{x.title}</span>{x.company ? ` · ${x.company}` : ""}
                           <span className="text-[#9a9a9a]">{x.startDate || x.endDate ? ` — ${[x.startDate, x.current ? "Present" : x.endDate].filter(Boolean).join(" – ")}` : ""}</span>
                         </span>
                         <button type="button" onClick={() => setExperience((p) => p.filter((_, j) => j !== i))} aria-label="Remove role" className="flex-shrink-0 text-[#9a9a9a] hover:text-[#e5484d]"><X size={13} /></button>
@@ -355,7 +355,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <input className={inputClass} placeholder="Role / title *" value={exp.title} onChange={(e) => setExp((p) => ({ ...p, title: e.target.value }))} />
-                  <input className={inputClass} placeholder="Company *" value={exp.company} onChange={(e) => setExp((p) => ({ ...p, company: e.target.value }))} />
+                  <input className={inputClass} placeholder="Company (optional)" value={exp.company} onChange={(e) => setExp((p) => ({ ...p, company: e.target.value }))} />
                   <SelectMenu placeholder="Start" value={exp.startDate} onChange={(v) => setExp((p) => ({ ...p, startDate: v }))} options={YEAR_OPTIONS} />
                   {!exp.current ? (
                     <SelectMenu placeholder="End" value={exp.endDate} onChange={(v) => setExp((p) => ({ ...p, endDate: v }))} options={YEAR_OPTIONS} />
@@ -372,7 +372,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
 
               {/* Education */}
               <div className="mt-5">
-                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><GraduationCap size={15} className="text-[#9a9a9a]" /> Education</h3>
+                <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><GraduationCap size={15} className="text-[#9a9a9a]" /> Education {isPracticeCompany ? <span className="text-[#e5484d]">*</span> : <span className="text-[11px] font-medium text-[#9a9a9a]">(Optional)</span>}</h3>
                 {education.length > 0 && (
                   <ul className="mt-3 space-y-2">
                     {education.map((v, i) => (
@@ -388,7 +388,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   </ul>
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input className={inputClass} placeholder="School *" value={edu.school} onChange={(e) => setEdu((p) => ({ ...p, school: e.target.value }))} />
+                  <input className={inputClass} placeholder={isPracticeCompany ? "School *" : "School"} value={edu.school} onChange={(e) => setEdu((p) => ({ ...p, school: e.target.value }))} />
                   <input className={inputClass} placeholder="Degree / qualification" value={edu.degree} onChange={(e) => setEdu((p) => ({ ...p, degree: e.target.value }))} />
                   <input className={inputClass} placeholder="Field of study" value={edu.field} onChange={(e) => setEdu((p) => ({ ...p, field: e.target.value }))} />
                   <div className="grid grid-cols-2 gap-3">
@@ -412,8 +412,8 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
             <section className={SECTION_CARD}>
               <h2 className={SECTION_TITLE}>About</h2>
               <div className="mt-4">
-                <Field label="Short bio">
-                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" required />
+                <Field label="Short bio" hint="Optional">
+                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
                 </Field>
               </div>
             </section>

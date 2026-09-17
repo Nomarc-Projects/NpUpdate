@@ -77,15 +77,20 @@ export function Field({
   label,
   children,
   hint,
+  required,
 }: {
   label: string;
   children: React.ReactNode;
   hint?: string;
+  required?: boolean;
 }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <label className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">{label}</label>
+        <label className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">
+          {label}
+          {required && <span className="text-[#e5484d]"> *</span>}
+        </label>
         {hint && <span className="text-[11px] text-[#b3b3b3]">{hint}</span>}
       </div>
       {children}

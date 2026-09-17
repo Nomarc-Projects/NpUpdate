@@ -203,7 +203,7 @@ export async function completeProfessionalOnboarding(input: {
   companyKind?: "professional" | "non_professional";
   skills?: string[];
   certifications?: { name: string; issuer?: string; year?: number }[];
-  experience?: { title: string; company: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }[];
+  experience?: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }[];
   education?: { school: string; degree?: string; field?: string; startYear?: number; endYear?: number; current?: boolean; description?: string }[];
 }) {
   const uid = await requireUserId();
@@ -245,8 +245,8 @@ export async function completeProfessionalOnboarding(input: {
   // that year so the insert doesn't throw (and then get swallowed by the catch
   // below, silently dropping the experience from the Qualifications tab).
   const fullDate = (y?: string) => (y && /^\d{4}$/.test(y) ? `${y}-01-01` : y || null);
-  const expRows = (input.experience ?? []).filter((x) => x.title.trim() && x.company.trim()).map((x) => ({
-    userId: uid, title: x.title.trim(), company: x.company.trim(), description: x.description?.trim() || null,
+  const expRows = (input.experience ?? []).filter((x) => x.title.trim()).map((x) => ({
+    userId: uid, title: x.title.trim(), company: x.company?.trim() || "", description: x.description?.trim() || null,
     location: x.location?.trim() || null, workplaceType: x.workplaceType?.trim() || null,
     startDate: fullDate(x.startDate), endDate: x.current ? null : fullDate(x.endDate), current: !!x.current,
   }));
