@@ -1155,6 +1155,8 @@ export const emailCampaign = pgTable("email_campaign", {
   /** Set when targeting a saved segment; otherwise audienceKey applies. */
   segmentId: uuid("segment_id"),
   audienceKey: text("audience_key").default("all_users").notNull(),
+  /** audienceKey = "manual": arbitrary addresses typed in by the admin. */
+  manualEmails: text("manual_emails").array(),
   subject: text("subject").notNull(),
   previewText: text("preview_text"),
   fromName: text("from_name"),

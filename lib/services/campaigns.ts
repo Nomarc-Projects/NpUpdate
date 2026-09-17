@@ -45,6 +45,8 @@ export type CampaignRow = {
   recipientUserIds: string[] | null;
   /** audienceKey = "segments": one or more saved segments. */
   segmentIds: string[] | null;
+  /** audienceKey = "manual": arbitrary addresses typed in by the admin. */
+  manualEmails: string[] | null;
   subject: string;
   previewText: string | null;
   fromName: string | null;
@@ -68,6 +70,9 @@ const AUDIENCE_LABELS: Record<string, string> = {
   professionals: "Professionals",
   exhibitors: "Exhibitors",
   employers: "Employers",
+  custom: "Custom recipients",
+  segments: "Segments",
+  manual: "Enter emails manually",
 };
 
 const fmtDateTime = (raw: string | null) =>
@@ -83,7 +88,13 @@ const fmtDateTime = (raw: string | null) =>
  */
 export async function suppressEmailForUser(userId: string): Promise<string | null> {
   const found = await db.execute(sql`SELECT email FROM "user" WHERE id = ${userId} LIMIT 1`);
-  const email = (found.rows[0] as { email: string | null } | undefined)?.email;
+  let email = (found.rows[0] as { email: string | null } | undefined)?.email ?? null;
+  // Manual recipients (audience_key = 'manual') have no user row — the recipient
+  // id itself carries the address, so the signed unsubscribe link stays valid.
+  if (!email && userId.startsWith("manual:")) {
+    const raw = userId.slice("manual:".length);
+    if (/^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(raw)) email = raw;
+  }
   if (!email) return null;
   await db.execute(sql`
     INSERT INTO email_suppression (email, user_id, reason)
@@ -153,6 +164,37 @@ async function multiSegmentRecipients(segmentIds: string[]): Promise<{ id: strin
   return [...byId.values()];
 }
 
+const EMAIL_RE = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;
+
+/**
+ * Manual addresses (audienceKey = "manual").
+ *
+ * The composer normalises on entry, but this re-normalises in case a campaign
+ * was saved with raw input from another source: trim, lowercase, de-dupe, and
+ * drop anything that is not a valid address.
+ *
+ * Each recipient gets a synthetic id of `manual:<email>` — the delivery ledger
+ * keys on user_id, and this doubles as the signed unsubscribe identity that
+ * `suppressEmailForUser` recognises.
+ */
+async function manualRecipients(rawEmails: string[]): Promise<{ id: string; name: string; email: string }[]> {
+  const seen = new Set<string>();
+  const out: { id: string; name: string; email: string }[] = [];
+  for (const raw of rawEmails ?? []) {
+    const email = String(raw ?? "").trim().toLowerCase();
+    if (!email || seen.has(email) || !EMAIL_RE.test(email)) continue;
+    seen.add(email);
+    out.push({ id: `manual:${email}`, name: "", email });
+  }
+  if (!out.length) return [];
+  const res = await db.execute(sql`
+    SELECT email FROM email_suppression
+    WHERE lower(email) IN (${sql.join(out.map((x) => sql`${x.email}`), sql`, `)})
+  `);
+  const suppressed = new Set((res.rows as { email: string }[]).map((r) => r.email.toLowerCase()));
+  return out.filter((r) => !suppressed.has(r.email));
+}
+
 /**
  * Audience → recipients.
  *
@@ -165,9 +207,11 @@ async function resolveRecipients(c: {
   audienceKey: string;
   recipientUserIds?: string[] | null;
   segmentIds?: string[] | null;
+  manualEmails?: string[] | null;
 }) {
   if (c.audienceKey === "custom") return explicitRecipients(c.recipientUserIds ?? []);
   if (c.audienceKey === "segments") return multiSegmentRecipients(c.segmentIds ?? []);
+  if (c.audienceKey === "manual") return manualRecipients(c.manualEmails ?? []);
   return c.segmentId ? segmentRecipientsById(c.segmentId) : builtinRecipients(c.audienceKey);
 }
 
@@ -201,6 +245,7 @@ export async function getCampaignAudienceCount(input: {
   audienceKey?: string;
   recipientUserIds?: string[] | null;
   segmentIds?: string[] | null;
+  manualEmails?: string[] | null;
 }): Promise<number> {
   await requireAdmin();
   const rows = await resolveRecipients({
@@ -208,6 +253,7 @@ export async function getCampaignAudienceCount(input: {
     audienceKey: input.audienceKey ?? "all_users",
     recipientUserIds: input.recipientUserIds ?? null,
     segmentIds: input.segmentIds ?? null,
+    manualEmails: input.manualEmails ?? null,
   });
   return rows.length;
 }
@@ -225,6 +271,7 @@ function toRow(r: Record<string, unknown>, opens: number, clicks: number): Campa
     audienceLabel: r.segment_name ? String(r.segment_name) : (AUDIENCE_LABELS[String(r.audience_key ?? "all_users")] ?? String(r.audience_key ?? "")),
     recipientUserIds: Array.isArray(r.recipient_user_ids) ? (r.recipient_user_ids as string[]) : null,
     segmentIds: Array.isArray(r.segment_ids) ? (r.segment_ids as string[]).map(String) : null,
+    manualEmails: Array.isArray(r.manual_emails) ? (r.manual_emails as string[]) : null,
     subject: String(r.subject ?? ""),
     previewText: r.preview_text ? String(r.preview_text) : null,
     fromName: r.from_name ? String(r.from_name) : null,
@@ -250,7 +297,7 @@ export async function listCampaigns(): Promise<CampaignRow[]> {
   const res = await db.execute(sql`
     SELECT c.id, c.name, c.segment_id, c.audience_key, c.subject, c.preview_text, c.from_name, c.reply_to,
            c.body_html, c.status, c.scheduled_at, c.sent_at, c.recipient_count, c.sent_count, c.failed_count,
-           c.recipient_user_ids, c.segment_ids,
+           c.recipient_user_ids, c.segment_ids, c.manual_emails,
            c.created_at, s.name AS segment_name,
            (SELECT count(DISTINCT e.user_id) FROM email_campaign_event e WHERE e.campaign_id = c.id AND e.kind = 'open')::int AS opens,
            (SELECT count(DISTINCT e.user_id) FROM email_campaign_event e WHERE e.campaign_id = c.id AND e.kind = 'click')::int AS clicks
@@ -287,6 +334,8 @@ export type CampaignInput = {
   recipientUserIds?: string[] | null;
   /** audienceKey = "segments". */
   segmentIds?: string[] | null;
+  /** audienceKey = "manual". */
+  manualEmails?: string[] | null;
 };
 
 function validate(input: CampaignInput): string | null {
@@ -327,13 +376,16 @@ export async function saveCampaign(input: CampaignInput & { id?: string }): Prom
     const admin = await requireAdmin();
     const err = validate(input);
     if (err) return { ok: false, error: err };
-    // "custom" and "segments" carry their own arrays and must not be rewritten
-    // to the legacy single-segment shape just because segmentId happens to be set.
-    const explicit = input.audienceKey === "custom" || input.audienceKey === "segments";
+    // "custom", "segments" and "manual" carry their own arrays and must not be
+    // rewritten to the legacy single-segment shape just because segmentId might be set.
+    const explicit = input.audienceKey === "custom" || input.audienceKey === "segments" || input.audienceKey === "manual";
     const segmentId = explicit ? null : (input.segmentId || null);
     const audienceKey = explicit ? input.audienceKey! : segmentId ? "segment" : (input.audienceKey || "all_users");
     const recipientIds = input.audienceKey === "custom" ? (input.recipientUserIds ?? []) : null;
     const segIds = input.audienceKey === "segments" ? (input.segmentIds ?? []) : null;
+    const manualEmails = input.audienceKey === "manual"
+      ? (input.manualEmails ?? []).map((e) => e.trim().toLowerCase()).filter(Boolean)
+      : null;
     const asTextArray = (v: string[] | null) => (v === null ? null : sql`${v}::text[]`);
     const asUuidArray = (v: string[] | null) => (v === null ? null : sql`${v}::uuid[]`);
 
@@ -350,6 +402,7 @@ export async function saveCampaign(input: CampaignInput & { id?: string }): Prom
           reply_to = ${input.replyTo?.trim() || null}, body_html = ${input.bodyHtml},
           segment_id = ${segmentId}, audience_key = ${audienceKey},
           recipient_user_ids = ${asTextArray(recipientIds)}, segment_ids = ${asUuidArray(segIds)},
+          manual_emails = ${asTextArray(manualEmails)},
           updated_at = now()
         WHERE id = ${input.id}
       `);
@@ -359,10 +412,10 @@ export async function saveCampaign(input: CampaignInput & { id?: string }): Prom
 
     const res = await db.execute(sql`
       INSERT INTO email_campaign (name, subject, preview_text, from_name, reply_to, body_html, segment_id, audience_key,
-                                  recipient_user_ids, segment_ids, status, created_by)
+                                  recipient_user_ids, segment_ids, manual_emails, status, created_by)
       VALUES (${input.name.trim()}, ${input.subject.trim()}, ${input.previewText?.trim() || null}, ${input.fromName?.trim() || null},
               ${input.replyTo?.trim() || null}, ${input.bodyHtml}, ${segmentId}, ${audienceKey},
-              ${asTextArray(recipientIds)}, ${asUuidArray(segIds)}, 'draft', ${admin.id})
+              ${asTextArray(recipientIds)}, ${asUuidArray(segIds)}, ${asTextArray(manualEmails)}, 'draft', ${admin.id})
       RETURNING id
     `);
     revalidatePath("/admin/email-campaigns");
@@ -388,10 +441,13 @@ export async function duplicateCampaign(id: string): Promise<{ ok: boolean; erro
   try {
     const admin = await requireAdmin();
     // Copies the content but never the delivery history — the duplicate starts
-    // as a fresh draft with zeroed counters.
+    // as a fresh draft with zeroed counters. The audience columns ride along so
+    // a duplicate of a custom/segments/manual campaign targets the same people.
     await db.execute(sql`
-      INSERT INTO email_campaign (name, subject, preview_text, from_name, reply_to, body_html, segment_id, audience_key, status, created_by)
-      SELECT name || ' (copy)', subject, preview_text, from_name, reply_to, body_html, segment_id, audience_key, 'draft', ${admin.id}
+      INSERT INTO email_campaign (name, subject, preview_text, from_name, reply_to, body_html, segment_id, audience_key,
+                                  recipient_user_ids, segment_ids, manual_emails, status, created_by)
+      SELECT name || ' (copy)', subject, preview_text, from_name, reply_to, body_html, segment_id, audience_key,
+             recipient_user_ids, segment_ids, manual_emails, 'draft', ${admin.id}
       FROM email_campaign WHERE id = ${id}
     `);
     revalidatePath("/admin/email-campaigns");
@@ -509,9 +565,9 @@ export async function scheduleCampaign(id: string, whenIso: string): Promise<{ o
  * machine caller (secret-guarded) — this avoids the session check without
  * loosening `getCampaign` itself.
  */
-async function readCampaignForEnqueue(id: string): Promise<Pick<CampaignRow, "status" | "segmentId" | "audienceKey" | "recipientUserIds" | "segmentIds" | "scheduledAtRaw"> | null> {
+async function readCampaignForEnqueue(id: string): Promise<Pick<CampaignRow, "status" | "segmentId" | "audienceKey" | "recipientUserIds" | "segmentIds" | "manualEmails" | "scheduledAtRaw"> | null> {
   const res = await db.execute(sql`
-    SELECT status, segment_id, audience_key, recipient_user_ids, segment_ids, scheduled_at
+    SELECT status, segment_id, audience_key, recipient_user_ids, segment_ids, manual_emails, scheduled_at
     FROM email_campaign WHERE id = ${id} LIMIT 1
   `);
   const r = res.rows[0] as Record<string, unknown> | undefined;
@@ -522,6 +578,7 @@ async function readCampaignForEnqueue(id: string): Promise<Pick<CampaignRow, "st
     audienceKey: String(r.audience_key ?? "all_users"),
     recipientUserIds: Array.isArray(r.recipient_user_ids) ? (r.recipient_user_ids as string[]) : null,
     segmentIds: Array.isArray(r.segment_ids) ? (r.segment_ids as string[]).map(String) : null,
+    manualEmails: Array.isArray(r.manual_emails) ? (r.manual_emails as string[]) : null,
     scheduledAtRaw: r.scheduled_at ? new Date(String(r.scheduled_at)).toISOString() : null,
   };
 }
@@ -564,7 +621,7 @@ async function enqueueCampaignForDelivery(
     return { ok: false, error: "This campaign is already sending — wait for the drain to finish it." };
   }
 
-  const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds });
+  const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds, manualEmails: c.manualEmails });
   if (recipients.length === 0) return { ok: false, error: "That audience currently matches nobody — nothing was queued." };
 
   // ON CONFLICT DO NOTHING is what makes re-running safe: anyone already in the
@@ -663,7 +720,7 @@ export async function sendCampaignNow(id: string): Promise<{ ok: boolean; error?
     if (c.status === "sent" || c.status === "sending") return { ok: false, error: "This campaign has already been sent." };
     if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so nothing was sent." };
 
-    const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds });
+const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds, manualEmails: c.manualEmails });
     if (recipients.length === 0) return { ok: false, error: "That audience currently matches nobody — nothing was sent." };
 
     await db.execute(sql`

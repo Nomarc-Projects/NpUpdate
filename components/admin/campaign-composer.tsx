@@ -42,10 +42,10 @@ export type SegmentOption = { id: string; name: string };
 export type Recipient = { id: string; name: string; email: string };
 
 /**
- * The six audiences. Four resolve from a role filter; the last two carry an
+ * The seven audiences. Four resolve from a role filter; the last three carry an
  * explicit list, which is why the audience can no longer be a single string.
  */
-export type AudienceKind = "all_users" | "professionals" | "exhibitors" | "employers" | "custom" | "segments";
+export type AudienceKind = "all_users" | "professionals" | "exhibitors" | "employers" | "custom" | "segments" | "manual";
 
 const AUDIENCE_LABEL: Record<AudienceKind, string> = {
   all_users: "All Active Users",
@@ -54,6 +54,7 @@ const AUDIENCE_LABEL: Record<AudienceKind, string> = {
   employers: "Employers",
   custom: "Custom recipients",
   segments: "Segments",
+  manual: "Enter emails manually",
 };
 const AUDIENCE_OPTIONS = Object.values(AUDIENCE_LABEL);
 const AUDIENCE_BY_LABEL = Object.fromEntries(
@@ -185,6 +186,86 @@ function SegmentPicker({ segments, selected, onChange }: { segments: SegmentOpti
   );
 }
 
+const EMAIL_RE = /^[^@\s]+@[^@\s.]+\.[^@\s]+$/;
+
+/**
+ * Free-text recipient entry for "Enter emails manually".
+ *
+ * Works for addresses that are not attached to any Nomarc account. Emails are
+ * added one at a time (Enter, comma or the Add button) or pasted in bulk, split
+ * on commas / spaces / newlines, validated, lower-cased and de-duplicated.
+ */
+function ManualEmailPicker({ emails, onChange }: { emails: string[]; onChange: (e: string[]) => void }) {
+  const [draft, setDraft] = useState("");
+  const [rejected, setRejected] = useState<string | null>(null);
+
+  function add(raw: string) {
+    const parts = raw
+      .split(/[\s,;]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    const next = [...emails];
+    const added = new Set<string>();
+    let bad: string | null = null;
+    for (const p of parts) {
+      if (!EMAIL_RE.test(p)) { if (!bad) bad = p; continue; }
+      if (emails.includes(p) || added.has(p)) continue;
+      added.add(p);
+      next.push(p);
+    }
+    setDraft("");
+    setRejected(bad ? `"${bad}" isn't a valid email — it was skipped.` : null);
+    if (next.length !== emails.length) onChange(next);
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border border-[#ececec] p-4 dark:border-white/10">
+      <p className="mb-2 text-[12px] font-semibold text-[#1e1e1e] dark:text-white">
+        Recipients {emails.length > 0 && <span className="font-normal text-[#9a9a9a]">({emails.length} added)</span>}
+      </p>
+
+      {emails.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {emails.map((email) => (
+            <span key={email} className="inline-flex items-center gap-1.5 rounded-full bg-[#f5f5f5] px-2.5 py-1 text-[12px] text-[#1e1e1e] dark:bg-white/5 dark:text-white">
+              {email}
+              <button type="button" onClick={() => onChange(emails.filter((x) => x !== email))} aria-label={`Remove ${email}`} className="text-[#9a9a9a] transition-colors hover:text-[#e5484d]">
+                <X size={12} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(draft); } }}
+          onPaste={(e) => {
+            e.preventDefault();
+            add(e.clipboardData.getData("text"));
+          }}
+          placeholder="Type an email address, then press Enter or Add…"
+          className={inputClass}
+        />
+        <button
+          type="button"
+          onClick={() => add(draft)}
+          disabled={!draft.trim()}
+          className="flex-shrink-0 rounded-lg bg-[#ffd716] px-4 py-2.5 text-[13px] font-semibold text-[#1e1e1e] transition-colors hover:bg-[#e6c114] disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
+      {rejected && <p className="mt-2 text-[11.5px] text-[#e5484d]">{rejected}</p>}
+      <p className="mt-2 text-[11.5px] text-[#9a9a9a]">
+        You can paste several at once (separated by commas, spaces or newlines). Anyone who has opted out is filtered automatically.
+      </p>
+    </div>
+  );
+}
+
 export function CampaignComposer({
   campaign, segments, mailConfigured, defaultTestTo,
 }: {
@@ -210,7 +291,7 @@ export function CampaignComposer({
    * list, which a single string cannot express.
    */
   const [audienceKind, setAudienceKind] = useState<AudienceKind>(() => {
-    if (campaign?.audienceKey === "custom" || campaign?.audienceKey === "segments") return campaign.audienceKey;
+    if (campaign?.audienceKey === "custom" || campaign?.audienceKey === "segments" || campaign?.audienceKey === "manual") return campaign.audienceKey;
     if (campaign?.segmentId) return "segments";
     return (campaign?.audienceKey as AudienceKind) ?? "all_users";
   });
@@ -218,6 +299,7 @@ export function CampaignComposer({
   const [selectedSegmentIds, setSelectedSegmentIds] = useState<string[]>(
     campaign?.segmentIds ?? (campaign?.segmentId ? [campaign.segmentId] : []),
   );
+  const [manualEmails, setManualEmails] = useState<string[]>(campaign?.manualEmails ?? []);
   const [mode, setMode] = useState<"now" | "later">(campaign?.scheduledAtRaw ? "later" : "now");
   const [when, setWhen] = useState(() => {
     if (!campaign?.scheduledAtRaw) return "";
@@ -234,13 +316,16 @@ export function CampaignComposer({
 
   const audiencePayload = useMemo(() => {
     if (audienceKind === "custom") {
-      return { segmentId: null, audienceKey: "custom", recipientUserIds: customRecipients.map((r) => r.id), segmentIds: null };
+      return { segmentId: null, audienceKey: "custom", recipientUserIds: customRecipients.map((r) => r.id), segmentIds: null, manualEmails: null };
     }
     if (audienceKind === "segments") {
-      return { segmentId: null, audienceKey: "segments", recipientUserIds: null, segmentIds: selectedSegmentIds };
+      return { segmentId: null, audienceKey: "segments", recipientUserIds: null, segmentIds: selectedSegmentIds, manualEmails: null };
     }
-    return { segmentId: null, audienceKey: audienceKind, recipientUserIds: null, segmentIds: null };
-  }, [audienceKind, customRecipients, selectedSegmentIds]);
+    if (audienceKind === "manual") {
+      return { segmentId: null, audienceKey: "manual", recipientUserIds: null, segmentIds: null, manualEmails };
+    }
+    return { segmentId: null, audienceKey: audienceKind, recipientUserIds: null, segmentIds: null, manualEmails: null };
+  }, [audienceKind, customRecipients, selectedSegmentIds, manualEmails]);
 
   // Live recipient count for the chosen audience.
   const reqId = useRef(0);
@@ -348,6 +433,10 @@ export function CampaignComposer({
 
           {audienceKind === "segments" && (
             <SegmentPicker segments={segments} selected={selectedSegmentIds} onChange={setSelectedSegmentIds} />
+          )}
+
+          {audienceKind === "manual" && (
+            <ManualEmailPicker emails={manualEmails} onChange={setManualEmails} />
           )}
         </Section>
 
