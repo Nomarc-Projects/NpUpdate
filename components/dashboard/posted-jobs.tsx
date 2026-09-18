@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, Users, Briefcase, Trash2, Lock, Unlock, Copy, FileText, Pencil } from "lucide-react";
 import { Modal, GhostButton } from "@/components/ui/modal";
+import { ShareMenu } from "@/components/ui/share";
 import { DashboardTabs, KebabMenu, StatusBadge, EmptyState, type TabItem } from "@/components/dashboard/kit";
 import { PostingGuidelinesDrawer } from "@/components/dashboard/posting-guidelines-drawer";
 import { JobEditDrawer } from "@/components/dashboard/job-edit-drawer";
@@ -28,6 +29,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
   const [editId, setEditId] = useState<string | null>(null);
   const [guidelinesOpen, setGuidelinesOpen] = useState(false);
   const [, start] = useTransition();
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://nomarcprojects.com";
 
   const active = useMemo(() => list.filter((j) => !j.draft && j.status === "open"), [list]);
   const drafts = useMemo(() => list.filter((j) => j.draft), [list]);
@@ -126,17 +128,20 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
                   <p className="text-[12px] text-[#9a9a9a] mt-1">{[j.company, j.location, j.employmentType, j.workModel].filter(Boolean).join(" • ")}</p>
                   <p className="text-[12px] text-[#9a9a9a] mt-0.5">{j.salary} • Posted {j.createdAt}</p>
                 </div>
-                <KebabMenu
-                  items={[
-                    { icon: Users, label: "View Applicants", onClick: () => router.push(`/dashboard/jobs/posted/${j.id}`) },
-                    { icon: Pencil, label: "Edit Job", onClick: () => setEditId(j.id) },
-                    j.status === "open"
-                      ? { icon: Lock, label: "Close Job", onClick: () => toggleStatus(j) }
-                      : { icon: Unlock, label: "Reopen Job", onClick: () => toggleStatus(j) },
-                    { icon: Copy, label: "Duplicate in drafts", onClick: () => duplicate(j) },
-                    { icon: Trash2, label: "Delete Record", danger: true, onClick: () => setDelId(j.id) },
-                  ]}
-                />
+                <div className="flex flex-shrink-0 items-center gap-1">
+                  <ShareMenu url={`${origin}/dashboard/jobs/${j.id}`} title={j.company ? `${j.title} at ${j.company}` : j.title} variant="icon" />
+                  <KebabMenu
+                    items={[
+                      { icon: Users, label: "View Applicants", onClick: () => router.push(`/dashboard/jobs/posted/${j.id}`) },
+                      { icon: Pencil, label: "Edit Job", onClick: () => setEditId(j.id) },
+                      j.status === "open"
+                        ? { icon: Lock, label: "Close Job", onClick: () => toggleStatus(j) }
+                        : { icon: Unlock, label: "Reopen Job", onClick: () => toggleStatus(j) },
+                      { icon: Copy, label: "Duplicate in drafts", onClick: () => duplicate(j) },
+                      { icon: Trash2, label: "Delete Record", danger: true, onClick: () => setDelId(j.id) },
+                    ]}
+                  />
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-[#f0f0f0] dark:border-white/10 flex items-center justify-between">
                 <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6b6b6b] dark:text-white/60"><Users size={15} /> {j.applicants} applicant{j.applicants === 1 ? "" : "s"}</span>
