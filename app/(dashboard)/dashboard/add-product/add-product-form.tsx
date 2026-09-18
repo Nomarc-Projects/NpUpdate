@@ -152,16 +152,16 @@ export function AddProductForm() {
         {/* Product details */}
         <FormSection title="Product Details" subtitle="Basic identifiers, categorization, and material specifics.">
           <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-            <Field label="Product Name">
+            <Field label="Product Name" required>
               <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. High-Yield TMT Rebar" />
             </Field>
-            <Field label="Product Categories/Tags">
+            <Field label="Product Categories/Tags" required>
               <MultiSelect options={PRODUCT_CATEGORIES} value={tags} onChange={setTags} allowCreate placeholder="Search or add categories…" />
             </Field>
             <Field label="Material / Grade (Optional)">
               <input className={inputClass} value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Grade 500 / BS 4449" />
             </Field>
-            <Field label="Price (₦)" hint="Buyers see this alongside the unit">
+            <Field label="Price (₦)" required hint="Buyers see this alongside the unit">
               <input
                 className={inputClass}
                 type="number"
@@ -172,7 +172,7 @@ export function AddProductForm() {
                 placeholder="e.g. 8000"
               />
             </Field>
-            <Field label="Priced per" hint="How this product is sold">
+            <Field label="Priced per" required hint="How this product is sold">
               {/* Materials are quoted every which way — per m², per bag, per
                   tonne — so the list is a shortcut, not a constraint: "Something
                   else" takes whatever the seller actually uses. */}
