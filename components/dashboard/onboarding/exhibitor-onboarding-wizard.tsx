@@ -172,24 +172,24 @@ export function ExhibitorOnboardingWizard() {
                     onClose={requestClose}
                   />
                   <div className="space-y-4">
-                    <Field label="Company Name">
+                    <Field label="Company Name" required>
                       <input className={inputClass} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} placeholder="enter company name" />
                     </Field>
-                    <Field label="Company Address">
+                    <Field label="Company Address" required>
                       <input className={inputClass} value={headquarters} onChange={(e) => setHeadquarters(e.target.value)} placeholder="enter company address" />
                     </Field>
                     <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                      <Field label="Company Size">
+                      <Field label="Company Size" required>
                         <SelectMenu value={companySize} placeholder="Select" options={COMPANY_SIZES} onChange={setCompanySize} />
                       </Field>
-                      <Field label="Company Type">
+                      <Field label="Company Type" required>
                         <SelectMenu value={companyType} placeholder="Select company type" options={COMPANY_TYPES} onChange={setCompanyType} />
                       </Field>
                     </div>
-                    <Field label="About the Company" hint={`${about.length}/2,000`}>
+                    <Field label="About the Company" required hint={`${about.length}/2,000`}>
                       <textarea rows={4} maxLength={2000} className={inputClass} value={about} onChange={(e) => setAbout(e.target.value)} placeholder="We are West Africa's leading supplier of…" />
                     </Field>
-                    <Field label="Product Category" hint="(Select all that apply)">
+                    <Field label="Product Category" required hint="(Select all that apply)">
                       <MultiSelect
                         options={PRODUCT_CATEGORIES}
                         value={categories}
@@ -231,7 +231,7 @@ export function ExhibitorOnboardingWizard() {
                   </div>
 
                   <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                    <Field label="Company Registration number">
+                    <Field label="Company Registration number" required>
                       <input className={inputClass} value={regNumber} onChange={(e) => setRegNumber(e.target.value)} placeholder="enter registration number" />
                     </Field>
                     <Field label="Certificate of Incorporation">
