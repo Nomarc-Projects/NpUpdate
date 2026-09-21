@@ -40,6 +40,9 @@ export type AudienceFilter = {
   userId?: string;
   /** Non-registered recipients typed in by the admin (e.g. jane@gmail.com). */
   externalEmails?: string[];
+  /** When true, the audience is EXACTLY `externalEmails` — no registered-user
+   *  targeting happens at all. */
+  externalOnly?: boolean;
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -105,6 +108,8 @@ export async function searchUsers(query: string): Promise<{ id: string; name: st
  */
 export async function getAudienceCount(filter: AudienceFilter, userId?: string): Promise<number> {
   await requireAdmin();
+  // External-only sends have exactly as many recipients as valid addresses typed.
+  if (filter.externalOnly) return filter.externalEmails?.length ?? 0;
   const rows = await matchingRecipients(filter, userId);
   return rows.length + (filter.externalEmails?.length ?? 0);
 }
@@ -153,8 +158,13 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   // External addresses are validated here too — the composer's hint is a preview,
   // not a gate, and sendBroadcast is callable directly.
   const external = parseExternalEmails((input.filter.externalEmails ?? []).join(" "));
+  if (input.filter.externalOnly && external.length === 0) {
+    throw new Error("External-only sends need at least one email address.");
+  }
 
-  const recipientRows = await matchingRecipients(input.filter, input.filter.userId);
+  // External-only sends go nowhere near the user table — the typed addresses
+  // ARE the audience.
+  const recipientRows = input.filter.externalOnly ? [] : await matchingRecipients(input.filter, input.filter.userId);
   const recipients: { id: string; name: string | null; email: string }[] = [
     ...recipientRows,
     // External recipients have no account: merge tags fall back to their defaults.
