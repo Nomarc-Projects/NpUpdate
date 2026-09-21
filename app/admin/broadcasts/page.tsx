@@ -11,7 +11,7 @@ export default async function BroadcastsPage() {
     <div className="px-6 py-6 md:px-8">
       <AdminPageHeader
         title="Send Email"
-        subtitle="Send a direct email to your whole audience, a segment, or a single user."
+        subtitle="Send a direct email to your whole audience, a segment, a single user, or any external addresses."
       />
       <AdminBroadcasts history={history} mailConfigured={isEmailConfigured} />
     </div>

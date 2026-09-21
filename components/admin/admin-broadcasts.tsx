@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Send, Users, Loader2, Search, X, UserRoundCheck } from "lucide-react";
+import { AlertTriangle, Send, Users, Loader2, Search, X, UserRoundCheck, AtSign } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import {
@@ -56,7 +56,8 @@ function targetLabel(f: AudienceFilter): string {
   const role = f.role && f.role !== "all" ? f.role.charAt(0).toUpperCase() + f.role.slice(1) + "s" : "Everyone";
   const plan = f.plan && f.plan !== "all" ? ` (${f.plan.charAt(0).toUpperCase() + f.plan.slice(1)})` : "";
   const ver = f.verifiedOnly ? " · verified" : "";
-  return `${role}${plan}${ver}`;
+  const ext = f.externalEmails?.length ? ` + ${f.externalEmails.length} external` : "";
+  return `${role}${plan}${ver}${ext}`;
 }
 
 export function AdminBroadcasts({ history, mailConfigured }: { history: BroadcastLogEntry[]; mailConfigured: boolean }) {
@@ -73,8 +74,18 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
   const [count, setCount] = useState<number | null>(null);
   const [pending, start] = useTransition();
   const [list, setList] = useState(history);
+  const [externalInput, setExternalInput] = useState("");
 
-  const filter: AudienceFilter = { role, plan, verifiedOnly, userId: selected?.id };
+  const EXTERNAL_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const externalRaw = externalInput.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+  const invalidExternal = [...new Set(externalRaw.filter((e) => !EXTERNAL_EMAIL_RE.test(e)))];
+  const externalEmails = useMemo(
+    () => [...new Set(externalRaw.filter((e) => EXTERNAL_EMAIL_RE.test(e)).map((e) => e.toLowerCase()))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [externalInput],
+  );
+
+  const filter: AudienceFilter = { role, plan, verifiedOnly, userId: selected?.id, externalEmails: externalEmails.length ? externalEmails : undefined };
 
   // Debounced live search for the single-recipient picker.
   useEffect(() => {
@@ -95,13 +106,14 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
     getAudienceCount(filter).then((n) => { if (!cancelled) setCount(n); }).catch(() => {});
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, plan, verifiedOnly, selected]);
+  }, [role, plan, verifiedOnly, selected, externalInput]);
 
   function send() {
     if (!subject.trim()) { toast.error("Subject is required"); return; }
     if (!body.trim()) { toast.error("Message body is required"); return; }
+    if (invalidExternal.length > 0) { toast.error(`Please fix or remove: ${invalidExternal.join(", ")}`); return; }
     if (count !== 0 && !window.confirm(`Send this email to ${count ?? "…"} recipient(s)? This can't be undone.`)) return;
-    if (count === 0) { toast.error("No matching recipients — choose an audience or search for a user."); return; }
+    if (count === 0) { toast.error("No recipients — choose an audience or enter external addresses."); return; }
 
     start(async () => {
       try {
@@ -112,6 +124,7 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
         setSubject("");
         setBody("");
         setSelected(null);
+        setExternalInput("");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Could not send email");
       }
@@ -205,10 +218,37 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
         </label>
         {!selected && <p className="text-[12px] text-[#9a9a9a] -mt-1">Target everyone, a role, or a plan below — or pick a single user above to email just them.</p>}
 
+        {/* External recipients — non-registered addresses typed in manually */}
+        <Field
+          label="Also send to external (non-registered) addresses"
+          hint={externalEmails.length > 0 ? `${externalEmails.length} valid · ${invalidExternal.length} invalid` : "Optional — not registered on Nomarc"}
+        >
+          <textarea
+            rows={2}
+            className={inputClass}
+            placeholder="e.g. joh@gmail.com, mike@gmail.com — comma or newline separated"
+            value={externalInput}
+            onChange={(e) => setExternalInput(e.target.value)}
+          />
+        </Field>
+        {externalEmails.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap -mt-2">
+            {externalEmails.slice(0, 6).map((e) => (
+              <span key={e} className="inline-flex items-center gap-1 rounded-full bg-[#f0f0f0] dark:bg-white/10 px-2.5 py-1 text-[12px] font-medium text-[#1e1e1e] dark:text-white">
+                <AtSign size={12} className="text-[#9a9a9a]" /> {e}
+              </span>
+            ))}
+            {externalEmails.length > 6 && <span className="text-[12px] text-[#9a9a9a]">+{externalEmails.length - 6} more</span>}
+          </div>
+        )}
+        {invalidExternal.length > 0 && (
+          <p className="text-[12px] text-[#e5484d] -mt-1">Invalid address{invalidExternal.length > 1 ? "es" : ""}: {invalidExternal.join(", ")}</p>
+        )}
+
         <div className="flex items-center justify-between pt-2 border-t border-[#f0f0f0] dark:border-white/10">
           <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6b6b6b] dark:text-white/60">
             <Users size={14} />
-            {count === null ? <Loader2 size={12} className="animate-spin" /> : `${count} recipient${count === 1 ? "" : "s"}`}
+            {count === null ? <Loader2 size={12} className="animate-spin" /> : `${count} recipient${count === 1 ? "" : "s"}${externalEmails.length ? ` (incl. ${externalEmails.length} external)` : ""}`}
           </span>
           <button
             type="button"

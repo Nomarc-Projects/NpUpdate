@@ -38,7 +38,30 @@ export type AudienceFilter = {
   verifiedOnly?: boolean;
   /** When set, targets a single user and the role/plan/verified filters are ignored. */
   userId?: string;
+  /** Non-registered recipients typed in by the admin (e.g. jane@gmail.com). */
+  externalEmails?: string[];
 };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_EXTERNAL = 500;
+
+/** Normalize a comma/newline/space-separated list of external email addresses. */
+export function parseExternalEmails(raw: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of raw.split(/[\s,;]+/)) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    if (!EMAIL_RE.test(trimmed)) throw new Error(`Invalid email address: ${trimmed}`);
+    const e = trimmed.toLowerCase();
+    if (!seen.has(e)) {
+      if (seen.size >= MAX_EXTERNAL) throw new Error(`Too many external recipients (max ${MAX_EXTERNAL}).`);
+      seen.add(e);
+      out.push(e);
+    }
+  }
+  return out;
+}
 
 /** Audience conditions (no leading WHERE) for the compose form's group targets. */
 const audienceConditions = (f: AudienceFilter) =>
@@ -83,7 +106,7 @@ export async function searchUsers(query: string): Promise<{ id: string; name: st
 export async function getAudienceCount(filter: AudienceFilter, userId?: string): Promise<number> {
   await requireAdmin();
   const rows = await matchingRecipients(filter, userId);
-  return rows.length;
+  return rows.length + (filter.externalEmails?.length ?? 0);
 }
 
 export type BroadcastLogEntry = {
@@ -127,7 +150,16 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   if (!input.subject.trim()) throw new Error("Subject is required");
   if (!input.bodyHtml.trim()) throw new Error("Message body is required");
 
-  const recipients = await matchingRecipients(input.filter, input.filter.userId);
+  // External addresses are validated here too — the composer's hint is a preview,
+  // not a gate, and sendBroadcast is callable directly.
+  const external = parseExternalEmails((input.filter.externalEmails ?? []).join(" "));
+
+  const recipientRows = await matchingRecipients(input.filter, input.filter.userId);
+  const recipients: { id: string; name: string | null; email: string }[] = [
+    ...recipientRows,
+    // External recipients have no account: merge tags fall back to their defaults.
+    ...external.map((email) => ({ id: "", name: null, email })),
+  ];
   let sentCount = 0;
   let failedCount = 0;
 
