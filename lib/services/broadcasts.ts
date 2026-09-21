@@ -46,7 +46,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EXTERNAL = 500;
 
 /** Normalize a comma/newline/space-separated list of external email addresses. */
-export function parseExternalEmails(raw: string): string[] {
+function parseExternalEmails(raw: string): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const part of raw.split(/[\s,;]+/)) {
