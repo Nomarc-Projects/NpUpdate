@@ -5,6 +5,11 @@ import { isEmailConfigured } from "@/lib/email/mailer";
 
 export const metadata = { title: "Send Email" };
 
+/** A 2000-recipient blast is ~20 batch calls (~30–60s wall clock), so the
+ *  server action needs a longer window than the function default. Matches the
+ *  campaign drain route's ceiling. */
+export const maxDuration = 300;
+
 export default async function BroadcastsPage() {
   const history = await listBroadcasts();
   return (

@@ -7,7 +7,7 @@ import { db } from "@/lib/db/client";
 import { broadcastLog } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
-import { sendEmail, emailLayout, siteUrl } from "@/lib/email/mailer";
+import { sendBulkEmails, emailLayout, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes } from "@/lib/email/shortcodes";
 
 async function requireAdmin(): Promise<string> {
@@ -46,7 +46,7 @@ export type AudienceFilter = {
 };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MAX_EXTERNAL = 500;
+const MAX_EXTERNAL = 5000;
 
 /** Normalize a comma/newline/space-separated list of external email addresses. */
 function parseExternalEmails(raw: string): string[] {
@@ -139,16 +139,21 @@ export async function listBroadcasts(): Promise<BroadcastLogEntry[]> {
     }));
 }
 
-const CHUNK_SIZE = 20;
 const chunk = <T,>(arr: T[], size: number): T[][] => Array.from({ length: Math.ceil(arr.length / size) }, (_, i) => arr.slice(i * size, i * size + size));
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Resend's batch endpoint accepts up to 100 messages per call. */
+const BULK_BATCH = 100;
+
 /**
- * Simple V1: composes one email, resolves the matching audience, and sends
- * in small chunks through the existing Resend mailer — no queue/worker. If
- * Resend isn't configured, sendEmail() itself no-ops per recipient (consistent
- * with how every other transactional email in this app already behaves);
- * the caller should check isEmailConfigured to warn the admin beforehand.
+ * One-shot broadcast: resolves the matching audience (plus any typed-in
+ * external addresses) and sends through Resend's BULK endpoint — one round-trip
+ * per 100 recipients, which is what lets a large blast (2000+) finish inside a
+ * single request instead of N sequential sends. The caller page exports a raised
+ * `maxDuration` so that request window is long enough. If Resend isn't
+ * configured, sendBulkEmails() itself no-ops per recipient (consistent with how
+ * every other transactional email in this app already behaves); the caller
+ * should check isEmailConfigured to warn the admin beforehand.
  */
 export async function sendBroadcast(input: { subject: string; bodyHtml: string; filter: AudienceFilter }): Promise<{ sentCount: number; failedCount: number }> {
   const admin = await requireSuperAdmin();
@@ -174,27 +179,22 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   let failedCount = 0;
 
   const baseUrl = siteUrl();
+  const bulk = recipients.map((r) => ({
+    to: r.email,
+    subject: input.subject,
+    html: emailLayout({
+      heading: input.subject,
+      body: applyShortcodes(input.bodyHtml, r, { baseUrl }),
+    }),
+  }));
 
-  for (const batch of chunk(recipients, CHUNK_SIZE)) {
-    const results = await Promise.allSettled(
-      batch.map((r) =>
-        sendEmail({
-          to: r.email,
-          subject: input.subject,
-          // Merge tags are resolved per recipient. Without this the composer's
-          // toolbar tokens ship as literal "{{first_name}}" text.
-          html: emailLayout({
-            heading: input.subject,
-            body: applyShortcodes(input.bodyHtml, r, { baseUrl }),
-          }),
-        }),
-      ),
-    );
+  for (const batch of chunk(bulk, BULK_BATCH)) {
+    const results = await sendBulkEmails(batch);
     for (const res of results) {
-      if (res.status === "fulfilled") sentCount++;
-      else failedCount++;
+      if (res.error) failedCount++;
+      else sentCount++;
     }
-    if (recipients.length > CHUNK_SIZE) await sleep(300);
+    if (recipients.length > BULK_BATCH) await sleep(150);
   }
 
   await db.insert(broadcastLog).values({
