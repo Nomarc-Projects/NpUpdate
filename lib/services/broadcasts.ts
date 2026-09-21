@@ -10,8 +10,7 @@ import { requireUserId } from "@/lib/server-user";
 import { sendBulkEmails, emailLayout, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes } from "@/lib/email/shortcodes";
 import { getMailThroughput } from "@/lib/services/platform-settings-read";
-
-export const QUEUE_THRESHOLD = 4000;
+import { QUEUE_THRESHOLD } from "@/lib/services/broadcast-shared";
 
 async function requireAdmin(): Promise<string> {
   const uid = await requireUserId();

@@ -6,8 +6,9 @@ import { AlertTriangle, Send, Users, Loader2, Search, X, UserRoundCheck, AtSign 
 import { Field, inputClass } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import {
-  getAudienceCount, sendBroadcast, searchUsers, QUEUE_THRESHOLD, type AudienceFilter, type BroadcastLogEntry,
+  getAudienceCount, sendBroadcast, searchUsers, type AudienceFilter, type BroadcastLogEntry,
 } from "@/lib/services/broadcasts";
+import { QUEUE_THRESHOLD } from "@/lib/services/broadcast-shared";
 
 type PickedUser = { id: string; name: string; email: string };
 
