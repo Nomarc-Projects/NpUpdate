@@ -6,7 +6,7 @@ import { AlertTriangle, Send, Users, Loader2, Search, X, UserRoundCheck, AtSign 
 import { Field, inputClass } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 import {
-  getAudienceCount, sendBroadcast, searchUsers, type AudienceFilter, type BroadcastLogEntry,
+  getAudienceCount, sendBroadcast, searchUsers, QUEUE_THRESHOLD, type AudienceFilter, type BroadcastLogEntry,
 } from "@/lib/services/broadcasts";
 
 type PickedUser = { id: string; name: string; email: string };
@@ -48,7 +48,9 @@ function Segmented<T extends string>({ options, value, onChange }: { options: { 
   );
 }
 
-function StatusPill({ sent, failed }: { sent: number; failed: number }) {
+function StatusPill({ sent, failed, queued, active }: { sent: number; failed: number; queued?: boolean; active?: boolean }) {
+  if (queued && active) return <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#fef3c7] text-[#b45309]">Sending…</span>;
+  if (queued && sent + failed === 0) return <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#dbeeff] text-[#1d4ed8]">Queued</span>;
   if (sent > 0 && failed === 0) return <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#dcfce7] text-[#16803c]">Sent</span>;
   if (sent > 0 && failed > 0) return <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#fef3c7] text-[#b45309]">Partial</span>;
   return <span className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#fee2e2] text-[#b91c1c]">Failed</span>;
@@ -120,20 +122,31 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, plan, verifiedOnly, selected, externalInput, targetMode]);
 
+  const willQueue = targetMode === "registered" && !selected && count !== null && count > QUEUE_THRESHOLD;
+
   function send() {
     if (!subject.trim()) { toast.error("Subject is required"); return; }
     if (!body.trim()) { toast.error("Message body is required"); return; }
     if (invalidExternal.length > 0) { toast.error(`Please fix or remove: ${invalidExternal.join(", ")}`); return; }
     if (targetMode === "external" && externalEmails.length === 0) { toast.error("Enter at least one external email address to target."); return; }
-    if (count !== 0 && !window.confirm(`Send this email to ${count ?? "…"} recipient(s)? This can't be undone.`)) return;
+    if (count !== 0 && !window.confirm(
+      willQueue
+        ? `Queue this email to ${count} recipient(s)? Large sends are delivered progressively so they can finish reliably. This can't be undone.`
+        : `Send this email to ${count ?? "…"} recipient(s)? This can't be undone.`,
+    )) return;
     if (count === 0) { toast.error(targetMode === "external" ? "Enter at least one valid external email address." : "No recipients — choose an audience or enter external addresses."); return; }
 
     start(async () => {
       try {
         const bodyHtml = body.split("\n").map((line) => `<p style="margin:0 0 10px;">${line}</p>`).join("");
         const res = await sendBroadcast({ subject, bodyHtml, filter });
-        toast.success(`Sent to ${res.sentCount} recipient(s)${res.failedCount ? `, ${res.failedCount} failed` : ""}`);
-        setList((l) => [{ id: `${Date.now()}`, subject, filter, sentCount: res.sentCount, failedCount: res.failedCount, createdAt: "Just now" }, ...l]);
+        if (res.queued) {
+          toast.success(`Queued for ${res.recipientCount ?? count} recipient(s) — it will be delivered progressively.`);
+          setList((l) => [{ id: `${Date.now()}-q`, subject, filter: { ...filter, campaignId: res.campaignId, queued: true }, sentCount: 0, failedCount: 0, queued: true, active: true, recipientCount: res.recipientCount, createdAt: "Just now" }, ...l]);
+        } else {
+          toast.success(`Sent to ${res.sentCount} recipient(s)${res.failedCount ? `, ${res.failedCount} failed` : ""}`);
+          setList((l) => [{ id: `${Date.now()}`, subject, filter, sentCount: res.sentCount, failedCount: res.failedCount, createdAt: "Just now" }, ...l]);
+        }
         setSubject("");
         setBody("");
         setSelected(null);
@@ -273,9 +286,11 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
         <div className="flex items-center justify-between pt-2 border-t border-[#f0f0f0] dark:border-white/10">
           <span className="inline-flex items-center gap-1.5 text-[13px] text-[#6b6b6b] dark:text-white/60">
             <Users size={14} />
-            {count === null ? <Loader2 size={12} className="animate-spin" /> : `${count} recipient${count === 1 ? "" : "s"}${externalEmails.length ? ` (incl. ${externalEmails.length} external)` : ""}`}
+            {count === null ? <Loader2 size={12} className="animate-spin" /> : `${count.toLocaleString()} recipient${count === 1 ? "" : "s"}${externalEmails.length ? ` (incl. ${externalEmails.length} external)` : ""}`}
           </span>
-          <button
+          <div className="flex items-center gap-3">
+            {willQueue && <span className="text-[12px] text-[#b45309] hidden sm:block">Large audience — will be queued and delivered progressively</span>}
+            <button
             type="button"
             disabled={pending}
             onClick={send}
@@ -283,6 +298,7 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
           >
             {pending ? <><Loader2 size={14} className="animate-spin" /> Sending…</> : <><Send size={14} /> Send</>}
           </button>
+          </div>
         </div>
       </div>
 
@@ -308,8 +324,8 @@ export function AdminBroadcasts({ history, mailConfigured }: { history: Broadcas
                 {list.map((b) => (
                   <tr key={b.id} className="border-b border-[#f5f5f5] dark:border-white/5 last:border-0">
                     <td className="px-5 sm:px-6 py-3 font-medium text-[#1e1e1e] dark:text-white">{b.subject}</td>
-                    <td className="px-3 py-3"><StatusPill sent={b.sentCount} failed={b.failedCount} /></td>
-                    <td className="px-3 py-3 text-[#6b6b6b] dark:text-white/60">{b.sentCount}</td>
+                    <td className="px-3 py-3"><StatusPill sent={b.sentCount} failed={b.failedCount} queued={b.queued} active={b.active} /></td>
+                    <td className="px-3 py-3 text-[#6b6b6b] dark:text-white/60">{b.sentCount}{b.recipientCount ? ` / ${b.recipientCount}` : ""}</td>
                     <td className="px-3 py-3 text-[#6b6b6b] dark:text-white/60">{b.failedCount}</td>
                     <td className="px-3 py-3 text-[#9a9a9a]">{b.createdAt}</td>
                   </tr>

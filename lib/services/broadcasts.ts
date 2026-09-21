@@ -4,11 +4,14 @@ import { headers } from "next/headers";
 import { sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
-import { broadcastLog } from "@/lib/db/schema";
+import { broadcastLog, emailCampaign } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { sendBulkEmails, emailLayout, siteUrl } from "@/lib/email/mailer";
 import { applyShortcodes } from "@/lib/email/shortcodes";
+import { getMailThroughput } from "@/lib/services/platform-settings-read";
+
+export const QUEUE_THRESHOLD = 4000;
 
 async function requireAdmin(): Promise<string> {
   const uid = await requireUserId();
@@ -73,17 +76,20 @@ const audienceConditions = (f: AudienceFilter) =>
       ${f.plan && f.plan !== "all" ? sql`AND u.plan = ${f.plan}` : sql``}
       ${f.verifiedOnly ? sql`AND COALESCE(p.verified, c.verified, false) = true` : sql``}`;
 
-/**
- * Resolve the recipients for a send. When a single user is targeted (`userId`)
- * only that user matches; otherwise the audience filter is applied.
- */
+/** FROM/JOIN/WHERE tail shared by count, recipient resolution, and the queue's
+ *  delivery-ledger bulk insert — one definition so all three stay in step. */
+const audienceFrom = (filter: AudienceFilter, userId?: string) =>
+  sql`FROM "user" u
+      LEFT JOIN profile p ON p.user_id = u.id
+      LEFT JOIN company c ON c.owner_user_id = u.id
+      WHERE ${userId ? sql`u.id = ${userId}` : audienceConditions(filter)}`;
+
+/** Resolve the recipients for a send. When a single user is targeted (`userId`)
+ *  only that user matches; otherwise the audience filter is applied. */
 async function matchingRecipients(filter: AudienceFilter, userId?: string): Promise<{ id: string; name: string; email: string }[]> {
   const res = await db.execute(sql`
     SELECT u.id, u.name, u.email
-    FROM "user" u
-    LEFT JOIN profile p ON p.user_id = u.id
-    LEFT JOIN company c ON c.owner_user_id = u.id
-    WHERE ${userId ? sql`u.id = ${userId}` : audienceConditions(filter)}
+    ${audienceFrom(filter, userId)}
   `);
   return (res.rows as { id: string; name: string; email: string }[]);
 }
@@ -121,12 +127,17 @@ export type BroadcastLogEntry = {
   sentCount: number;
   failedCount: number;
   createdAt: string;
+  /** Present when the broadcast was enqueued to the delivery ledger. */
+  queued?: boolean;
+  /** Queued campaign still draining at render time. */
+  active?: boolean;
+  recipientCount?: number;
 };
 
 export async function listBroadcasts(): Promise<BroadcastLogEntry[]> {
   await requireAdmin();
   const rows = await db.select().from(broadcastLog).orderBy(broadcastLog.createdAt);
-  return rows
+  const entries: BroadcastLogEntry[] = rows
     .slice()
     .reverse()
     .map((r) => ({
@@ -137,6 +148,29 @@ export async function listBroadcasts(): Promise<BroadcastLogEntry[]> {
       failedCount: r.failedCount ?? 0,
       createdAt: new Date(r.createdAt).toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "numeric", minute: "2-digit" }),
     }));
+
+  // Queued broadcasts log 0/0 at enqueue time; the interesting numbers live in
+  // the campaign's delivery ledger. Enrich from there so history shows live
+  // progress while the drain works and the true totals once it finishes.
+  await Promise.all(
+    entries.map(async (e) => {
+      const campaignId = (e.filter as { campaignId?: string }).campaignId;
+      if (!campaignId) return;
+      const res = await db.execute(sql`
+        SELECT status, recipient_count::int, sent_count::int, failed_count::int
+        FROM email_campaign WHERE id = ${campaignId} LIMIT 1
+      `);
+      const c = res.rows[0] as { status: string; recipient_count: number; sent_count: number; failed_count: number } | undefined;
+      if (!c) return;
+      e.queued = true;
+      e.active = c.status === "sending";
+      e.recipientCount = c.recipient_count;
+      e.sentCount = c.sent_count;
+      e.failedCount = c.failed_count;
+    }),
+  );
+
+  return entries;
 }
 
 const chunk = <T,>(arr: T[], size: number): T[][] => Array.from({ length: Math.ceil(arr.length / size) }, (_, i) => arr.slice(i * size, i * size + size));
@@ -146,16 +180,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const BULK_BATCH = 100;
 
 /**
- * One-shot broadcast: resolves the matching audience (plus any typed-in
- * external addresses) and sends through Resend's BULK endpoint — one round-trip
- * per 100 recipients, which is what lets a large blast (2000+) finish inside a
- * single request instead of N sequential sends. The caller page exports a raised
- * `maxDuration` so that request window is long enough. If Resend isn't
- * configured, sendBulkEmails() itself no-ops per recipient (consistent with how
- * every other transactional email in this app already behaves); the caller
- * should check isEmailConfigured to warn the admin beforehand.
+ * One-shot broadcast. A tiny registered audience (or an external/mixed send)
+ * goes out immediately through Resend's BULK endpoint — one round-trip per 100
+ * recipients, which finishes a few thousand inside a single request. A large
+ * registered audience (over `QUEUE_THRESHOLD`) is instead enqueued as a
+ * campaign with a per-recipient delivery ledger, so the /api/email/drain ticker
+ * delivers 30k+ progressively and survives request timeouts — a blast that big
+ * cannot fit in one function window.
+ *
+ * If Resend isn't configured, sendBulkEmails() itself no-ops per recipient
+ * (consistent with how every other transactional email in this app already
+ * behaves); the caller should check isEmailConfigured to warn the admin
+ * beforehand.
  */
-export async function sendBroadcast(input: { subject: string; bodyHtml: string; filter: AudienceFilter }): Promise<{ sentCount: number; failedCount: number }> {
+export async function sendBroadcast(input: { subject: string; bodyHtml: string; filter: AudienceFilter }): Promise<{
+  sentCount: number;
+  failedCount: number;
+  queued?: boolean;
+  campaignId?: string;
+  recipientCount?: number;
+}> {
   const admin = await requireSuperAdmin();
   if (!input.subject.trim()) throw new Error("Subject is required");
   if (!input.bodyHtml.trim()) throw new Error("Message body is required");
@@ -168,8 +212,18 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   }
 
   // External-only sends go nowhere near the user table — the typed addresses
-  // ARE the audience.
+  // ARE the audience. Mixed sends keep the sync path too: their external list is
+  // already capped and the ledger only knows registered user rows.
   const recipientRows = input.filter.externalOnly ? [] : await matchingRecipients(input.filter, input.filter.userId);
+
+  // Large registered-only audience → durable queue. The drain handles every
+  // delivery ledger write in idempotent slices, so nothing here can time out.
+  if (!input.filter.externalOnly && !input.filter.userId && recipientRows.length > QUEUE_THRESHOLD) {
+    const queued = await enqueueRegisteredBroadcast(input, admin, recipientRows);
+    revalidatePath("/admin/broadcasts");
+    return { sentCount: 0, failedCount: 0, queued: true, campaignId: queued.campaignId, recipientCount: queued.recipientCount };
+  }
+
   const recipients: { id: string; name: string | null; email: string }[] = [
     ...recipientRows,
     // External recipients have no account: merge tags fall back to their defaults.
@@ -206,4 +260,58 @@ export async function sendBroadcast(input: { subject: string; bodyHtml: string; 
   });
   revalidatePath("/admin/broadcasts");
   return { sentCount, failedCount };
+}
+
+/**
+ * Enqueue a large registered audience as a campaign in the delivery ledger.
+ *
+ * One `email_campaign` row (status 'sending') + one `email_campaign_delivery`
+ * row per recipient, written in a single statement. The existing drain ticker
+ * picks the campaign up by status and sends whatever its rate ceiling allows
+ * per tick. Idempotent by construction: a campaign re-read mid-drain only ever
+ * moves PENDING rows, so a crash cannot double-mail anyone.
+ */
+async function enqueueRegisteredBroadcast(
+  input: { subject: string; bodyHtml: string; filter: AudienceFilter },
+  admin: string,
+  recipients: { id: string; name: string; email: string }[],
+): Promise<{ campaignId: string; recipientCount: number }> {
+  const [created] = await db
+    .insert(emailCampaign)
+    .values({
+      name: input.subject,
+      audienceKey: "all_users",
+      subject: input.subject,
+      bodyHtml: input.bodyHtml,
+      status: "sending",
+      recipientCount: recipients.length,
+      createdBy: admin,
+    })
+    .returning({ id: emailCampaign.id });
+  const campaignId = created.id;
+
+  await db.execute(sql`
+    INSERT INTO email_campaign_delivery (campaign_id, user_id, email)
+    SELECT ${campaignId}::text, u.id, u.email
+    FROM "user" u
+    LEFT JOIN profile p ON p.user_id = u.id
+    LEFT JOIN company c ON c.owner_user_id = u.id
+    WHERE u.id = ANY(${recipients.map((r) => r.id)}::text[])
+  `);
+
+  const { emailsPerHour } = await getMailThroughput();
+  await db.insert(broadcastLog).values({
+    subject: input.subject,
+    filterJson: JSON.stringify({
+      ...input.filter,
+      campaignId,
+      queued: true,
+      queueRatePerHour: emailsPerHour,
+    }),
+    sentCount: 0,
+    failedCount: 0,
+    sentBy: admin,
+  });
+
+  return { campaignId, recipientCount: recipients.length };
 }
