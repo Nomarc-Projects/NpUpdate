@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import {
-  Search, TrendingUp, X, PackageSearch, Package, Layers, Box, Mountain,
-  Grid3x3, Home, Droplet, Zap, PaintBucket, DoorOpen, TreePine, Wrench, type LucideIcon,
+  Search, TrendingUp, X, PackageSearch, Package,
+  Grid3x3, Zap, TreePine, Wrench, Warehouse, Truck, ShieldCheck, type LucideIcon,
 } from "lucide-react";
 import type { ProductCard } from "@/lib/services/catalog";
 import { ShopProductCard, type ShopCardData } from "@/components/shop/product-card";
@@ -21,20 +21,29 @@ import {
 } from "@/components/exhibition-hub/hub-sections";
 import { CompareTray } from "@/components/exhibition-hub/compare-tray";
 
-/** Fallback category list, used only while the admin-managed product-category
- *  taxonomy is empty. Either way the names are intersected with the products
- *  that actually exist, so a category only shows when it would return results. */
+/** The six canonical category groups. Used as the fallback while the
+ *  admin-managed product-category taxonomy is empty — either way every group
+ *  appears in the category dropdown/filter; a group the hub has no products
+ *  for simply renders a zero count. Names match exhibitor onboarding, so a
+ *  listing filed under one of them always lands under its group. */
 const CURATED = [
-  "Cement", "Steel & Rebar", "Blocks", "Aggregates", "Tiles & Finishes", "Roofing",
-  "Plumbing", "Electrical", "Paint", "Doors & Windows", "Timber", "Fittings",
+  "Building Materials",
+  "Construction Equipment & Machinery",
+  "Tools & Hardware",
+  "Safety (PPE)",
+  "Building Services (Electrical, Plumbing, HVAC, Fire Protection)",
+  "Interior, Exterior & Landscaping",
 ];
 
 /** One icon per curated category — the chip row reads more like a real
  *  storefront category rail this way, not just plain-text pills. */
 const CATEGORY_ICON: Record<string, LucideIcon> = {
-  "Cement": Package, "Steel & Rebar": Layers, "Blocks": Box, "Aggregates": Mountain,
-  "Tiles & Finishes": Grid3x3, "Roofing": Home, "Plumbing": Droplet, "Electrical": Zap,
-  "Paint": PaintBucket, "Doors & Windows": DoorOpen, "Timber": TreePine, "Fittings": Wrench,
+  "Building Materials": Warehouse,
+  "Construction Equipment & Machinery": Truck,
+  "Tools & Hardware": Wrench,
+  "Safety (PPE)": ShieldCheck,
+  "Building Services (Electrical, Plumbing, HVAC, Fire Protection)": Zap,
+  "Interior, Exterior & Landscaping": TreePine,
 };
 
 /** Flat, muted "jewel-tone" colors (no gradients) — one per curated category.
@@ -42,9 +51,12 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
  *  the reference; stays fixed per category name regardless of which subset
  *  is actually visible. */
 const CATEGORY_COLOR: Record<string, string> = {
-  "Cement": "#3730a3", "Steel & Rebar": "#9d174d", "Blocks": "#065f46", "Aggregates": "#c2410c",
-  "Tiles & Finishes": "#3f6212", "Roofing": "#075985", "Plumbing": "#7c2d12", "Electrical": "#4a044e",
-  "Paint": "#134e4a", "Doors & Windows": "#78350f", "Timber": "#1e3a5f", "Fittings": "#7f1d1d",
+  "Building Materials": "#3730a3",
+  "Construction Equipment & Machinery": "#c2410c",
+  "Tools & Hardware": "#7f1d1d",
+  "Safety (PPE)": "#065f46",
+  "Building Services (Electrical, Plumbing, HVAC, Fire Protection)": "#7c2d12",
+  "Interior, Exterior & Landscaping": "#1e3a5f",
 };
 
 const AVAIL_FILTERS = ["All availability", "In Stock", "Made to Order", "Available for Rent"];
@@ -65,11 +77,12 @@ const DEFAULT_SORT = SORT_OPTIONS[0];
 
 /** A product belongs to a category when the exhibitor filed it under that
  *  category outright; tags are the looser fallback for listings that predate
- *  the category field, matched on the leading word ("Steel & Rebar" → "steel"). */
+ *  the category field, matched on the full category name ("Building Materials"
+ *  matches a tag that contains those words). */
 function matchesCategory(p: ProductCard, cat: string) {
   if (p.category && p.category.toLowerCase() === cat.toLowerCase()) return true;
-  const needle = cat.split(" ")[0].toLowerCase();
-  return p.tags.some((t) => t.toLowerCase().includes(needle));
+  const c = cat.toLowerCase();
+  return p.tags.some((t) => t.toLowerCase().includes(c));
 }
 
 /** Verification belongs to the selling COMPANY (catalog maps `company.verified`
@@ -127,18 +140,16 @@ export function HubBrowse({
     getProductCategories().then(setManaged).catch(() => setManaged([]));
   }, []);
 
-  /** The categories this hub genuinely has: a name only survives if products
-   *  are actually filed under it, so no chip, card or tile can open onto an
-   *  empty grid. `img` prefers the admin's artwork and falls back to a photo
-   *  from a product inside the category. */
+  /** The categories this hub supports. Every group in the taxonomy shows in
+   *  the dropdown/filter even at zero listings (new shops start empty); `img`
+   *  prefers the admin's artwork and falls back to a photo from a product
+   *  inside the category. */
   const present = useMemo(() => {
     const source = managed?.length ? managed : CURATED.map((name) => ({ name, imageUrl: "" }));
-    return source
-      .map(({ name, imageUrl }) => {
-        const matches = products.filter((p) => matchesCategory(p, name));
-        return { name, count: matches.length, img: imageUrl || matches.find((p) => p.img)?.img || "" };
-      })
-      .filter((c) => c.count > 0);
+    return source.map(({ name, imageUrl }) => {
+      const matches = products.filter((p) => matchesCategory(p, name));
+      return { name, count: matches.length, img: imageUrl || matches.find((p) => p.img)?.img || "" };
+    });
   }, [managed, products]);
 
   const chips = useMemo(() => ["All", ...present.map((c) => c.name)], [present]);
@@ -159,9 +170,11 @@ export function HubBrowse({
 
   /** The category carrying the most listings — the hero's shortcut names it.
    *  It used to read "Popular", which claimed browse/purchase interest the hub
-   *  has no data for; how much is listed is something it can actually measure. */
+   *  has no data for; how much is listed is something it can actually measure.
+   *  Only a category with at least one listing qualifies — otherwise the hero
+   *  pill would claim "Most listed" for an empty group. */
   const topCategory = useMemo(
-    () => present.reduce<(typeof present)[number] | null>((best, c) => (!best || c.count > best.count ? c : best), null),
+    () => present.reduce<(typeof present)[number] | null>((best, c) => (c.count > 0 && (!best || c.count > best.count) ? c : best), null),
     [present],
   );
 
@@ -204,9 +217,11 @@ export function HubBrowse({
   const suppliers = useMemo(() => deriveSuppliers(products), [products]);
 
   /** The five biggest categories, same source (and same admin-set imagery) as
-   *  the card rail — nothing here is a category the hub doesn't stock. */
+   *  the card rail. Tiles are a "shop by what we stock" surface, so they only
+   *  include groups that actually have listings — an empty group showing "0
+   *  products" on a storefront tile is a dead end, not an invitation. */
   const tiles = useMemo<CategoryTile[]>(
-    () => [...present].sort((a, b) => b.count - a.count).slice(0, 5),
+    () => [...present].filter((c) => c.count > 0).sort((a, b) => b.count - a.count).slice(0, 5),
     [present],
   );
 
