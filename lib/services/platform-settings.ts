@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa, getKeyPlayers } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -31,6 +31,9 @@ import {
   PWA_TAG,
   normalizePwa,
   type PwaSetting,
+  KEY_PLAYERS_TAG,
+  normalizeKeyPlayers,
+  type KeyPlayersSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -333,5 +336,41 @@ export async function setPwa(input: Partial<PwaSetting>): Promise<PwaSetting> {
   // now, not after the 30s cache window.
   revalidateTag(PWA_TAG, { expire: 0 });
   revalidatePath("/", "layout");
+  return next;
+}
+
+/* ── Homepage "Key Players" strip: the write path ────────────────────────
+ * Super-admin-only, like the About team section: this strip sits directly on
+ * the public homepage's first fold and every change to it (or hiding it) goes
+ * out to every visitor, so plain admins don't get the lever.
+ */
+export async function setKeyPlayers(
+  input: Partial<KeyPlayersSetting>,
+): Promise<KeyPlayersSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getKeyPlayers();
+  const next = normalizeKeyPlayers({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('key_players', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  // Hiding/showing the strip is the visitor-facing event, so record it.
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "key_players_show" : "key_players_hide"}, 'platform_setting', 'key_players', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  // Purge immediately so an edit shows on the live homepage right away, not
+  // after the 30s cache window or the hourly ISR revalidation.
+  revalidateTag(KEY_PLAYERS_TAG, { expire: 0 });
+  revalidatePath("/");
   return next;
 }

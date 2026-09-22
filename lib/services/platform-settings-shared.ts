@@ -14,6 +14,7 @@ export const TOOLS_TAG = "platform-setting:tools";
 export const PAYMENT_PLANS_TAG = "platform-setting:payment-plans";
 export const ABOUT_TEAM_TAG = "platform-setting:about-team";
 export const PWA_TAG = "platform-setting:pwa";
+export const KEY_PLAYERS_TAG = "platform-setting:key-players";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
  * Seconds for one full marquee pass. Higher = slower. Adjustable without a
@@ -255,5 +256,68 @@ export function normalizePwa(raw: unknown): PwaSetting {
   const v = (raw ?? {}) as Partial<PwaSetting>;
   return {
     enabled: v.enabled === true,
+  };
+}
+
+/* ── Homepage "Key Players" strip ──────────────────────────────────────
+ * "Key Players and Fastest Growing Companies in the Industry" — the glass-card
+ * marquee on the homepage. Super-admin editable so the showcased companies
+ * (name, mark image, external link) can be curated without a deploy and the
+ * strip can be hidden entirely. `enabled` is the show/hide switch.
+ */
+export interface KeyPlayer {
+  name: string;
+  /** Path or uploaded URL for the mark (e.g. /logos/partners/mct.png). */
+  src: string;
+  /** Where the card links. Empty = non-clickable card. */
+  href: string;
+}
+
+export interface KeyPlayersSetting {
+  /** True = the strip renders on the homepage. */
+  enabled: boolean;
+  /** The strip's headline, shown above the marquee. */
+  heading: string;
+  logos: KeyPlayer[];
+}
+
+/** Defaults mirror the companies baked into trusted-by.tsx, so a super admin
+ *  who never edits anything sees exactly the designed strip. */
+export const KEY_PLAYERS_DEFAULT: KeyPlayersSetting = {
+  enabled: true,
+  heading: "Key Players and Fastest Growing Companies in the Industry",
+  logos: [
+    { name: "MC&T — Migliore Construzione & Tecniche", src: "/logos/partners/mct.png", href: "https://mcandt.com.ng/" },
+    { name: "The Building Practice", src: "/logos/partners/building-practice.png", href: "https://www.instagram.com/thebuildingpractice" },
+    { name: "CEP — Construction Economists Partnership Limited", src: "/logos/partners/cep.png", href: "https://www.linkedin.com/company/construction-economists-partnership-limited-cep-/" },
+    { name: "DanBran Projects Limited", src: "/logos/partners/danbran-projects.png", href: "https://danbranprojectsltd.com/danbran12dx/" },
+    { name: "Nomadic Architects", src: "/logos/partners/nomadic-architects.png", href: "https://nomarcprojects.com" },
+    { name: "Tivisto", src: "/logos/partners/tivisto.png", href: "https://drive.google.com/file/d/19crZRwag_msXnClaN8VGW8q71iMOjKy1/view" },
+  ],
+};
+
+/** A logo that survives normalizing keeps its name; a blank-name row is dropped
+ *  rather than filled in, because deleting a company is a legitimate CRUD act. */
+export function normalizeKeyPlayer(raw: unknown): KeyPlayer | null {
+  const l = (raw ?? {}) as Partial<KeyPlayer>;
+  const name = typeof l.name === "string" ? l.name.trim() : "";
+  if (!name) return null;
+  return {
+    name,
+    src: typeof l.src === "string" && l.src.trim() ? l.src.trim() : "",
+    href: typeof l.href === "string" ? l.href.trim() : "",
+  };
+}
+
+/** Coerce whatever is in the jsonb column into a complete, safe object. An
+ *  explicit empty list stays empty (the strip then hides itself); only a
+ *  missing row resolves to the default. */
+export function normalizeKeyPlayers(raw: unknown): KeyPlayersSetting {
+  const v = (raw ?? {}) as Partial<KeyPlayersSetting>;
+  const logos = Array.isArray(v.logos) ? v.logos.map(normalizeKeyPlayer).filter((l): l is KeyPlayer => l !== null) : [];
+  return {
+    enabled: v.enabled === true,
+    heading: typeof v.heading === "string" && v.heading.trim() ? v.heading.trim() : KEY_PLAYERS_DEFAULT.heading,
+    logos,
   };
 }

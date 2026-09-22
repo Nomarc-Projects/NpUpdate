@@ -35,6 +35,10 @@ import {
   PWA_DEFAULT,
   normalizePwa,
   type PwaSetting,
+  KEY_PLAYERS_TAG,
+  KEY_PLAYERS_DEFAULT,
+  normalizeKeyPlayers,
+  type KeyPlayersSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -277,4 +281,31 @@ const readPwa = unstable_cache(
 
 export async function getPwa(): Promise<PwaSetting> {
   return readPwa();
+}
+
+/**
+ * Homepage "Key Players" strip. Same fail-open reasoning as maintenance: an
+ * unreadable value (pre-migration, DB hiccup, build-time prerender) resolves
+ * to the full designed set so the strip keeps rendering, content intact.
+ */
+const readKeyPlayers = unstable_cache(
+  async (): Promise<KeyPlayersSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'key_players' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return KEY_PLAYERS_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeKeyPlayers(value);
+    } catch {
+      return KEY_PLAYERS_DEFAULT;
+    }
+  },
+  ["platform-setting-key-players"],
+  { revalidate: 30, tags: [KEY_PLAYERS_TAG] },
+);
+
+export async function getKeyPlayers(): Promise<KeyPlayersSetting> {
+  return readKeyPlayers();
 }
