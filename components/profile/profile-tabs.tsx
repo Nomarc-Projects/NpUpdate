@@ -130,12 +130,12 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
               <div className="mt-8">
                 <QualificationsContent mode="skills" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} />
               </div>
-            </div>
-            <div className={tab === "education" ? "" : "hidden"}>
-              <QualificationsContent mode="experience" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} />
               <div className="mt-8">
                 <EducationContent education={education} mode="references" />
               </div>
+            </div>
+            <div className={tab === "education" ? "" : "hidden"}>
+              <QualificationsContent mode="experience" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} />
             </div>
             <div className={tab === "verification" ? "" : "hidden"}>{kycState && <KycView kycState={kycState} embedded />}</div>
           </div>
