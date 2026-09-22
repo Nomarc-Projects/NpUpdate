@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -21,219 +21,134 @@ export const partners: Logo[] = [
 ];
 
 /**
+ * One logo plate. `confirmOpen` turns it into a "you're leaving the page"
+ * gate that redirects in the SAME tab on OK; otherwise it stays a plain
+ * open-in-a-new-tab link. Shared by the marquee strip and the carousel so
+ * both behave identically per context.
+ */
+function LogoPlate({ logo, confirmOpen }: { logo: Logo; confirmOpen: boolean }) {
+  const plate =
+    "flex-shrink-0 flex items-center justify-center rounded-2xl px-7 sm:px-10 h-20 sm:h-24 opacity-80 transition-opacity bg-transparent ring-0 shadow-none dark:bg-white dark:ring-1 dark:ring-white/10 dark:shadow-sm";
+
+  const img = (
+    <Image src={logo.src} alt={logo.name} width={320} height={96} draggable={false} className="h-9 sm:h-12 md:h-14 w-auto object-contain" />
+  );
+
+  if (!logo.href) {
+    return <div title={logo.name} className={`${plate} hover:opacity-100`}>{img}</div>;
+  }
+
+  return (
+    <a
+      href={logo.href}
+      // Carousel confirms leaving and redirects in this tab; other strips keep
+      // the open-in-a-new-tab behavior.
+      {...(confirmOpen ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      title={confirmOpen ? `${logo.name} — opens in this tab` : `${logo.name} — opens in a new tab`}
+      onClick={(e) => {
+        if (confirmOpen && !window.confirm(`You're about to leave this page and visit ${logo.name}. Continue?`)) e.preventDefault();
+      }}
+      className={`${plate} cursor-pointer hover:opacity-100 hover:ring-2 hover:ring-[#ffd716] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd716]`}
+    >
+      {img}
+    </a>
+  );
+}
+
+/**
  * One marquee group. The logos are full-colour artwork on transparency, so in
  * dark mode they sit on a light plate (rather than being inverted, which would
  * wreck multi-colour marks like the Lagos State seal).
  */
-export function LogoGroup({ logos, ariaHidden, confirmOpen = false }: { logos: Logo[]; ariaHidden?: boolean; confirmOpen?: boolean }) {
-  // pr-* matches the inter-item gap so two groups concatenate with a uniform
-  // rhythm — that makes the -50% loop perfectly seamless (no dead space).
-  const plate =
-    "flex-shrink-0 flex items-center justify-center rounded-2xl px-5 sm:px-7 h-16 sm:h-20 opacity-80 transition-opacity bg-transparent ring-0 shadow-none dark:bg-white dark:ring-1 dark:ring-white/10 dark:shadow-sm";
-
+export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: boolean }) {
   return (
     <div aria-hidden={ariaHidden} className="flex items-center gap-5 sm:gap-7 pr-5 sm:pr-7 shrink-0">
-      {logos.map((p) => {
-        const img = (
-          <Image src={p.src} alt={p.name} width={320} height={96} draggable={false} className="h-7 sm:h-9 w-auto object-contain" />
-        );
-        if (!p.href) {
-          return <div key={p.name} title={p.name} className={`${plate} hover:opacity-100`}>{img}</div>;
-        }
-        return (
-          <a
-            key={p.name}
-            href={p.href}
-            // The confirm-on-leave strip navigates in the SAME tab after the
-            // admin's prompt; every other marquee (partners strip, etc.) keeps
-            // the original open-in-a-new-tab behavior.
-            {...(confirmOpen ? {} : { target: "_blank", rel: "noopener noreferrer" })}
-            title={confirmOpen ? `${p.name} — opens in this tab` : `${p.name} — opens in a new tab`}
-            // Ask before leaving the page for the logo's site. Only the first
-            // (real) group prompts; the aria-hidden duplicates are skipped.
-            onClick={(e) => {
-              if (confirmOpen && !ariaHidden && !window.confirm(`You're about to leave this page and visit ${p.name}. Continue?`)) e.preventDefault();
-            }}
-            // The marquee renders this group four times to loop seamlessly. Only
-            // the first is real; the duplicates are aria-hidden, so they are also
-            // taken out of the tab order — otherwise keyboard users would tab
-            // through every logo four times to get past the strip.
-            tabIndex={ariaHidden ? -1 : undefined}
-            className={`${plate} cursor-pointer hover:opacity-100 hover:ring-2 hover:ring-[#ffd716] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd716]`}
-          >
-            {img}
-          </a>
-        );
-      })}
+      {logos.map((p) => (
+        <div key={p.name}>
+          <LogoPlate logo={p} confirmOpen={false} />
+        </div>
+      ))}
     </div>
   );
 }
 
-/** How long one full pattern pass takes. Matches the old 48s keyframe. */
-const LOOP_SECONDS = 48;
-
 /**
- * JS-driven iteration of the marquee track. Kept out of LogoMarquee's happy path
- * (which still uses the pure-CSS keyframe) so the partners strip below the
- * footer stays exactly as it is; the Key Players strip opts in via `interactive`.
- *
- * Behavior: autoplays left-to-repeating; pauses on hover; a pointer drag scrubs
- * the track to either side and resumes scrolling on release. The track is four
- * copies of the logo set, so wrapping the offset by half its width is seamless.
- * Reduced-motion users get a static (still draggable) strip.
+ * One-logo-per-view carousel used by the homepage "Key Players" strip.
+ * Each logo fills the full (col-sm-12) width; ←/→ step between slides, dots
+ * track position. No auto-scroll — the marquee behavior was replaced by the
+ * single-slide layout the user asked for.
  */
-function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const offset = useRef(0);
-  const pattern = useRef(0);
-  const paused = useRef(false);
-  const dragging = useRef(false);
-  const dragBase = useRef(0);
-  const dragStartX = useRef(0);
-  const suppressed = useRef(false);
-  const reduced = useRef(false);
-  const raf = useRef<number | null>(null);
-  const lastTs = useRef<number | null>(null);
+function CarouselTrack({ logos }: { logos: Logo[] }) {
+  const [index, setIndex] = useState(0);
+  const n = logos.length;
 
-  const apply = () => {
-    const el = trackRef.current;
-    if (!el) return;
-    el.style.transform = `translate3d(${-offset.current}px,0,0)`;
-  };
-
-  /** Half the track = exactly one logo set, the seamless wrap point. */
-  const getPattern = () => {
-    if (!pattern.current && trackRef.current) pattern.current = trackRef.current.scrollWidth / 2;
-    return pattern.current || 1;
-  };
-
-  /** Arrow nudge: step a meaningful chunk of what's visible, then wrap. */
-  const nudge = (dir: 1 | -1) => {
-    const p = getPattern();
-    const step = (trackRef.current?.parentElement?.clientWidth ?? 320) * 0.4;
-    const next = (offset.current + dir * step) % p;
-    offset.current = next < 0 ? next + p : next;
-    apply();
-  };
-
-  const loop = (ts: number) => {
-    raf.current = requestAnimationFrame(loop);
-    if (lastTs.current == null) lastTs.current = ts;
-    const dt = ts - lastTs.current;
-    lastTs.current = ts;
-    if (dragging.current || paused.current || reduced.current) return;
-    const p = getPattern();
-    offset.current = (offset.current + (p / (LOOP_SECONDS * 1000)) * dt) % p;
-    apply();
-  };
-
-  useEffect(() => {
-    reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!reduced.current) raf.current = requestAnimationFrame(loop);
-    const ro = new ResizeObserver(() => {
-      // Logos/images may load or reflow — re-measure the loop point.
-      pattern.current = 0;
-    });
-    if (trackRef.current) ro.observe(trackRef.current);
-    return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
-      ro.disconnect();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const go = (dir: 1 | -1) => setIndex((p) => (p + dir + n) % n);
 
   return (
-    <>
-      <div
-        className="relative cursor-grab active:cursor-grabbing select-none touch-pan-y"
-        onPointerDown={(e) => {
-          dragStartX.current = e.clientX;
-          dragBase.current = offset.current;
-        }}
-        onPointerMove={(e) => {
-          if (dragging.current) {
-            const p = getPattern();
-            const next = (dragBase.current + (e.clientX - dragStartX.current)) % p;
-            offset.current = next < 0 ? next + p : next;
-            apply();
-            return;
-          }
-          // Don't start a drag on a plain tap — a tap must stay a click so the
-          // logo's confirm-then-open works. Only grabs grow into drags.
-          if (Math.abs(e.clientX - dragStartX.current) < 6) return;
-          dragging.current = true;
-          dragBase.current = offset.current;
-          e.currentTarget.setPointerCapture(e.pointerId);
-        }}
-        onPointerUp={() => {
-          if (!dragging.current) return;
-          dragging.current = false;
-          // A drag ends on this container, so the browser retargets the
-          // resulting click here; swallow it or the logo link would open after
-          // every scrub. The swallow flag lives just past the following click.
-          suppressed.current = true;
-          setTimeout(() => { suppressed.current = false; }, 0);
-        }}
-        onPointerCancel={() => {
-          dragging.current = false;
-        }}
-        onClick={(e) => {
-          if (suppressed.current) {
-            e.preventDefault();
-            e.stopPropagation();
-            suppressed.current = false;
-          }
-        }}
-        onMouseEnter={() => {
-          paused.current = true;
-        }}
-        onMouseLeave={() => {
-          paused.current = false;
-        }}
-      >
-        <div ref={trackRef} className="flex items-center w-max" style={{ transform: "translate3d(0,0,0)" }}>
-          {groups}
-        </div>
+    <div className="relative overflow-hidden">
+      <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
+        {logos.map((l) => (
+          <div key={l.name} className="w-full flex-shrink-0 flex items-center justify-center px-14 sm:px-24">
+            <LogoPlate logo={l} confirmOpen />
+          </div>
+        ))}
       </div>
 
       <button
         type="button"
-        aria-label="Scroll left"
-        onClick={() => nudge(-1)}
-        className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors"
+        aria-label="Previous logo"
+        onClick={() => go(-1)}
+        disabled={n <= 1}
+        className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors disabled:opacity-40"
       >
         <ChevronLeft size={18} />
       </button>
       <button
         type="button"
-        aria-label="Scroll right"
-        onClick={() => nudge(1)}
-        className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors"
+        aria-label="Next logo"
+        onClick={() => go(1)}
+        disabled={n <= 1}
+        className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors disabled:opacity-40"
       >
         <ChevronRight size={18} />
       </button>
-    </>
+
+      <div className="flex items-center justify-center gap-1.5 mt-4">
+        {logos.map((l, idx) => (
+          <button
+            key={l.name}
+            type="button"
+            aria-label={`Go to slide ${idx + 1}`}
+            onClick={() => setIndex(idx)}
+            className={`w-2 h-2 rounded-full transition-colors ${idx === index ? "bg-[#ffd716]" : "bg-[#e3e3e3] dark:bg-white/15 hover:bg-[#ffd716]/60"}`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 
-/** Seamless auto-scrolling marquee shared by the partners strip. */
+/**
+ * Marquee for the "Trusted Clients" strip — seamless CSS auto-scroll, unchanged.
+ * The homepage Key Players strip opts into the carousel via `interactive`.
+ */
 export function LogoMarquee({ logos, interactive = false }: { logos: Logo[]; interactive?: boolean }) {
+  if (interactive) {
+    return <CarouselTrack logos={logos} />;
+  }
+
   const groups = [
-    <LogoGroup key="a" logos={logos} confirmOpen={interactive} />,
-    <LogoGroup key="b" logos={logos} ariaHidden confirmOpen={interactive} />,
-    <LogoGroup key="c" logos={logos} ariaHidden confirmOpen={interactive} />,
-    <LogoGroup key="d" logos={logos} ariaHidden confirmOpen={interactive} />,
+    <LogoGroup key="a" logos={logos} />,
+    <LogoGroup key="b" logos={logos} ariaHidden />,
+    <LogoGroup key="c" logos={logos} ariaHidden />,
+    <LogoGroup key="d" logos={logos} ariaHidden />,
   ];
 
   return (
     <div className="relative overflow-hidden">
       <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
       <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
-      {interactive ? (
-        <DraggableTrack groups={groups} />
-      ) : (
-        <div className="flex items-center w-max animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
-      )}
+      <div className="flex items-center w-max animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
     </div>
   );
 }
