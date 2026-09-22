@@ -10,6 +10,13 @@ const id = () => uuid("id").primaryKey().defaultRandom();
 const ts = () => timestamp("created_at", { withTimezone: true }).defaultNow().notNull();
 const upd = () => timestamp("updated_at", { withTimezone: true }).defaultNow().notNull();
 
+/** One certificate/proof document attached to an education entry. */
+export type CertDoc = {
+  url: string;
+  status: "pending" | "approved" | "rejected";
+  submittedAt?: string | null;
+};
+
 /* ── Professional profile ──────────────────────────────────────────────── */
 export const profile = pgTable("profile", {
   id: id(),
@@ -67,6 +74,9 @@ export const workExperience = pgTable("work_experience", {
   current: boolean("current").default(false),
   /** Photo of the work / project the role delivered. */
   workPhoto: text("work_photo"),
+  /** Multiple work photos (jsonb array of URLs); `workPhoto` is the legacy
+   *  single-photo column kept for backwards compatibility. */
+  workPhotos: jsonb("work_photos").$type<string[]>(),
   createdAt: ts(),
 });
 
@@ -86,6 +96,10 @@ export const education = pgTable("education", {
    *  matching kyc_document's vocabulary. */
   proofStatus: text("proof_status"),
   proofSubmittedAt: timestamp("proof_submitted_at", { withTimezone: true }),
+  /** Multiple certificate/proof documents per entry (jsonb array of
+   *  {url, status, submittedAt}); `proofUrl`/`proofStatus` are the legacy
+   *  single-document columns kept for backwards compatibility. */
+  certificates: jsonb("certificates").$type<CertDoc[]>(),
   createdAt: ts(),
 });
 

@@ -3,23 +3,38 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
-import { workExperience, profileSkill, certification, education, professionalRegistration, reference } from "@/lib/db/schema";
+import { workExperience, profileSkill, certification, education, professionalRegistration, reference, type CertDoc } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 
 const bump = () => revalidatePath("/dashboard/profile");
 
-export type Experience = { id: string; title: string; company: string; description: string | null; location: string | null; workplaceType: string | null; startDate: string | null; endDate: string | null; current: boolean; workPhoto: string | null };
+export type { CertDoc } from "@/lib/db/schema";
+export type Experience = { id: string; title: string; company: string; description: string | null; location: string | null; workplaceType: string | null; startDate: string | null; endDate: string | null; current: boolean; workPhotos: string[] };
 export type Cert = { id: string; name: string; issuer: string | null; year: number | null; url: string | null };
 export type Edu = {
   id: string; school: string; degree: string | null; field: string | null;
   startYear: number | null; endYear: number | null;
   current: boolean; description: string | null;
-  proofUrl: string | null;
-  /** null until a document is attached, then pending | approved | rejected. */
-  proofStatus: "pending" | "approved" | "rejected" | null;
+  /** Certificate(s)/proof document(s), each with its own verification state. */
+  certificates: CertDoc[];
 };
 export type Registration = { id: string; body: string; registrationNumber: string | null };
 export type Reference = { id: string; name: string; contactType: string; contact: string | null; organization: string | null };
+
+/** Merge the legacy single-column value into the array-based list so reads are
+ *  consistent regardless of which write path produced the row. */
+function mergeStrings(arr: string[] | null | undefined, legacy: string | null | undefined): string[] {
+  const out = [...(arr ?? [])];
+  if (legacy && !out.includes(legacy)) out.push(legacy);
+  return out;
+}
+function mergeCerts(arr: CertDoc[] | null | undefined, legacyUrl: string | null | undefined, legacyStatus: string | null | undefined, legacyAt: Date | null | undefined): CertDoc[] {
+  const out = [...(arr ?? [])];
+  if (legacyUrl && !out.some((c) => c.url === legacyUrl)) {
+    out.push({ url: legacyUrl, status: (legacyStatus ?? "pending") as CertDoc["status"], submittedAt: legacyAt ? legacyAt.toISOString() : null });
+  }
+  return out;
+}
 
 export async function getQualifications() {
   const uid = await requireUserId();
@@ -31,7 +46,12 @@ export async function getQualifications() {
     db.select().from(professionalRegistration).where(eq(professionalRegistration.userId, uid)).orderBy(asc(professionalRegistration.createdAt)).catch(() => []),
   ]);
   return {
-    experience: exp as Experience[],
+    experience: exp.map((e) => ({
+      id: e.id, title: e.title, company: e.company, description: e.description,
+      location: e.location, workplaceType: e.workplaceType, startDate: e.startDate,
+      endDate: e.endDate, current: e.current ?? false,
+      workPhotos: mergeStrings(e.workPhotos, e.workPhoto),
+    })),
     skills: sk.filter((s) => (s.kind ?? "skill") === "skill").map((s) => ({ id: s.id, name: s.name })),
     specializations: sk.filter((s) => s.kind === "specialization").map((s) => ({ id: s.id, name: s.name })),
     certifications: certs.map((c) => ({ id: c.id, name: c.name, issuer: c.issuer, year: c.year, url: c.url })) as Cert[],
@@ -79,14 +99,16 @@ export async function removeReference(id: string) {
   bump();
 }
 
-export async function addExperience(input: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean; workPhoto?: string }) {
+export async function addExperience(input: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean; workPhotos?: string[] }) {
   const uid = await requireUserId();
   if (!input.title.trim()) throw new Error("Role is required");
+  const photos: string[] = [...new Set((input.workPhotos ?? []).map((p) => p.trim()).filter(Boolean))];
   await db.insert(workExperience).values({
     userId: uid, title: input.title.trim(), company: input.company?.trim() || "", description: input.description || null,
     location: input.location || null, workplaceType: input.workplaceType || null,
     startDate: input.startDate || null, endDate: input.current ? null : input.endDate || null, current: !!input.current,
-    workPhoto: input.workPhoto?.trim() || null,
+    workPhotos: photos,
+    workPhoto: photos[0] || null,
   });
   bump();
 }
@@ -96,10 +118,14 @@ export async function deleteExperience(id: string) {
   bump();
 }
 
-/** Attach (or replace) the work photo on an existing experience row. */
-export async function setExperiencePhoto(id: string, photoUrl: string) {
+/** Replace the full set of work photos on an existing experience row. */
+export async function setExperiencePhotos(id: string, photos: string[]) {
   const uid = await requireUserId();
-  await db.update(workExperience).set({ workPhoto: photoUrl.trim() || null }).where(and(eq(workExperience.id, id), eq(workExperience.userId, uid)));
+  const list: string[] = [...new Set(photos.map((p) => p.trim()).filter(Boolean))];
+  await db.update(workExperience).set({
+    workPhotos: list,
+    workPhoto: list[0] || null,
+  }).where(and(eq(workExperience.id, id), eq(workExperience.userId, uid)));
   bump();
 }
 
@@ -134,7 +160,7 @@ export async function getEducationList(): Promise<Edu[]> {
     id: e.id, school: e.school, degree: e.degree, field: e.field,
     startYear: e.startYear, endYear: e.endYear,
     current: e.current, description: e.description,
-    proofUrl: e.proofUrl, proofStatus: (e.proofStatus ?? null) as Edu["proofStatus"],
+    certificates: mergeCerts(e.certificates, e.proofUrl, e.proofStatus, e.proofSubmittedAt),
   }));
 }
 
@@ -145,11 +171,12 @@ export async function getEducationList(): Promise<Edu[]> {
  */
 export async function addEducation(input: {
   school: string; degree?: string; field?: string; startYear?: number; endYear?: number;
-  current?: boolean; description?: string; proofUrl?: string;
+  current?: boolean; description?: string; certificates?: string[];
 }): Promise<{ proofSubmitted: boolean }> {
   const uid = await requireUserId();
   if (!input.school.trim()) throw new Error("School is required");
-  const proofUrl = input.proofUrl?.trim() || null;
+  const urls: string[] = [...new Set((input.certificates ?? []).map((c) => c.trim()).filter(Boolean))];
+  const docs: CertDoc[] = urls.map((url) => ({ url, status: "pending", submittedAt: new Date().toISOString() }));
   await db.insert(education).values({
     userId: uid,
     school: input.school.trim(),
@@ -161,12 +188,13 @@ export async function addEducation(input: {
     endYear: input.current ? null : input.endYear ?? null,
     current: !!input.current,
     description: input.description?.trim() || null,
-    proofUrl,
-    proofStatus: proofUrl ? "pending" : null,
-    proofSubmittedAt: proofUrl ? new Date() : null,
+    certificates: docs,
+    proofUrl: urls[0] || null,
+    proofStatus: urls.length ? "pending" : null,
+    proofSubmittedAt: urls.length ? new Date() : null,
   });
   bump();
-  return { proofSubmitted: !!proofUrl };
+  return { proofSubmitted: urls.length > 0 };
 }
 export async function deleteEducation(id: string) {
   const uid = await requireUserId();
@@ -174,15 +202,18 @@ export async function deleteEducation(id: string) {
   bump();
 }
 
-/** Attach (or replace) a proof/certificate on an existing education row, and
- *  put it in the verification queue like an attachment made at add-time. */
-export async function setEducationProof(id: string, proofUrl: string) {
+/** Replace the full set of certificate/proof documents on an existing education
+ *  row, putting any newly added ones in the verification queue. */
+export async function setEducationCertificates(id: string, docs: CertDoc[]) {
   const uid = await requireUserId();
-  const url = proofUrl.trim() || null;
+  const list: CertDoc[] = docs
+    .map((d) => ({ url: d.url.trim(), status: d.status, submittedAt: d.submittedAt ?? null }))
+    .filter((d) => d.url);
   await db.update(education).set({
-    proofUrl: url,
-    proofStatus: url ? "pending" : null,
-    proofSubmittedAt: url ? new Date() : null,
+    certificates: list,
+    proofUrl: list[0]?.url || null,
+    proofStatus: list.length ? "pending" : null,
+    proofSubmittedAt: list.length ? new Date() : null,
   }).where(and(eq(education.id, id), eq(education.userId, uid)));
   bump();
 }

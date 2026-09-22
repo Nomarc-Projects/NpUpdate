@@ -12,8 +12,8 @@ import { uploadFile } from "@/lib/upload-client";
 import { INSTITUTION_TYPES, institutionsFor } from "@/lib/data/nigeria-institutions";
 import { DEGREES_BY_TYPE, STUDY_PROGRAMS } from "@/lib/data/study-programs";
 import {
-  addEducation, deleteEducation, getReferences, addReference, removeReference, setEducationProof,
-  type Edu, type Reference,
+  addEducation, deleteEducation, getReferences, addReference, removeReference, setEducationCertificates,
+  type Edu, type Reference, type CertDoc,
 } from "@/lib/services/qualifications";
 
 const tmp = () => `tmp_${Math.random().toString(36).slice(2)}`;
@@ -39,43 +39,61 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
   const [open, setOpen] = useState<null | "edu" | "ref">(null);
   const close = () => setOpen(null);
   const [f, setF] = useState(blankEdu);
-  const [proofUrl, setProofUrl] = useState("");
-  const [proofName, setProofName] = useState("");
+  // Certificate/proof documents picked in the Add-Education modal (one or more).
+  const [certFiles, setCertFiles] = useState<{ url: string; name: string }[]>([]);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [list, setList] = useState<Edu[]>(education);
   useEffect(() => { setList(education); }, [education]);
 
-  // per-row certificate attachment (existing entries)
+  const statusClass = (s: CertDoc["status"]) => (
+    s === "approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400"
+    : s === "rejected" ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
+    : "bg-[#fff7cc] text-[#caa400] dark:bg-[#ffd716]/15"
+  );
+  const proofLabel = (s: CertDoc["status"]) => (s === "approved" ? "Verified" : s === "rejected" ? "Rejected" : "Under review");
+
+  // per-row certificate attachment (existing entries) — multi-select
   const rowProofRef = useRef<HTMLInputElement>(null);
+  const modalProofRef = useRef<HTMLInputElement>(null);
   const [proofRowId, setProofRowId] = useState<string | null>(null);
-  async function attachEduProof(id: string, file?: File) {
-    if (!file) return;
+  async function addRowCerts(id: string, files: FileList | File[]) {
+    const arr = Array.from(files);
+    if (!arr.length) return;
     setUploadingProof(true);
     try {
-      const url = await uploadFile(file, "doc");
-      setList((p) => p.map((e) => (e.id === id ? { ...e, proofUrl: url, proofStatus: "pending" as const } : e)));
-      bg(setEducationProof(id, url), () => setList((p) => p.map((e) => (e.id === id ? { ...e, proofUrl: null, proofStatus: null } : e))), "Certificate submitted for review");
+      const urls = await Promise.all(arr.map((file) => uploadFile(file, "doc")));
+      const prev = list.find((x) => x.id === id)?.certificates ?? [];
+      const fresh = urls.filter((u) => !prev.some((c) => c.url === u));
+      const newDocs: CertDoc[] = fresh.map((url) => ({ url, status: "pending", submittedAt: new Date().toISOString() }));
+      const next = [...prev, ...newDocs];
+      setList((p) => p.map((e) => (e.id === id ? { ...e, certificates: next } : e)));
+      bg(setEducationCertificates(id, next), () => setList((p) => p.map((e) => (e.id === id ? { ...e, certificates: prev } : e))), newDocs.length === 1 ? "Certificate submitted for review" : `${newDocs.length} certificates submitted`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally { setUploadingProof(false); }
   }
-  const proofLabel = (s: Edu["proofStatus"]) => (s === "approved" ? "Verified" : s === "rejected" ? "Rejected" : "Under review");
+  function removeRowCert(id: string, url: string) {
+    const prev = list.find((x) => x.id === id)?.certificates ?? [];
+    const next = prev.filter((c) => c.url !== url);
+    setList((p) => p.map((e) => (e.id === id ? { ...e, certificates: next } : e)));
+    bg(setEducationCertificates(id, next), () => setList((p) => p.map((e) => (e.id === id ? { ...e, certificates: prev } : e))), "Certificate removed");
+  }
 
   // references (client-fetched)
   const [refs, setRefs] = useState<Reference[]>([]);
   const [rf, setRf] = useState<{ name: string; contactType: "email" | "phone"; contact: string; organization: string }>({ name: "", contactType: "email", contact: "", organization: "" });
   useEffect(() => { getReferences().then(setRefs).catch(() => {}); }, []);
 
-  const proofRef = useRef<HTMLInputElement>(null);
-  async function pickProof(file: File | undefined) {
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { toast.error("File too large (max 10MB)."); return; }
+  async function pickProofs(files: FileList | File[] | undefined) {
+    const arr = Array.from(files ?? []);
+    if (!arr.length) return;
+    const oversized = arr.some((file) => file.size > 10 * 1024 * 1024);
+    if (oversized) { toast.error("One or more files are too large (max 10MB each)."); return; }
     setUploadingProof(true);
     try {
-      const url = await uploadFile(file, "doc");
-      setProofUrl(url);
-      setProofName(file.name);
+      const urls = await Promise.all(arr.map((file) => uploadFile(file, "doc")));
+      setCertFiles((p) => [...p, ...urls.map((url, i) => ({ url, name: arr[i].name }))]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally { setUploadingProof(false); }
@@ -96,17 +114,18 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
     const id = tmp();
     const startYear = yearOf(f.startDate);
     const endYear = f.current ? undefined : yearOf(f.endDate);
-    const hasProof = !!proofUrl;
+    const hasProof = certFiles.length > 0;
+    const docs: CertDoc[] = certFiles.map((c) => ({ url: c.url, status: "pending", submittedAt: new Date().toISOString() }));
     const row: Edu = {
       id, school, degree: f.degree || null, field: field || null,
       startYear: startYear ?? null, endYear: endYear ?? null,
       current: f.current, description: f.description || null,
-      proofUrl: proofUrl || null, proofStatus: hasProof ? "pending" : null,
+      certificates: docs,
     };
     setList((p) => [row, ...p]);
     close();
-    const payload = { school, degree: f.degree, field, startYear, endYear, current: f.current, description: f.description, proofUrl };
-    setF(blankEdu); setProofUrl(""); setProofName("");
+    const payload = { school, degree: f.degree, field, startYear, endYear, current: f.current, description: f.description, certificates: certFiles.map((c) => c.url) };
+    setF(blankEdu); setCertFiles([]);
     // The "Document Submitted" confirmation only appears when a proof was
     // actually attached — otherwise there is nothing under review.
     bg(addEducation(payload), () => setList((p) => p.filter((x) => x.id !== id)), hasProof ? undefined : "Education added");
@@ -159,11 +178,23 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
                   </p>
                   {e.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-2 max-w-[560px]">{e.description}</p>}
                   <div className="mt-3 flex flex-wrap items-center gap-3">
-                    {e.proofUrl && (
-                      <a href={e.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#ececec] dark:border-white/10 px-3 py-1.5 text-[12px] font-semibold text-[#1e9df5] transition-colors hover:border-[#ffd716]">
-                        <FileCheck2 size={13} /> View certificate
-                        {e.proofStatus && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${e.proofStatus === "approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" : e.proofStatus === "rejected" ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400" : "bg-[#fff7cc] text-[#caa400] dark:bg-[#ffd716]/15"}`}>{proofLabel(e.proofStatus)}</span>}
-                      </a>
+                    {e.certificates.length > 0 && (
+                      <div className="flex flex-wrap gap-2.5">
+                        {e.certificates.map((c) => (
+                          <span key={c.url} className="group/cert inline-flex items-center gap-1.5 rounded-lg border border-[#ececec] dark:border-white/10 px-3 py-1.5">
+                            <a href={c.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#1e9df5] transition-colors hover:underline">
+                              <FileCheck2 size={13} /> View certificate
+                            </a>
+                            <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${statusClass(c.status)}`}>{proofLabel(c.status)}</span>
+                            <button
+                              type="button"
+                              onClick={() => removeRowCert(e.id, c.url)}
+                              title="Remove certificate"
+                              className="text-[#b3b3b3] hover:text-[#e5484d]"
+                            ><X size={12} /></button>
+                          </span>
+                        ))}
+                      </div>
                     )}
                     <button
                       type="button"
@@ -171,14 +202,9 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
                       disabled={uploadingProof}
                       className="inline-flex items-center gap-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 px-3 py-1.5 text-[12px] font-semibold text-[#6b6b6b] dark:text-white/70 transition-colors hover:border-[#ffd716] hover:text-[#1e1e1e] dark:hover:text-white disabled:opacity-50"
                     >
-                      <ImagePlus size={13} /> {e.proofUrl ? "Replace certificate" : "Upload certificate"}
+                      <ImagePlus size={13} /> {e.certificates.length ? "Add more certificates" : "Upload certificate"}
                     </button>
-                    {e.proofUrl && (
-                      <button type="button" onClick={() => { const prev = e.proofUrl; setList((p) => p.map((y) => (y.id === e.id ? { ...y, proofUrl: null, proofStatus: null } : y))); bg(setEducationProof(e.id, ""), () => setList((p) => p.map((y) => (y.id === e.id ? { ...y, proofUrl: prev, proofStatus: "pending" as const } : y))), "Certificate removed"); }} className="text-[12px] font-semibold text-[#b3b3b3] hover:text-[#e5484d] transition-colors">
-                        Remove
-                      </button>
-                    )}
-                    <input ref={rowProofRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { if (proofRowId) attachEduProof(proofRowId, e.target.files?.[0]); e.target.value = ""; }} />
+                    <input ref={rowProofRef} type="file" multiple accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { if (proofRowId) addRowCerts(proofRowId, e.target.files ?? []); e.target.value = ""; }} />
                   </div>
                 </div>
               ))}
@@ -293,25 +319,36 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
             I am currently studying here
           </label>
 
-          <Field label="Proof of Qualification" hint="Optional — degree, transcript or certificate. PDF or image, up to 10MB.">
+          <Field label="Proof of Qualification" hint="Optional — one or more documents: degree, transcript or certificate. PDF or image, up to 10MB each.">
             <div className="flex items-center gap-3">
               <input
-                ref={proofRef}
+                ref={modalProofRef}
                 type="file"
+                multiple
                 accept="application/pdf,image/png,image/jpeg,image/webp"
                 className="hidden"
-                onChange={(e) => { pickProof(e.target.files?.[0]); e.target.value = ""; }}
+                onChange={(e) => { pickProofs(e.target.files ?? []); e.target.value = ""; }}
               />
               <button
                 type="button"
                 disabled={uploadingProof}
-                onClick={() => proofRef.current?.click()}
+                onClick={() => modalProofRef.current?.click()}
                 className="px-4 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-medium text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-50"
               >
-                {uploadingProof ? "Uploading…" : proofName ? "Replace file" : "Browse files"}
+                {uploadingProof ? "Uploading…" : certFiles.length ? "Add more files" : "Browse files"}
               </button>
-              <span className="text-[12.5px] text-[#9a9a9a] truncate">{proofName || "Degree, Transcript, or Certificate"}</span>
+              <span className="text-[12.5px] text-[#9a9a9a] truncate">{certFiles.length ? `${certFiles.length} file${certFiles.length === 1 ? "" : "s"} attached` : "Degree, Transcript, or Certificate"}</span>
             </div>
+            {certFiles.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {certFiles.map((c) => (
+                  <span key={c.url} className="inline-flex items-center gap-1.5 rounded-lg border border-[#ececec] dark:border-white/10 px-2.5 py-1 text-[12px] text-[#6b6b6b] dark:text-white/70">
+                    {c.name}
+                    <button type="button" onClick={() => setCertFiles((p) => p.filter((x) => x.url !== c.url))} className="text-[#b3b3b3] hover:text-[#e5484d]"><X size={12} /></button>
+                  </span>
+                ))}
+              </div>
+            )}
           </Field>
 
           <Field label="Description" hint="Optional">
