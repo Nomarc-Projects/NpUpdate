@@ -28,9 +28,6 @@ export function TrustedByStrip() {
           <div className="col-span-12 sm:col-span-12">
             <LogoMarquee logos={keyPlayers} interactive />
           </div>
-          <p className="col-span-12 sm:col-span-12 mt-4 text-center text-[10px] font-medium text-[#b9b9b9] uppercase tracking-[0.2em]">
-            Drag to slide · Hover to pause
-          </p>
         </div>
         <div className="border-b border-[#ececec] dark:border-white/10" />
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export type Logo = {
   name: string;
@@ -98,6 +99,15 @@ function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
     return pattern.current || 1;
   };
 
+  /** Arrow nudge: step a meaningful chunk of what's visible, then wrap. */
+  const nudge = (dir: 1 | -1) => {
+    const p = getPattern();
+    const step = (trackRef.current?.parentElement?.clientWidth ?? 320) * 0.4;
+    const next = (offset.current + dir * step) % p;
+    offset.current = next < 0 ? next + p : next;
+    apply();
+  };
+
   const loop = (ts: number) => {
     raf.current = requestAnimationFrame(loop);
     if (lastTs.current == null) lastTs.current = ts;
@@ -125,39 +135,58 @@ function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
   }, []);
 
   return (
-    <div
-      className="relative cursor-grab active:cursor-grabbing select-none touch-pan-y"
-      onPointerDown={(e) => {
-        if (e.pointerType === "mouse") e.preventDefault();
-        dragging.current = true;
-        dragStartX.current = e.clientX;
-        dragBase.current = offset.current;
-        e.currentTarget.setPointerCapture(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        if (!dragging.current) return;
-        const p = getPattern();
-        const next = (dragBase.current + (e.clientX - dragStartX.current)) % p;
-        offset.current = next < 0 ? next + p : next;
-        apply();
-      }}
-      onPointerUp={() => {
-        dragging.current = false;
-      }}
-      onPointerCancel={() => {
-        dragging.current = false;
-      }}
-      onMouseEnter={() => {
-        paused.current = true;
-      }}
-      onMouseLeave={() => {
-        paused.current = false;
-      }}
-    >
-      <div ref={trackRef} className="flex items-center w-max" style={{ transform: "translate3d(0,0,0)" }}>
-        {groups}
+    <>
+      <div
+        className="relative cursor-grab active:cursor-grabbing select-none touch-pan-y"
+        onPointerDown={(e) => {
+          if (e.pointerType === "mouse") e.preventDefault();
+          dragging.current = true;
+          dragStartX.current = e.clientX;
+          dragBase.current = offset.current;
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          if (!dragging.current) return;
+          const p = getPattern();
+          const next = (dragBase.current + (e.clientX - dragStartX.current)) % p;
+          offset.current = next < 0 ? next + p : next;
+          apply();
+        }}
+        onPointerUp={() => {
+          dragging.current = false;
+        }}
+        onPointerCancel={() => {
+          dragging.current = false;
+        }}
+        onMouseEnter={() => {
+          paused.current = true;
+        }}
+        onMouseLeave={() => {
+          paused.current = false;
+        }}
+      >
+        <div ref={trackRef} className="flex items-center w-max" style={{ transform: "translate3d(0,0,0)" }}>
+          {groups}
+        </div>
       </div>
-    </div>
+
+      <button
+        type="button"
+        aria-label="Scroll left"
+        onClick={() => nudge(-1)}
+        className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors"
+      >
+        <ChevronLeft size={18} />
+      </button>
+      <button
+        type="button"
+        aria-label="Scroll right"
+        onClick={() => nudge(1)}
+        className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/95 dark:bg-[#161616]/90 border border-[#ececec] dark:border-white/10 text-[#1e1e1e] dark:text-white shadow-sm hover:bg-[#ffd716] hover:border-[#ffd716] transition-colors"
+      >
+        <ChevronRight size={18} />
+      </button>
+    </>
   );
 }
 
