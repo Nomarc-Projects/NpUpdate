@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, GraduationCap, X, UserCheck } from "lucide-react";
+import { Plus, GraduationCap, X, UserCheck, ImagePlus, FileCheck2 } from "lucide-react";
 import { Modal, Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { SelectMenu } from "@/components/ui/select-menu";
@@ -12,7 +12,7 @@ import { uploadFile } from "@/lib/upload-client";
 import { INSTITUTION_TYPES, institutionsFor } from "@/lib/data/nigeria-institutions";
 import { DEGREES_BY_TYPE, STUDY_PROGRAMS } from "@/lib/data/study-programs";
 import {
-  addEducation, deleteEducation, getReferences, addReference, removeReference,
+  addEducation, deleteEducation, getReferences, addReference, removeReference, setEducationProof,
   type Edu, type Reference,
 } from "@/lib/services/qualifications";
 
@@ -45,6 +45,22 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
   const [submitted, setSubmitted] = useState(false);
   const [list, setList] = useState<Edu[]>(education);
   useEffect(() => { setList(education); }, [education]);
+
+  // per-row certificate attachment (existing entries)
+  const rowProofRef = useRef<HTMLInputElement>(null);
+  const [proofRowId, setProofRowId] = useState<string | null>(null);
+  async function attachEduProof(id: string, file?: File) {
+    if (!file) return;
+    setUploadingProof(true);
+    try {
+      const url = await uploadFile(file, "doc");
+      setList((p) => p.map((e) => (e.id === id ? { ...e, proofUrl: url, proofStatus: "pending" as const } : e)));
+      bg(setEducationProof(id, url), () => setList((p) => p.map((e) => (e.id === id ? { ...e, proofUrl: null, proofStatus: null } : e))), "Certificate submitted for review");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally { setUploadingProof(false); }
+  }
+  const proofLabel = (s: Edu["proofStatus"]) => (s === "approved" ? "Verified" : s === "rejected" ? "Rejected" : "Under review");
 
   // references (client-fetched)
   const [refs, setRefs] = useState<Reference[]>([]);
@@ -141,6 +157,29 @@ export function EducationContent({ education = NO_EDU, mode = "full" }: { educat
                   <p className="text-[13px] text-[#9a9a9a] mt-0.5">
                     {[[e.degree, e.field].filter(Boolean).join(" - "), [e.startYear, e.endYear].filter(Boolean).join(" - ")].filter(Boolean).join(" • ")}
                   </p>
+                  {e.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-2 max-w-[560px]">{e.description}</p>}
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {e.proofUrl && (
+                      <a href={e.proofUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#ececec] dark:border-white/10 px-3 py-1.5 text-[12px] font-semibold text-[#1e9df5] transition-colors hover:border-[#ffd716]">
+                        <FileCheck2 size={13} /> View certificate
+                        {e.proofStatus && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${e.proofStatus === "approved" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400" : e.proofStatus === "rejected" ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400" : "bg-[#fff7cc] text-[#caa400] dark:bg-[#ffd716]/15"}`}>{proofLabel(e.proofStatus)}</span>}
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => { setProofRowId(e.id); rowProofRef.current?.click(); }}
+                      disabled={uploadingProof}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 px-3 py-1.5 text-[12px] font-semibold text-[#6b6b6b] dark:text-white/70 transition-colors hover:border-[#ffd716] hover:text-[#1e1e1e] dark:hover:text-white disabled:opacity-50"
+                    >
+                      <ImagePlus size={13} /> {e.proofUrl ? "Replace certificate" : "Upload certificate"}
+                    </button>
+                    {e.proofUrl && (
+                      <button type="button" onClick={() => { const prev = e.proofUrl; setList((p) => p.map((y) => (y.id === e.id ? { ...y, proofUrl: null, proofStatus: null } : y))); bg(setEducationProof(e.id, ""), () => setList((p) => p.map((y) => (y.id === e.id ? { ...y, proofUrl: prev, proofStatus: "pending" as const } : y))), "Certificate removed"); }} className="text-[12px] font-semibold text-[#b3b3b3] hover:text-[#e5484d] transition-colors">
+                        Remove
+                      </button>
+                    )}
+                    <input ref={rowProofRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => { if (proofRowId) attachEduProof(proofRowId, e.target.files?.[0]); e.target.value = ""; }} />
+                  </div>
                 </div>
               ))}
             </div>

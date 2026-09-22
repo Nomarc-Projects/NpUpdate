@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Briefcase, Sparkles, Target, Award, X, Link as LinkIcon, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Plus, Briefcase, Sparkles, Target, Award, X, Link as LinkIcon, ShieldCheck, ImagePlus, type LucideIcon } from "lucide-react";
 import { Modal, Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -14,7 +14,7 @@ import { getTaxonomy } from "@/lib/services/taxonomy";
 import { REGULATORY_BODIES } from "@/lib/regulatory-bodies";
 import {
   addExperience, deleteExperience, addSkill, removeSkill, addCertification, deleteCertification,
-  getRegistrations, addRegistration, removeRegistration,
+  getRegistrations, addRegistration, removeRegistration, setExperiencePhoto,
   type Experience, type Cert, type Registration,
 } from "@/lib/services/qualifications";
 
@@ -46,6 +46,24 @@ function Chip({ children, onRemove }: { children: React.ReactNode; onRemove?: ()
       {children}
       {onRemove && <button type="button" onClick={onRemove} className="text-[#9a9a9a] hover:text-[#e5484d]"><X size={13} /></button>}
     </span>
+  );
+}
+
+/** Compact "browse" button that opens a hidden file input — for per-entry photo
+ *  uploads where a full dropzone would be overkill. */
+function PhotoButton({ label, accept = "image/png,image/jpeg,image/webp", onPick }: { label: string; accept?: string; onPick: (file?: File) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input ref={ref} type="file" accept={accept} className="hidden" onChange={(e) => { onPick(e.target.files?.[0]); e.target.value = ""; }} />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 px-3 py-1.5 text-[12px] font-semibold text-[#6b6b6b] dark:text-white/70 transition-colors hover:border-[#ffd716] hover:text-[#1e1e1e] dark:hover:text-white"
+      >
+        <ImagePlus size={13} /> {label}
+      </button>
+    </>
   );
 }
 
@@ -101,7 +119,7 @@ export function QualificationsContent({
   };
 
   // work modal fields
-  const [w, setW] = useState({ title: "", company: "", description: "", location: "", workplaceType: "", current: false });
+  const [w, setW] = useState({ title: "", company: "", description: "", location: "", workplaceType: "", current: false, workPhoto: "" });
   const [expStart, setExpStart] = useState("");
   const [expEnd, setExpEnd] = useState("");
   const [skillText, setSkillText] = useState("");
@@ -126,16 +144,26 @@ export function QualificationsContent({
   function submitExperience() {
     if (!w.title.trim()) { toast.error("Role is required"); return; }
     const id = tmp();
-    const row: Experience = { id, title: w.title.trim(), company: w.company.trim(), description: w.description || null, location: w.location || null, workplaceType: w.workplaceType || null, startDate: expStart || null, endDate: w.current ? null : expEnd || null, current: w.current };
+    const row: Experience = { id, title: w.title.trim(), company: w.company.trim(), description: w.description || null, location: w.location || null, workplaceType: w.workplaceType || null, startDate: expStart || null, endDate: w.current ? null : expEnd || null, current: w.current, workPhoto: w.workPhoto || null };
     setExp((p) => [row, ...p]);
     close();
     const payload = { ...w, startDate: expStart, endDate: expEnd };
-    setW({ title: "", company: "", description: "", location: "", workplaceType: "", current: false }); setExpStart(""); setExpEnd("");
+    setW({ title: "", company: "", description: "", location: "", workplaceType: "", current: false, workPhoto: "" }); setExpStart(""); setExpEnd("");
     bg(addExperience(payload), () => setExp((p) => p.filter((x) => x.id !== id)), "Experience added");
   }
   function removeExperience(id: string) {
     const prev = exp; setExp((p) => p.filter((x) => x.id !== id));
     bg(deleteExperience(id), () => setExp(prev), "Removed");
+  }
+  async function attachWorkPhoto(id: string, file?: File) {
+    if (!file) return;
+    try {
+      const url = await uploadFile(file, "project");
+      setExp((p) => p.map((x) => (x.id === id ? { ...x, workPhoto: url } : x)));
+      bg(setExperiencePhoto(id, url), () => setExp((p) => p.map((x) => (x.id === id ? { ...x, workPhoto: null } : x))), "Work photo added");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    }
   }
   function submitSkills(kind: "skill" | "specialization") {
     const raw = kind === "skill" ? skillText : specText;
@@ -198,6 +226,15 @@ export function QualificationsContent({
                   <p className="text-[13px] text-[#9a9a9a] mt-0.5">{fmtRange(x.startDate, x.endDate, x.current)}</p>
                   {(x.location || x.workplaceType) && <p className="text-[13px] text-[#9a9a9a]">{[x.location, x.workplaceType].filter(Boolean).join(" • ")}</p>}
                   {x.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-3 max-w-[560px]">{x.description}</p>}
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    {x.workPhoto && <img src={x.workPhoto} alt={`${x.title} — work photo`} className="h-20 w-28 rounded-lg border border-[#ececec] bg-white object-cover dark:border-white/10" />}
+                    <PhotoButton label={x.workPhoto ? "Replace photo" : "Upload work photo"} onPick={(f) => attachWorkPhoto(x.id, f)} />
+                    {x.workPhoto && (
+                      <button type="button" onClick={() => { const prev = x.workPhoto; setExp((p) => p.map((y) => (y.id === x.id ? { ...y, workPhoto: null } : y))); bg(setExperiencePhoto(x.id, ""), () => setExp((p) => p.map((y) => (y.id === x.id ? { ...y, workPhoto: prev } : y))), "Photo removed"); }} className="text-[12px] font-semibold text-[#b3b3b3] hover:text-[#e5484d] transition-colors">
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -279,6 +316,9 @@ export function QualificationsContent({
             <Field label="End date"><DatePicker value={expEnd} onChange={setExpEnd} placeholder="End date" /></Field>
           </div>
           <label className="flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60"><input type="checkbox" checked={w.current} onChange={(e) => setW({ ...w, current: e.target.checked })} className="accent-[#ffd716]" /> I am currently working in this role</label>
+          <Field label="Work photo" hint="Optional — a photo of the work this role delivered">
+            <FileUpload accept="image/png,image/jpeg,image/webp" maxSizeMB={5} label="Upload work photo" upload={(f) => uploadFile(f, "project")} onChange={(items) => { const u = items[0]?.url; if (u) setW({ ...w, workPhoto: u }); }} />
+          </Field>
         </div>
       </Modal>
 

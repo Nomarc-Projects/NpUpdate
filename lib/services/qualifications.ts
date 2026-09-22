@@ -8,7 +8,7 @@ import { requireUserId } from "@/lib/server-user";
 
 const bump = () => revalidatePath("/dashboard/profile");
 
-export type Experience = { id: string; title: string; company: string; description: string | null; location: string | null; workplaceType: string | null; startDate: string | null; endDate: string | null; current: boolean };
+export type Experience = { id: string; title: string; company: string; description: string | null; location: string | null; workplaceType: string | null; startDate: string | null; endDate: string | null; current: boolean; workPhoto: string | null };
 export type Cert = { id: string; name: string; issuer: string | null; year: number | null; url: string | null };
 export type Edu = {
   id: string; school: string; degree: string | null; field: string | null;
@@ -79,19 +79,27 @@ export async function removeReference(id: string) {
   bump();
 }
 
-export async function addExperience(input: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean }) {
+export async function addExperience(input: { title: string; company?: string; description?: string; location?: string; workplaceType?: string; startDate?: string; endDate?: string; current?: boolean; workPhoto?: string }) {
   const uid = await requireUserId();
   if (!input.title.trim()) throw new Error("Role is required");
   await db.insert(workExperience).values({
     userId: uid, title: input.title.trim(), company: input.company?.trim() || "", description: input.description || null,
     location: input.location || null, workplaceType: input.workplaceType || null,
     startDate: input.startDate || null, endDate: input.current ? null : input.endDate || null, current: !!input.current,
+    workPhoto: input.workPhoto?.trim() || null,
   });
   bump();
 }
 export async function deleteExperience(id: string) {
   const uid = await requireUserId();
   await db.delete(workExperience).where(and(eq(workExperience.id, id), eq(workExperience.userId, uid)));
+  bump();
+}
+
+/** Attach (or replace) the work photo on an existing experience row. */
+export async function setExperiencePhoto(id: string, photoUrl: string) {
+  const uid = await requireUserId();
+  await db.update(workExperience).set({ workPhoto: photoUrl.trim() || null }).where(and(eq(workExperience.id, id), eq(workExperience.userId, uid)));
   bump();
 }
 
@@ -163,5 +171,18 @@ export async function addEducation(input: {
 export async function deleteEducation(id: string) {
   const uid = await requireUserId();
   await db.delete(education).where(and(eq(education.id, id), eq(education.userId, uid)));
+  bump();
+}
+
+/** Attach (or replace) a proof/certificate on an existing education row, and
+ *  put it in the verification queue like an attachment made at add-time. */
+export async function setEducationProof(id: string, proofUrl: string) {
+  const uid = await requireUserId();
+  const url = proofUrl.trim() || null;
+  await db.update(education).set({
+    proofUrl: url,
+    proofStatus: url ? "pending" : null,
+    proofSubmittedAt: url ? new Date() : null,
+  }).where(and(eq(education.id, id), eq(education.userId, uid)));
   bump();
 }

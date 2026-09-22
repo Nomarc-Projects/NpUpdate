@@ -65,6 +65,8 @@ export const workExperience = pgTable("work_experience", {
   startDate: date("start_date"),
   endDate: date("end_date"),
   current: boolean("current").default(false),
+  /** Photo of the work / project the role delivered. */
+  workPhoto: text("work_photo"),
   createdAt: ts(),
 });
 
