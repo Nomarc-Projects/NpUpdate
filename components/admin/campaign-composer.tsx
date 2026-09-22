@@ -377,13 +377,14 @@ export function CampaignComposer({
         if (!res.ok) { toast.error(res.error ?? "Couldn't schedule."); return; }
         toast.success("Campaign scheduled.");
       } else {
-        // Queue, don't inline-send: startCampaignSend enqueues every recipient
-        // and returns in milliseconds; the throttle-aware drain delivers over
-        // the following minutes. This is what keeps a large blast from timing
-        // out inside the request and wedging the campaign.
+        // Send immediately via Resend's bulk API. startCampaignSend resolves
+        // the audience, writes the delivery ledger, and delivers every slice
+        // before returning — no separate drain pass needed.
         const res = await startCampaignSend(id);
-        if (!res.ok) { toast.error(res.error ?? "Couldn't queue the send."); return; }
-        toast.success(`Queued for delivery to ${res.queued?.toLocaleString() ?? "the"} recipient${res.queued === 1 ? "" : "s"}.`);
+        if (!res.ok) { toast.error(res.error ?? "Couldn't send the email."); return; }
+        const sent = res.sentCount ?? 0;
+        const failed = res.failedCount ?? 0;
+        toast.success(`Sent to ${sent.toLocaleString()} recipient${sent === 1 ? "" : "s"}${failed ? ` · ${failed.toLocaleString()} failed` : ""}.`);
       }
       router.push("/admin/email-campaigns");
     });

@@ -648,13 +648,13 @@ async function enqueueCampaignForDelivery(
   return { ok: true, queued: recipients.length };
 }
 
-export async function startCampaignSend(id: string): Promise<{ ok: boolean; error?: string; queued?: number }> {
+export async function startCampaignSend(id: string): Promise<{ ok: boolean; error?: string; sentCount?: number; failedCount?: number }> {
   try {
     // Super admin only — this is the irreversible, platform-wide step.
     const admin = await requireSuperAdmin();
-    return await enqueueCampaignForDelivery(id, admin.id);
+    return await sendCampaignBulk(id, admin.id);
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "Couldn't queue the campaign." };
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't send the campaign." };
   }
 }
 
@@ -688,8 +688,9 @@ export async function requeueWedgedCampaign(id: string): Promise<{ ok: boolean; 
  * Fire a campaign whose scheduled time has arrived. Called by the drain route
  * (machine context, secret-guarded); the campaign was already approved by a
  * super admin when it was scheduled, so no session re-check is needed here.
+ * Sends immediately via Resend's bulk API — no separate drain pass.
  */
-export async function fireDueScheduledCampaign(id: string): Promise<{ ok: boolean; error?: string; queued?: number }> {
+export async function fireDueScheduledCampaign(id: string): Promise<{ ok: boolean; error?: string; sentCount?: number; failedCount?: number }> {
   try {
     const c = await readCampaignForEnqueue(id);
     if (!c) return { ok: false, error: "That campaign no longer exists." };
@@ -697,20 +698,116 @@ export async function fireDueScheduledCampaign(id: string): Promise<{ ok: boolea
     if (c.scheduledAtRaw && new Date(c.scheduledAtRaw).getTime() > Date.now()) {
       return { ok: false, error: "Not due yet." };
     }
-    return await enqueueCampaignForDelivery(id, null);
+    return await sendCampaignBulk(id, null, { requireScheduled: true });
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't start the scheduled campaign." };
   }
 }
 
-const CHUNK = 20;
 const chunk = <T,>(a: T[], n: number): T[][] => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Resend's batch endpoint accepts up to 100 messages per call. */
+const BULK_BATCH = 100;
 
 /**
- * Legacy immediate send, kept for the small broadcast-style audiences it was
- * written for. Large campaigns go through startCampaignSend + drainCampaign.
+ * Send a campaign NOW via Resend's bulk API (`sendBulkEmails`, which uses the
+ * batch endpoint with permissive validation — one bad address inside a slice
+ * never rejects its neighbours).
+ *
+ * Used by "Send now" / "Approve & send" in the admin, and (machine context)
+ * by the drain route when a scheduled campaign comes due. Recipients are still
+ * written to the delivery ledger first so the Tracking drawer logs who was
+ * mailed / who failed, and the campaign flips to 'sent' when every slice is done.
  */
+async function sendCampaignBulk(
+  id: string,
+  actorId: string | null,
+  opts: { requireScheduled?: boolean } = {},
+): Promise<{ ok: boolean; error?: string; sentCount?: number; failedCount?: number }> {
+  const c = await getCampaign(id);
+  if (!c) return { ok: false, error: "That campaign no longer exists." };
+  if (c.status === "sent") return { ok: false, error: "This campaign has already been sent." };
+  if (opts.requireScheduled && c.status !== "scheduled") return { ok: false, error: "This campaign isn't scheduled." };
+  if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so nothing was sent." };
+
+  const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds, manualEmails: c.manualEmails });
+  if (recipients.length === 0) return { ok: false, error: "That audience currently matches nobody — nothing was sent." };
+
+  await db.execute(sql`
+    UPDATE email_campaign
+    SET status = 'sending', recipient_count = ${recipients.length},
+        approved_by = COALESCE(${actorId}, approved_by), approved_at = COALESCE(${actorId}, approved_at),
+        updated_at = now()
+    WHERE id = ${id}
+  `);
+
+  // Delivery ledger for tracking; ON CONFLICT makes a retry safe (nobody sent
+  // twice) and keeps an existing 'sent' row intact.
+  for (const batch of chunk(recipients, 200)) {
+    const values = batch.map((r) => sql`(${id}, ${r.id}, ${r.email}, 'pending')`);
+    await db.execute(sql`
+      INSERT INTO email_campaign_delivery (campaign_id, user_id, email, status)
+      VALUES ${sql.join(values, sql`, `)}
+      ON CONFLICT (campaign_id, user_id) DO NOTHING
+    `);
+  }
+
+  let sentCount = 0;
+  let failedCount = 0;
+  const baseUrl = siteUrl();
+  const mark = (r: { id: string }, status: "sent" | "failed", error?: string) =>
+    db.execute(sql`
+      UPDATE email_campaign_delivery SET status = ${status}, error = ${error ?? null}, sent_at = ${status === "sent" ? sql`now()` : sql`sent_at`}
+      WHERE campaign_id = ${id} AND user_id = ${r.id}
+    `);
+
+  for (const batch of chunk(recipients, BULK_BATCH)) {
+    const messages = batch.map((r) => ({
+      to: r.email,
+      subject: c.subject,
+      html: emailLayout({
+        heading: c.subject,
+        body: withTracking(
+          applyShortcodes(c.bodyHtml, r, { baseUrl, unsubscribeUrl: unsubscribeUrlFor(r.id) }),
+          id,
+          r.id,
+        ),
+        preheader: c.previewText ?? undefined,
+        unsubscribeUrl: unsubscribeUrlFor(r.id),
+      }),
+      replyTo: c.replyTo ?? undefined,
+    }));
+
+    let results;
+    try {
+      results = await sendBulkEmails(messages);
+    } catch (e) {
+      // The whole slice went down (provider/network) — those recipients didn't
+      // go out, but that's not the whole campaign failing.
+      const message = e instanceof Error ? e.message : "send failed";
+      for (const r of batch) { await mark(r, "failed", message); failedCount++; }
+      continue;
+    }
+
+    for (let i = 0; i < batch.length; i++) {
+      const res = results[i];
+      if (res?.error) { await mark(batch[i], "failed", res.error); failedCount++; }
+      else { await mark(batch[i], "sent"); sentCount++; }
+    }
+  }
+
+  await db.execute(sql`
+    UPDATE email_campaign
+    SET status = ${failedCount > 0 && sentCount === 0 ? "failed" : "sent"},
+        sent_at = now(), sent_count = ${sentCount}, failed_count = ${failedCount}, updated_at = now()
+    WHERE id = ${id}
+  `);
+  revalidatePath("/admin/email-campaigns");
+  return { ok: true, sentCount, failedCount };
+}
+
+/** Legacy immediate send, kept for the small broadcast-style audiences it was
+ *  written for. Now delegates to the same bulk-API path as "Send now". */
 export async function sendCampaignNow(id: string): Promise<{ ok: boolean; error?: string; sentCount?: number; failedCount?: number }> {
   try {
     // Super admin only — this is the irreversible, platform-wide step.
@@ -718,57 +815,8 @@ export async function sendCampaignNow(id: string): Promise<{ ok: boolean; error?
     const c = await getCampaign(id);
     if (!c) return { ok: false, error: "That campaign no longer exists." };
     if (c.status === "sent" || c.status === "sending") return { ok: false, error: "This campaign has already been sent." };
-    if (!isEmailConfigured) return { ok: false, error: "Email isn't configured, so nothing was sent." };
-
-const recipients = await resolveRecipients({ segmentId: c.segmentId, audienceKey: c.audienceKey, recipientUserIds: c.recipientUserIds, segmentIds: c.segmentIds, manualEmails: c.manualEmails });
-    if (recipients.length === 0) return { ok: false, error: "That audience currently matches nobody — nothing was sent." };
-
-    await db.execute(sql`
-      UPDATE email_campaign
-      SET status = 'sending', recipient_count = ${recipients.length},
-          approved_by = ${admin.id}, approved_at = now(), updated_at = now()
-      WHERE id = ${id}
-    `);
-
-    let sentCount = 0;
-    let failedCount = 0;
-    for (const batch of chunk(recipients, CHUNK)) {
-      const messages = batch.map((r) => ({
-        to: r.email,
-        subject: c.subject,
-        html: emailLayout({
-          heading: c.subject,
-          body: withTracking(
-            applyShortcodes(c.bodyHtml, r, { baseUrl: siteUrl(), unsubscribeUrl: unsubscribeUrlFor(r.id) }),
-            id,
-            r.id,
-          ),
-          preheader: c.previewText ?? undefined,
-          unsubscribeUrl: unsubscribeUrlFor(r.id),
-        }),
-        replyTo: c.replyTo ?? undefined,
-      }));
-      const results = await sendBulkEmails(messages).catch((e) => {
-        // Both the old allSettled path and this one must absorb a batch-wide
-        // failure (network, provider 5xx) without tripping the outer catch and
-        // marking the whole campaign failed — those addresses just didn't go out.
-        return messages.map(() => ({ to: "", error: e instanceof Error ? e.message : "send failed" }));
-      });
-      for (const res of results) res.error ? failedCount++ : sentCount++;
-      if (recipients.length > CHUNK) await sleep(300);
-    }
-
-    await db.execute(sql`
-      UPDATE email_campaign
-      SET status = ${failedCount > 0 && sentCount === 0 ? "failed" : "sent"},
-          sent_at = now(), sent_count = ${sentCount}, failed_count = ${failedCount}, updated_at = now()
-      WHERE id = ${id}
-    `);
-    revalidatePath("/admin/email-campaigns");
-    return { ok: true, sentCount, failedCount };
+    return await sendCampaignBulk(id, admin.id);
   } catch (e) {
-    // Don't strand the row in 'sending' if the batch loop blew up partway.
-    await db.execute(sql`UPDATE email_campaign SET status = 'failed', updated_at = now() WHERE id = ${id} AND status = 'sending'`).catch(() => {});
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't send the campaign." };
   }
 }

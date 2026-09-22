@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
     const due = await dueCampaignIds();
     if (due.length > 0) {
       const fired = await fireDueScheduledCampaign(due[0]);
-      if (fired.ok && fired.queued) {
-        return NextResponse.json({ ok: true, campaignId: due[0], promoted: "scheduled", queued: fired.queued });
+      if (fired.ok) {
+        return NextResponse.json({ ok: true, campaignId: due[0], promoted: "scheduled", sent: fired.sentCount, failed: fired.failedCount });
       }
     }
     return NextResponse.json({ ok: true, idle: true });
