@@ -39,8 +39,8 @@ function AddRow({ Icon, label, count, onAdd }: { Icon: LucideIcon; label: string
     </button>
   );
 }
-function SectionHeader({ title }: { title: string }) {
-  return <div className="flex items-center justify-between mt-8 mb-4"><h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white">{title}</h2></div>;
+function SectionHeader({ title, className = "mt-8 mb-4" }: { title: string; className?: string }) {
+  return <div className={`flex items-center justify-between ${className}`}><h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white">{title}</h2></div>;
 }
 function Chip({ children, onRemove }: { children: React.ReactNode; onRemove?: () => void }) {
   return (
@@ -181,9 +181,9 @@ export function QualificationsContent({
         <ComingSoonButton label="Import from CV / LinkedIn" feature="Auto-fill your qualifications" />
       </div>
       {/* Work experience */}
+      <SectionHeader title="Work experience" className="mb-4" />
       <AddRow Icon={Briefcase} label="Add Most recent work experiences" count={`(${exp.length}/5)`} onAdd={() => setOpen("work")} />
-      <SectionHeader title="Work experience" />
-      {exp.length === 0 ? <p className="text-[13px] text-[#9a9a9a]">No work experience yet — add your most recent roles.</p> : (
+      {exp.length === 0 ? <p className="text-[13px] text-[#9a9a9a] mt-5">No work experience yet — add your most recent roles.</p> : (
         <div className="space-y-5">
           {exp.map((x) => (
             <div key={x.id} className="group relative">
@@ -199,21 +199,23 @@ export function QualificationsContent({
 
       {/* Skills */}
       <div className="mt-8">
+        <SectionHeader title="Skills" />
         <AddRow Icon={Sparkles} label="Add Skills" count={`(${sk.length}/10)`} onAdd={() => setOpen("skill")} />
         <div className="flex flex-wrap gap-2.5 mt-5">{sk.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "skill")}>{s.name}</Chip>)}</div>
       </div>
 
       {/* Specializations */}
       <div className="mt-8">
-        <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
         <SectionHeader title="Specializations" />
-        <div className="flex flex-wrap gap-2.5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
+        <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
+        <div className="flex flex-wrap gap-2.5 mt-5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
       </div>
 
       {/* Certifications — registered / licensed professionals only */}
       {canEditCredentials && (
         <div className="mt-8">
-          <AddRow Icon={Award} label="Certifications" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
+          <SectionHeader title="Certifications" />
+          <AddRow Icon={Award} label="Add Certification" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
           <div className="mt-5 space-y-4">
             {ce.map((c) => (
               <div key={c.id} className="group relative">
@@ -232,7 +234,8 @@ export function QualificationsContent({
       {/* Professional registration — registered / licensed professionals only */}
       {canEditCredentials && (
         <div className="mt-8">
-          <AddRow Icon={ShieldCheck} label="Professional registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />
+          <SectionHeader title="Professional registration" />
+          <AddRow Icon={ShieldCheck} label="Add Registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />
           <div className="mt-5 space-y-3">
             {regs.map((r) => (
               <div key={r.id} className="group relative flex items-start gap-3 rounded-xl border border-[#ececec] dark:border-white/10 p-4">
