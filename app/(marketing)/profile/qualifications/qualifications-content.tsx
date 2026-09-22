@@ -7,7 +7,6 @@ import { Plus, Briefcase, Sparkles, Target, Award, X, Link as LinkIcon, ShieldCh
 import { Modal, Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { SearchableSelect } from "@/components/ui/searchable-select";
-import { MultiSelect } from "@/components/ui/multi-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FileUpload } from "@/components/ui/file-upload";
 import { ComingSoonButton } from "@/components/ui/coming-soon";
@@ -96,18 +95,16 @@ export function QualificationsContent({
   const [w, setW] = useState({ title: "", company: "", description: "", location: "", workplaceType: "", current: false });
   const [expStart, setExpStart] = useState("");
   const [expEnd, setExpEnd] = useState("");
-  const [skillPick, setSkillPick] = useState<string[]>([]);
-  const [specPick, setSpecPick] = useState<string[]>([]);
+  const [skillText, setSkillText] = useState("");
+  const [specText, setSpecText] = useState("");
   const [cert, setCert] = useState({ name: "", issuer: "", year: "", url: "" });
 
   // professional registrations (client-fetched) + searchable option sources
   const [regs, setRegs] = useState<Registration[]>([]);
   const [reg, setReg] = useState({ body: "", number: "" });
   const [bodyOptions, setBodyOptions] = useState(REGULATORY_BODIES);
-  const [skillOptions, setSkillOptions] = useState<string[]>([]);
   useEffect(() => {
     getRegistrations().then(setRegs).catch(() => {});
-    getTaxonomy("skill").then(setSkillOptions).catch(() => {});
     getTaxonomy("regulatory_body").then((extra) => {
       const have = new Set(REGULATORY_BODIES.map((b) => b.value));
       const merged = [...REGULATORY_BODIES, ...extra.filter((e) => !have.has(e)).map((e) => ({ value: e, label: e, hint: "Custom" }))];
@@ -132,14 +129,15 @@ export function QualificationsContent({
     bg(deleteExperience(id), () => setExp(prev), "Removed");
   }
   function submitSkills(kind: "skill" | "specialization") {
-    const pick = kind === "skill" ? skillPick : specPick;
+    const raw = kind === "skill" ? skillText : specText;
     const set = kind === "skill" ? setSk : setSp;
+    const clearText = kind === "skill" ? setSkillText : setSpecText;
     const existing = (kind === "skill" ? sk : sp).map((x) => x.name.toLowerCase());
-    const toAdd = pick.filter((n) => n.trim() && !existing.includes(n.trim().toLowerCase()));
+    const toAdd = raw.split(/[,\n]/).map((n) => n.trim()).filter((n) => n && !existing.includes(n.toLowerCase()));
     if (!toAdd.length) { close(); return; }
     const rows = toAdd.map((name) => ({ id: tmp(), name: name.trim() }));
     set((p) => [...p, ...rows]);
-    close(); if (kind === "skill") setSkillPick([]); else setSpecPick([]);
+    close(); clearText("");
     rows.forEach((r) => bg(addSkill(r.name, kind), () => set((p) => p.filter((x) => x.id !== r.id))));
     toast.success(kind === "skill" ? "Skills added" : "Specializations added");
   }
@@ -270,14 +268,14 @@ export function QualificationsContent({
         </div>
       </Modal>
 
-      <Modal open={open === "skill"} onClose={close} title="Add Skills" subtitle="Pick from suggestions or type your own (max. 10)."
+      <Modal open={open === "skill"} onClose={close} title="Add Skills" subtitle="Type your skills, separated by commas (max. 10)."
         footer={<><GhostButton type="button" onClick={close}>Cancel</GhostButton><PrimaryButton type="button" onClick={() => submitSkills("skill")}>Add</PrimaryButton></>}>
-        <Field label="Skills"><MultiSelect options={skillOptions} value={skillPick} onChange={setSkillPick} allowCreate max={10} placeholder="Pick or type skills" searchPlaceholder="Search skills…" /></Field>
+        <Field label="Skills" hint="Comma-separated"><input className={inputClass} value={skillText} onChange={(e) => setSkillText(e.target.value)} placeholder="e.g. AutoCAD, Project Management, Rendering" /></Field>
       </Modal>
 
-      <Modal open={open === "spec"} onClose={close} title="Add Specialization" subtitle="Pick from suggestions or type your own (max. 5)."
+      <Modal open={open === "spec"} onClose={close} title="Add Specialization" subtitle="Type your specializations, separated by commas (max. 5)."
         footer={<><GhostButton type="button" onClick={close}>Cancel</GhostButton><PrimaryButton type="button" onClick={() => submitSkills("specialization")}>Add</PrimaryButton></>}>
-        <Field label="Specializations"><MultiSelect options={skillOptions} value={specPick} onChange={setSpecPick} allowCreate max={5} placeholder="Pick or type specializations" searchPlaceholder="Search…" /></Field>
+        <Field label="Specializations" hint="Comma-separated"><input className={inputClass} value={specText} onChange={(e) => setSpecText(e.target.value)} placeholder="e.g. Residential Design, Urban Planning" /></Field>
       </Modal>
 
       <Modal open={open === "reg"} onClose={close} title="Add professional registration" subtitle="Select your regulatory / professional body and enter your registration number." maxWidth="max-w-[520px]"
