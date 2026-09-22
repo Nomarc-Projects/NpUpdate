@@ -125,8 +125,13 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
             <div className={tab === "public" ? "" : "hidden"}>
               <PublicProfileForm initial={profile} />
             </div>
-            <div className={tab === "qualifications" ? "" : "hidden"}><EducationContent education={education} /></div>
-            <div className={tab === "education" ? "" : "hidden"}><QualificationsContent experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} /></div>
+            <div className={tab === "qualifications" ? "" : "hidden"}>
+              <EducationContent education={education} />
+              <div className="mt-8">
+                <QualificationsContent mode="credentials" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} />
+              </div>
+            </div>
+            <div className={tab === "education" ? "" : "hidden"}><QualificationsContent mode="experience" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} /></div>
             <div className={tab === "verification" ? "" : "hidden"}>{kycState && <KycView kycState={kycState} embedded />}</div>
           </div>
         </div>

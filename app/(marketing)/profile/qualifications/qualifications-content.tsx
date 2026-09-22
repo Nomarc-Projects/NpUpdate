@@ -64,7 +64,15 @@ const NO_CERTS: Cert[] = [];
 
 export function QualificationsContent({
   experience = NO_EXPERIENCE, skills = NO_NAMED, specializations = NO_NAMED, certifications = NO_CERTS, practiceStatus = "",
-}: { experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; practiceStatus?: string }) {
+  mode = "full",
+}: {
+  experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; practiceStatus?: string;
+  /** Which sections to render. "full" = everything; "experience" = work
+   *  experience only; "credentials" = skills/specializations/certifications. */
+  mode?: "full" | "experience" | "credentials";
+}) {
+  const showExperience = mode !== "credentials";
+  const showSkills = mode !== "experience";
   const router = useRouter();
   const [open, setOpen] = useState<Which>(null);
   const close = () => setOpen(null);
@@ -175,38 +183,45 @@ export function QualificationsContent({
   return (
     <div>
       {/* Work experience */}
-      <SectionHeader title="Work experience" className="mb-4" />
-      <AddRow Icon={Briefcase} label="Add Most recent work experiences" count={`(${exp.length}/5)`} onAdd={() => setOpen("work")} />
-      {exp.length === 0 ? <p className="text-[13px] text-[#9a9a9a] mt-5">No work experience yet — add your most recent roles.</p> : (
-        <div className="space-y-5">
-          {exp.map((x) => (
-            <div key={x.id} className="group relative">
-              <button onClick={() => removeExperience(x.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-              <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{x.title}{x.company ? ` • ${x.company}` : ""}</p>
-              <p className="text-[13px] text-[#9a9a9a] mt-0.5">{fmtRange(x.startDate, x.endDate, x.current)}</p>
-              {(x.location || x.workplaceType) && <p className="text-[13px] text-[#9a9a9a]">{[x.location, x.workplaceType].filter(Boolean).join(" • ")}</p>}
-              {x.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-3 max-w-[560px]">{x.description}</p>}
+      {showExperience && (
+        <>
+          <SectionHeader title="Work experience" className="mb-4" />
+          <AddRow Icon={Briefcase} label="Add Most recent work experiences" count={`(${exp.length}/5)`} onAdd={() => setOpen("work")} />
+          {exp.length === 0 ? <p className="text-[13px] text-[#9a9a9a] mt-5">No work experience yet — add your most recent roles.</p> : (
+            <div className="space-y-5">
+              {exp.map((x) => (
+                <div key={x.id} className="group relative">
+                  <button onClick={() => removeExperience(x.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+                  <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{x.title}{x.company ? ` • ${x.company}` : ""}</p>
+                  <p className="text-[13px] text-[#9a9a9a] mt-0.5">{fmtRange(x.startDate, x.endDate, x.current)}</p>
+                  {(x.location || x.workplaceType) && <p className="text-[13px] text-[#9a9a9a]">{[x.location, x.workplaceType].filter(Boolean).join(" • ")}</p>}
+                  {x.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-3 max-w-[560px]">{x.description}</p>}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
-      {/* Skills */}
-      <div className="mt-8">
-        <SectionHeader title="Skills" />
-        <AddRow Icon={Sparkles} label="Add Skills" count={`(${sk.length}/10)`} onAdd={() => setOpen("skill")} />
-        <div className="flex flex-wrap gap-2.5 mt-5">{sk.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "skill")}>{s.name}</Chip>)}</div>
-      </div>
+      {/* Skills + Specializations */}
+      {showSkills && (
+        <>
+          <div className={showExperience ? "mt-8" : ""}>
+            <SectionHeader title="Skills" />
+            <AddRow Icon={Sparkles} label="Add Skills" count={`(${sk.length}/10)`} onAdd={() => setOpen("skill")} />
+            <div className="flex flex-wrap gap-2.5 mt-5">{sk.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "skill")}>{s.name}</Chip>)}</div>
+          </div>
 
-      {/* Specializations */}
-      <div className="mt-8">
-        <SectionHeader title="Specializations" />
-        <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
-        <div className="flex flex-wrap gap-2.5 mt-5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
-      </div>
+          <div className="mt-8">
+            <SectionHeader title="Specializations" />
+            <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
+            <div className="flex flex-wrap gap-2.5 mt-5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
+          </div>
+        </>
+      )}
 
       {/* Certifications — registered / licensed professionals only */}
-      {canEditCredentials && (
+      {showSkills && canEditCredentials && (
         <div className="mt-8">
           <SectionHeader title="Certifications" />
           <AddRow Icon={Award} label="Add Certification" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
@@ -226,7 +241,7 @@ export function QualificationsContent({
       )}
 
       {/* Professional registration — registered / licensed professionals only */}
-      {canEditCredentials && (
+      {showSkills && canEditCredentials && (
         <div className="mt-8">
           <SectionHeader title="Professional registration" />
           <AddRow Icon={ShieldCheck} label="Add Registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />
