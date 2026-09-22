@@ -44,13 +44,15 @@ export function LogoGroup({ logos, ariaHidden, confirmOpen = false }: { logos: L
           <a
             key={p.name}
             href={p.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={`${p.name} — opens in a new tab`}
-            // Ask before leaving for the logo's site. Only the first (real) group
-            // is clickable; the aria-hidden duplicates are skipped by the check.
+            // The confirm-on-leave strip navigates in the SAME tab after the
+            // admin's prompt; every other marquee (partners strip, etc.) keeps
+            // the original open-in-a-new-tab behavior.
+            {...(confirmOpen ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+            title={confirmOpen ? `${p.name} — opens in this tab` : `${p.name} — opens in a new tab`}
+            // Ask before leaving the page for the logo's site. Only the first
+            // (real) group prompts; the aria-hidden duplicates are skipped.
             onClick={(e) => {
-              if (confirmOpen && !ariaHidden && !window.confirm(`Open ${p.name} in a new tab?`)) e.preventDefault();
+              if (confirmOpen && !ariaHidden && !window.confirm(`You're about to leave this page and visit ${p.name}. Continue?`)) e.preventDefault();
             }}
             // The marquee renders this group four times to loop seamlessly. Only
             // the first is real; the duplicates are aria-hidden, so they are also
