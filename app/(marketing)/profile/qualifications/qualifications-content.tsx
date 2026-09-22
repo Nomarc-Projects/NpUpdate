@@ -9,7 +9,6 @@ import { SelectMenu } from "@/components/ui/select-menu";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { FileUpload } from "@/components/ui/file-upload";
-import { ComingSoonButton } from "@/components/ui/coming-soon";
 import { uploadFile } from "@/lib/upload-client";
 import { getTaxonomy } from "@/lib/services/taxonomy";
 import { REGULATORY_BODIES } from "@/lib/regulatory-bodies";
@@ -175,9 +174,6 @@ export function QualificationsContent({
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
-        <ComingSoonButton label="Import from CV / LinkedIn" feature="Auto-fill your qualifications" />
-      </div>
       {/* Work experience */}
       <SectionHeader title="Work experience" className="mb-4" />
       <AddRow Icon={Briefcase} label="Add Most recent work experiences" count={`(${exp.length}/5)`} onAdd={() => setOpen("work")} />
