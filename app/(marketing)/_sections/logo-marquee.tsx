@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -73,19 +73,38 @@ export function LogoGroup({ logos, ariaHidden, confirmOpen = false }: { logos: L
 }
 
 /**
- * One-logo-per-view carousel used by the homepage "Key Players" strip.
- * Each logo fills the full (col-sm-12) width; ←/→ step between slides, dots
- * track position. No auto-scroll — the marquee behavior was replaced by the
- * single-slide layout the user asked for.
+ * One-logo-per-view carousel used by the homepage "Key Players" strip on
+ * mobile. Each logo fills the full (col-sm-12) width; ←/→ step between slides,
+ * dots track position, and it auto-advances every ~5s so the strip still
+ * "slides" like the desktop marquee. Hovering pauses the auto-advance;
+ * reduced-motion users get a manual carousel.
  */
 function CarouselTrack({ logos }: { logos: Logo[] }) {
   const [index, setIndex] = useState(0);
+  const paused = useRef(false);
   const n = logos.length;
+
+  useEffect(() => {
+    let cancelled = false;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced || n <= 1) return;
+    const t = setInterval(() => {
+      if (!paused.current && !cancelled) setIndex((p) => (p + 1) % n);
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [n, index]);
 
   const go = (dir: 1 | -1) => setIndex((p) => (p + dir + n) % n);
 
   return (
-    <div className="relative overflow-hidden">
+    <div
+      className="relative overflow-hidden select-none touch-pan-y"
+      onMouseEnter={() => { paused.current = true; }}
+      onMouseLeave={() => { paused.current = false; }}
+    >
       <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
         {logos.map((l) => (
           <div key={l.name} className="w-full flex-shrink-0 flex items-center justify-center px-14 sm:px-24">
