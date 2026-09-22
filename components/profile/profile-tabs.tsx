@@ -16,8 +16,8 @@ type Quals = { experience: Experience[]; skills: Named[]; specializations: Named
 
 const TABS: { key: "public" | "qualifications" | "education" | "verification"; label: string; title: string; Icon: LucideIcon }[] = [
   { key: "public", label: "Public Profile", title: "Public profile", Icon: User },
-  { key: "qualifications", label: "Qualifications", title: "Qualifications", Icon: Award },
   { key: "education", label: "Education History", title: "Education", Icon: GraduationCap },
+  { key: "qualifications", label: "Qualifications", title: "Qualifications", Icon: Award },
   { key: "verification", label: "Verification", title: "Verification", Icon: ShieldCheck },
 ];
 type Key = (typeof TABS)[number]["key"];
