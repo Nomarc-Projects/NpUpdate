@@ -68,11 +68,13 @@ export function QualificationsContent({
 }: {
   experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; practiceStatus?: string;
   /** Which sections to render. "full" = everything; "experience" = work
-   *  experience only; "credentials" = skills/specializations/certifications. */
-  mode?: "full" | "experience" | "credentials";
+   *  experience + specializations; "skills" = skills/specializations skipped,
+   *  i.e. skills, certifications and registrations only. */
+  mode?: "full" | "experience" | "skills";
 }) {
-  const showExperience = mode !== "credentials";
-  const showSkills = mode !== "experience";
+  const showWork = mode !== "skills";
+  const showSkillsAndCerts = mode !== "experience";
+  const showSpecs = mode !== "skills";
   const router = useRouter();
   const [open, setOpen] = useState<Which>(null);
   const close = () => setOpen(null);
@@ -183,7 +185,7 @@ export function QualificationsContent({
   return (
     <div>
       {/* Work experience */}
-      {showExperience && (
+      {showWork && (
         <>
           <SectionHeader title="Work experience" className="mb-4" />
           <AddRow Icon={Briefcase} label="Add Most recent work experiences" count={`(${exp.length}/5)`} onAdd={() => setOpen("work")} />
@@ -203,25 +205,26 @@ export function QualificationsContent({
         </>
       )}
 
-      {/* Skills + Specializations */}
-      {showSkills && (
-        <>
-          <div className={showExperience ? "mt-8" : ""}>
-            <SectionHeader title="Skills" />
-            <AddRow Icon={Sparkles} label="Add Skills" count={`(${sk.length}/10)`} onAdd={() => setOpen("skill")} />
-            <div className="flex flex-wrap gap-2.5 mt-5">{sk.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "skill")}>{s.name}</Chip>)}</div>
-          </div>
+      {/* Skills */}
+      {showSkillsAndCerts && (
+        <div className={showWork ? "mt-8" : ""}>
+          <SectionHeader title="Skills" />
+          <AddRow Icon={Sparkles} label="Add Skills" count={`(${sk.length}/10)`} onAdd={() => setOpen("skill")} />
+          <div className="flex flex-wrap gap-2.5 mt-5">{sk.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "skill")}>{s.name}</Chip>)}</div>
+        </div>
+      )}
 
-          <div className="mt-8">
-            <SectionHeader title="Specializations" />
-            <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
-            <div className="flex flex-wrap gap-2.5 mt-5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
-          </div>
-        </>
+      {/* Specializations */}
+      {showSpecs && (
+        <div className={showWork || showSkillsAndCerts ? "mt-8" : ""}>
+          <SectionHeader title="Specializations" />
+          <AddRow Icon={Target} label="Area of Specialization" count={`(${sp.length}/5)`} onAdd={() => setOpen("spec")} />
+          <div className="flex flex-wrap gap-2.5 mt-5">{sp.map((s) => <Chip key={s.id} onRemove={() => removeSkillLocal(s.id, "specialization")}>{s.name}</Chip>)}</div>
+        </div>
       )}
 
       {/* Certifications — registered / licensed professionals only */}
-      {showSkills && canEditCredentials && (
+      {showSkillsAndCerts && canEditCredentials && (
         <div className="mt-8">
           <SectionHeader title="Certifications" />
           <AddRow Icon={Award} label="Add Certification" count={`(${ce.length}/5)`} onAdd={() => setOpen("cert")} />
@@ -241,7 +244,7 @@ export function QualificationsContent({
       )}
 
       {/* Professional registration — registered / licensed professionals only */}
-      {showSkills && canEditCredentials && (
+      {showSkillsAndCerts && canEditCredentials && (
         <div className="mt-8">
           <SectionHeader title="Professional registration" />
           <AddRow Icon={ShieldCheck} label="Add Registration" count={`(${regs.length})`} onAdd={() => setOpen("reg")} />

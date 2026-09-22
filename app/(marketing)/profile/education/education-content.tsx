@@ -21,7 +21,7 @@ const tmp = () => `tmp_${Math.random().toString(36).slice(2)}`;
  *  studied abroad (or at a school we don't carry) can still enter it. */
 const OTHER = "__other__";
 const INTERNATIONAL = "Other / International";
-const blankEdu = { type: "", school: "", schoolOther: "", degree: "", field: "", fieldOther: "", startDate: "", endDate: "", current: false, description: "" };
+const blankEdu = { type: "", typeCustom: "", school: "", schoolOther: "", degree: "", field: "", fieldOther: "", startDate: "", endDate: "", current: false, description: "" };
 const PROGRAM_OPTIONS = [
   ...STUDY_PROGRAMS.map((p) => ({ value: p, label: p })),
   { value: OTHER, label: "My programme isn't listed…" },
@@ -32,7 +32,9 @@ const yearOf = (iso: string) => (iso ? Number(iso.slice(0, 4)) : undefined);
 // and re-triggers the sync-effect below until React hits max update depth.
 const NO_EDU: Edu[] = [];
 
-export function EducationContent({ education = NO_EDU }: { education?: Edu[] }) {
+export function EducationContent({ education = NO_EDU, mode = "full" }: { education?: Edu[]; mode?: "full" | "education" | "references" }) {
+  const showEducation = mode !== "references";
+  const showReferences = mode !== "education";
   const router = useRouter();
   const [open, setOpen] = useState<null | "edu" | "ref">(null);
   const close = () => setOpen(null);
@@ -117,52 +119,58 @@ export function EducationContent({ education = NO_EDU }: { education?: Edu[] }) 
   return (
     <div>
       {/* Education */}
-      <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">Education</h2>
-      <button type="button" onClick={() => setOpen("edu")}
-        className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
-        <span className="flex items-center gap-3">
-          <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><GraduationCap size={16} className="text-[#1e1e1e] dark:text-white" /></span>
-          <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Education</span><span className="block text-xs text-[#9a9a9a]">({list.length}/5)</span></span>
-        </span>
-        <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
-      </button>
-      {list.length === 0 ? (
-        <p className="text-[13px] text-[#9a9a9a] mt-5">No education added yet.</p>
-      ) : (
-        <div className="space-y-5">
-          {list.map((e) => (
-            <div key={e.id} className="group relative">
-              <button onClick={() => remove(e.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-              <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{e.school}</p>
-              <p className="text-[13px] text-[#9a9a9a] mt-0.5">
-                {[[e.degree, e.field].filter(Boolean).join(" - "), [e.startYear, e.endYear].filter(Boolean).join(" - ")].filter(Boolean).join(" • ")}
-              </p>
+      {showEducation && (
+        <>
+          <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">Education</h2>
+          <button type="button" onClick={() => setOpen("edu")}
+            className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
+            <span className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><GraduationCap size={16} className="text-[#1e1e1e] dark:text-white" /></span>
+              <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Education</span><span className="block text-xs text-[#9a9a9a]">({list.length}/5)</span></span>
+            </span>
+            <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
+          </button>
+          {list.length === 0 ? (
+            <p className="text-[13px] text-[#9a9a9a] mt-5">No education added yet.</p>
+          ) : (
+            <div className="space-y-5">
+              {list.map((e) => (
+                <div key={e.id} className="group relative">
+                  <button onClick={() => remove(e.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+                  <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{e.school}</p>
+                  <p className="text-[13px] text-[#9a9a9a] mt-0.5">
+                    {[[e.degree, e.field].filter(Boolean).join(" - "), [e.startYear, e.endYear].filter(Boolean).join(" - ")].filter(Boolean).join(" • ")}
+                  </p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
 
       {/* References */}
-      <div className="mt-8">
-        <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">References</h2>
-        <button type="button" onClick={() => setOpen("ref")}
-          className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
-          <span className="flex items-center gap-3">
-            <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><UserCheck size={16} className="text-[#1e1e1e] dark:text-white" /></span>
-            <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Reference</span><span className="block text-xs text-[#9a9a9a]">Referees who can vouch for you — e.g. a lecturer ({refs.length}/5)</span></span>
-          </span>
-          <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
-        </button>
-        <div className="mt-5 space-y-3">
-          {refs.map((r) => (
-            <div key={r.id} className="group relative rounded-xl border border-[#ececec] dark:border-white/10 p-4">
-              <button onClick={() => removeRef(r.id)} className="absolute right-3 top-3 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
-              <p className="text-[14px] font-semibold text-[#1e1e1e] dark:text-white">{r.name}</p>
-              <p className="text-[13px] text-[#9a9a9a] mt-0.5">{[r.organization, r.contact].filter(Boolean).join(" • ")}</p>
-            </div>
-          ))}
+      {showReferences && (
+        <div className={showEducation ? "mt-8" : ""}>
+          <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">References</h2>
+          <button type="button" onClick={() => setOpen("ref")}
+            className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
+            <span className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><UserCheck size={16} className="text-[#1e1e1e] dark:text-white" /></span>
+              <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Reference</span><span className="block text-xs text-[#9a9a9a]">Referees who can vouch for you — e.g. a lecturer ({refs.length}/5)</span></span>
+            </span>
+            <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
+          </button>
+          <div className="mt-5 space-y-3">
+            {refs.map((r) => (
+              <div key={r.id} className="group relative rounded-xl border border-[#ececec] dark:border-white/10 p-4">
+                <button onClick={() => removeRef(r.id)} className="absolute right-3 top-3 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+                <p className="text-[14px] font-semibold text-[#1e1e1e] dark:text-white">{r.name}</p>
+                <p className="text-[13px] text-[#9a9a9a] mt-0.5">{[r.organization, r.contact].filter(Boolean).join(" • ")}</p>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Education modal */}
       <Modal open={open === "edu"} onClose={close} title="Add Education" subtitle="Up to 5 schools you've attended" maxWidth="max-w-[520px]"
@@ -176,6 +184,12 @@ export function EducationContent({ education = NO_EDU }: { education?: Edu[] }) 
               options={[...INSTITUTION_TYPES]}
             />
           </Field>
+
+          {isInternational && (
+            <Field label="Type of institution" hint="Not one of the types above — type it below">
+              <input className={inputClass} value={f.typeCustom} onChange={(e) => setF({ ...f, typeCustom: e.target.value })} placeholder="e.g. Medical School, Institute of Technology" />
+            </Field>
+          )}
 
           {isInternational ? (
             <Field label="Institution" hint="Studied outside Nigeria — type the school's full name">
