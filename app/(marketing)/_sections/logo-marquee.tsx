@@ -60,12 +60,12 @@ function LogoPlate({ logo, confirmOpen }: { logo: Logo; confirmOpen: boolean }) 
  * dark mode they sit on a light plate (rather than being inverted, which would
  * wreck multi-colour marks like the Lagos State seal).
  */
-export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: boolean }) {
+export function LogoGroup({ logos, ariaHidden, confirmOpen = false }: { logos: Logo[]; ariaHidden?: boolean; confirmOpen?: boolean }) {
   return (
     <div aria-hidden={ariaHidden} className="flex items-center gap-5 sm:gap-7 pr-5 sm:pr-7 shrink-0">
       {logos.map((p) => (
         <div key={p.name}>
-          <LogoPlate logo={p} confirmOpen={false} />
+          <LogoPlate logo={p} confirmOpen={confirmOpen} />
         </div>
       ))}
     </div>
@@ -130,11 +130,29 @@ function CarouselTrack({ logos }: { logos: Logo[] }) {
 
 /**
  * Marquee for the "Trusted Clients" strip — seamless CSS auto-scroll, unchanged.
- * The homepage Key Players strip opts into the carousel via `interactive`.
+ * The homepage Key Players strip (`interactive`) shows the auto-scrolling
+ * marquee on desktop (`md`+) and a one-logo-per-view carousel on mobile.
  */
 export function LogoMarquee({ logos, interactive = false }: { logos: Logo[]; interactive?: boolean }) {
   if (interactive) {
-    return <CarouselTrack logos={logos} />;
+    const groups = [
+      <LogoGroup key="a" logos={logos} confirmOpen />,
+      <LogoGroup key="b" logos={logos} ariaHidden confirmOpen />,
+      <LogoGroup key="c" logos={logos} ariaHidden confirmOpen />,
+      <LogoGroup key="d" logos={logos} ariaHidden confirmOpen />,
+    ];
+    return (
+      <>
+        <div className="hidden md:block relative overflow-hidden">
+          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
+          <div className="flex items-center w-max animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
+        </div>
+        <div className="md:hidden">
+          <CarouselTrack logos={logos} />
+        </div>
+      </>
+    );
   }
 
   const groups = [
