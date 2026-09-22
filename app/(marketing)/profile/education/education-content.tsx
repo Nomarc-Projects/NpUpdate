@@ -116,19 +116,18 @@ export function EducationContent({ education = NO_EDU }: { education?: Edu[] }) 
 
   return (
     <div>
-      {/* Add education row */}
+      {/* Education */}
+      <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">Education</h2>
       <button type="button" onClick={() => setOpen("edu")}
         className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
         <span className="flex items-center gap-3">
           <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><GraduationCap size={16} className="text-[#1e1e1e] dark:text-white" /></span>
-          <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Education</span><span className="block text-xs text-[#9a9a9a]">({list.length}/5)</span></span>
+          <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Education</span><span className="block text-xs text-[#9a9a9a]">({list.length}/5)</span></span>
         </span>
         <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
       </button>
-
-      <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mt-8 mb-4">Education</h2>
       {list.length === 0 ? (
-        <p className="text-[13px] text-[#9a9a9a]">No education added yet.</p>
+        <p className="text-[13px] text-[#9a9a9a] mt-5">No education added yet.</p>
       ) : (
         <div className="space-y-5">
           {list.map((e) => (
@@ -144,12 +143,13 @@ export function EducationContent({ education = NO_EDU }: { education?: Edu[] }) 
       )}
 
       {/* References */}
-      <div className="mt-10">
+      <div className="mt-8">
+        <h2 className="text-xl font-bold text-[#1e1e1e] dark:text-white mb-4">References</h2>
         <button type="button" onClick={() => setOpen("ref")}
           className="w-full flex items-center justify-between gap-4 rounded-xl border border-[#ececec] dark:border-white/10 px-5 py-4 text-left hover:border-[#ffd716] transition-colors">
           <span className="flex items-center gap-3">
             <span className="w-9 h-9 rounded-lg bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center"><UserCheck size={16} className="text-[#1e1e1e] dark:text-white" /></span>
-            <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">References</span><span className="block text-xs text-[#9a9a9a]">Referees who can vouch for you — e.g. a lecturer ({refs.length}/5)</span></span>
+            <span><span className="block text-sm font-semibold text-[#1e1e1e] dark:text-white">Add Reference</span><span className="block text-xs text-[#9a9a9a]">Referees who can vouch for you — e.g. a lecturer ({refs.length}/5)</span></span>
           </span>
           <span className="w-7 h-7 rounded-lg border border-[#e3e3e3] dark:border-white/15 flex items-center justify-center text-[#1e1e1e] dark:text-white"><Plus size={15} /></span>
         </button>
