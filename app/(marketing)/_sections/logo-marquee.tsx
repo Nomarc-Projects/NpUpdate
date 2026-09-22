@@ -25,7 +25,7 @@ export const partners: Logo[] = [
  * dark mode they sit on a light plate (rather than being inverted, which would
  * wreck multi-colour marks like the Lagos State seal).
  */
-export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: boolean }) {
+export function LogoGroup({ logos, ariaHidden, confirmOpen = false }: { logos: Logo[]; ariaHidden?: boolean; confirmOpen?: boolean }) {
   // pr-* matches the inter-item gap so two groups concatenate with a uniform
   // rhythm — that makes the -50% loop perfectly seamless (no dead space).
   const plate =
@@ -47,6 +47,11 @@ export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: b
             target="_blank"
             rel="noopener noreferrer"
             title={`${p.name} — opens in a new tab`}
+            // Ask before leaving for the logo's site. Only the first (real) group
+            // is clickable; the aria-hidden duplicates are skipped by the check.
+            onClick={(e) => {
+              if (confirmOpen && !ariaHidden && !window.confirm(`Open ${p.name} in a new tab?`)) e.preventDefault();
+            }}
             // The marquee renders this group four times to loop seamlessly. Only
             // the first is real; the duplicates are aria-hidden, so they are also
             // taken out of the tab order — otherwise keyboard users would tab
@@ -83,6 +88,7 @@ function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
   const dragging = useRef(false);
   const dragBase = useRef(0);
   const dragStartX = useRef(0);
+  const suppressed = useRef(false);
   const reduced = useRef(false);
   const raf = useRef<number | null>(null);
   const lastTs = useRef<number | null>(null);
@@ -139,24 +145,42 @@ function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
       <div
         className="relative cursor-grab active:cursor-grabbing select-none touch-pan-y"
         onPointerDown={(e) => {
-          if (e.pointerType === "mouse") e.preventDefault();
-          dragging.current = true;
           dragStartX.current = e.clientX;
+          dragBase.current = offset.current;
+        }}
+        onPointerMove={(e) => {
+          if (dragging.current) {
+            const p = getPattern();
+            const next = (dragBase.current + (e.clientX - dragStartX.current)) % p;
+            offset.current = next < 0 ? next + p : next;
+            apply();
+            return;
+          }
+          // Don't start a drag on a plain tap — a tap must stay a click so the
+          // logo's confirm-then-open works. Only grabs grow into drags.
+          if (Math.abs(e.clientX - dragStartX.current) < 6) return;
+          dragging.current = true;
           dragBase.current = offset.current;
           e.currentTarget.setPointerCapture(e.pointerId);
         }}
-        onPointerMove={(e) => {
-          if (!dragging.current) return;
-          const p = getPattern();
-          const next = (dragBase.current + (e.clientX - dragStartX.current)) % p;
-          offset.current = next < 0 ? next + p : next;
-          apply();
-        }}
         onPointerUp={() => {
+          if (!dragging.current) return;
           dragging.current = false;
+          // A drag ends on this container, so the browser retargets the
+          // resulting click here; swallow it or the logo link would open after
+          // every scrub. The swallow flag lives just past the following click.
+          suppressed.current = true;
+          setTimeout(() => { suppressed.current = false; }, 0);
         }}
         onPointerCancel={() => {
           dragging.current = false;
+        }}
+        onClick={(e) => {
+          if (suppressed.current) {
+            e.preventDefault();
+            e.stopPropagation();
+            suppressed.current = false;
+          }
         }}
         onMouseEnter={() => {
           paused.current = true;
@@ -193,10 +217,10 @@ function DraggableTrack({ groups }: { groups: React.ReactNode[] }) {
 /** Seamless auto-scrolling marquee shared by the partners strip. */
 export function LogoMarquee({ logos, interactive = false }: { logos: Logo[]; interactive?: boolean }) {
   const groups = [
-    <LogoGroup key="a" logos={logos} />,
-    <LogoGroup key="b" logos={logos} ariaHidden />,
-    <LogoGroup key="c" logos={logos} ariaHidden />,
-    <LogoGroup key="d" logos={logos} ariaHidden />,
+    <LogoGroup key="a" logos={logos} confirmOpen={interactive} />,
+    <LogoGroup key="b" logos={logos} ariaHidden confirmOpen={interactive} />,
+    <LogoGroup key="c" logos={logos} ariaHidden confirmOpen={interactive} />,
+    <LogoGroup key="d" logos={logos} ariaHidden confirmOpen={interactive} />,
   ];
 
   return (
