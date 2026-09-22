@@ -56,6 +56,41 @@ function LogoPlate({ logo, confirmOpen }: { logo: Logo; confirmOpen: boolean }) 
 }
 
 /**
+ * Glassy card used by the homepage "Key Players" strip (desktop marquee +
+ * mobile carousel). Clickable logos confirm leaving the page and redirect in
+ * the same tab. Styled by the .marquee-card rules in globals.css.
+ */
+function MarqueeCard({ logo, confirmOpen }: { logo: Logo; confirmOpen: boolean }) {
+  const shortName = logo.name.split(" — ")[0];
+  const img = <img src={logo.src} alt={logo.name} loading="lazy" draggable={false} />;
+  const inner = (
+    <>
+      {img}
+      <div className="name">{shortName}</div>
+      <div className="tag">Key Player</div>
+    </>
+  );
+
+  if (!logo.href) return <div className="marquee-card">{inner}</div>;
+
+  return (
+    <a
+      href={logo.href}
+      // Confirms leaving and redirects in this tab; other strips keep the
+      // open-in-a-new-tab behavior.
+      {...(confirmOpen ? {} : { target: "_blank", rel: "noopener noreferrer" })}
+      title={`${shortName} — ${confirmOpen ? "opens in this tab" : "opens in a new tab"}`}
+      onClick={(e) => {
+        if (confirmOpen && !window.confirm(`You're about to leave this page and visit ${logo.name}. Continue?`)) e.preventDefault();
+      }}
+      className="marquee-card cursor-pointer"
+    >
+      {inner}
+    </a>
+  );
+}
+
+/**
  * One marquee group. The logos are full-colour artwork on transparency, so in
  * dark mode they sit on a light plate (rather than being inverted, which would
  * wreck multi-colour marks like the Lagos State seal).
@@ -107,8 +142,8 @@ function CarouselTrack({ logos }: { logos: Logo[] }) {
     >
       <div className="flex transition-transform duration-500 ease-out" style={{ transform: `translateX(-${index * 100}%)` }}>
         {logos.map((l) => (
-          <div key={l.name} className="w-full flex-shrink-0 flex items-center justify-center px-14 sm:px-24">
-            <LogoPlate logo={l} confirmOpen />
+          <div key={l.name} className="w-full flex-shrink-0 flex items-center justify-center px-2">
+            <MarqueeCard logo={l} confirmOpen />
           </div>
         ))}
       </div>
@@ -154,18 +189,19 @@ function CarouselTrack({ logos }: { logos: Logo[] }) {
  */
 export function LogoMarquee({ logos, interactive = false }: { logos: Logo[]; interactive?: boolean }) {
   if (interactive) {
-    const groups = [
-      <LogoGroup key="a" logos={logos} confirmOpen />,
-      <LogoGroup key="b" logos={logos} ariaHidden confirmOpen />,
-      <LogoGroup key="c" logos={logos} ariaHidden confirmOpen />,
-      <LogoGroup key="d" logos={logos} ariaHidden confirmOpen />,
-    ];
+    // Four identical card groups keep the -25% loop seamless (gap 24px +
+    // padding-right 24px == the group boundary pitch).
+    const groups = [0, 1, 2, 3].map((k) => (
+      <div key={k} aria-hidden={k !== 0} className="flex gap-6">
+        {logos.map((l) => (
+          <MarqueeCard key={l.name} logo={l} confirmOpen />
+        ))}
+      </div>
+    ));
     return (
       <>
-        <div className="hidden md:block relative overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
-          <div className="flex items-center w-max animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
+        <div className="hidden md:block marquee-viewport">
+          <div className="marquee-track animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
         </div>
         <div className="md:hidden">
           <CarouselTrack logos={logos} />
