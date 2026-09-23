@@ -6,7 +6,7 @@ import { company, product, userRole } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { asExhibitorPlan, PLAN_LABEL, type ExhibitorPlan } from "@/lib/entitlements";
 import { TRIAL_DAYS, FREE_PUBLISHED_LIMIT, type TrialState } from "@/lib/services/exhibitor-trial-rules";
-import { EXHIBITOR_LISTING_CAP } from "@/lib/services/exhibitor-plan-rules";
+import { getExhibitorTotalListingCap } from "@/lib/services/exhibitor-plan-rules";
 
 /**
  * Exhibitor free trial: one published listing for the first 30 days.
@@ -88,7 +88,7 @@ export async function getTrialState(): Promise<TrialState> {
 
   // A paid tier caps how many listings may be live at once; an unpaid account
   // gets the trial allowance while the window is open, and nothing after.
-  const listingCap = subscribed ? EXHIBITOR_LISTING_CAP[plan] : inTrial ? FREE_PUBLISHED_LIMIT : 0;
+  const listingCap = subscribed ? getExhibitorTotalListingCap(plan) : inTrial ? FREE_PUBLISHED_LIMIT : 0;
   const canPublish = publishedCount < listingCap;
   const reason: TrialState["reason"] = canPublish
     ? "ok"

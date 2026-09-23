@@ -1,12 +1,14 @@
 "use server";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { product, productVariant, company } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany } from "@/lib/company-internal";
 import { assertCanPublish } from "@/lib/services/exhibitor-trial";
+import { getExhibitorPlanForCurrentUser } from "@/lib/services/company";
+import { EXHIBITOR_PRODUCTS_PER_CATEGORY } from "@/lib/services/exhibitor-plan-rules";
 
 export type ProductStatus = "active" | "draft" | "archived";
 export type StockLevel = "high" | "low" | "out";
@@ -73,6 +75,21 @@ export async function createProduct(input: ProductInput, draft = false): Promise
   // can keep preparing listings and publish them once they subscribe. Enforced
   // here rather than only in the UI: the action is callable directly.
   if (status !== "draft") await assertCanPublish();
+
+  // Per-category product limit check
+  if (status !== "draft" && input.category) {
+    const plan = await getExhibitorPlanForCurrentUser();
+    const perCategoryCap = EXHIBITOR_PRODUCTS_PER_CATEGORY[plan] ?? 0;
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(product)
+      .where(and(eq(product.companyId, companyId), eq(product.category, input.category), eq(product.status, "active")));
+    const currentInCategory = Number(n ?? 0);
+    if (currentInCategory >= perCategoryCap) {
+      throw new Error(`Category limit reached: your ${plan} plan allows ${perCategoryCap} products per category.`);
+    }
+  }
+
   const v = values(companyId, { ...input, status });
   const [row] = await db.insert(product).values(v).returning({ id: product.id });
   bump();
