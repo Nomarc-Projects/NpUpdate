@@ -9,6 +9,7 @@ import { CompanyProfileForm } from "@/app/(marketing)/company/company-profile-fo
 import { getMyProfile, type ProfileData } from "@/lib/services/profile";
 import { getMyCompany, type CompanyData } from "@/lib/services/company";
 import { getQualifications, getEducationList, type Edu } from "@/lib/services/qualifications";
+import { listMyProjects, type PortfolioProject } from "@/lib/services/projects";
 
 /**
  * Thin wrappers that pull Personal Profile, Qualifications & Expertise and
@@ -44,10 +45,12 @@ export function QualificationsPanel() {
   const [quals, setQuals] = useState<Quals | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [edu, setEdu] = useState<Edu[]>([]);
+  const [projects, setProjects] = useState<PortfolioProject[]>([]);
   useEffect(() => {
     getQualifications().then(setQuals).catch(() => setQuals(null));
     getMyProfile().then((r) => setProfile(r.data)).catch(() => setProfile(null));
     getEducationList().then(setEdu).catch(() => {});
+    listMyProjects().then(setProjects).catch(() => {});
   }, []);
   if (!quals) return <Loading />;
   return (
@@ -57,6 +60,7 @@ export function QualificationsPanel() {
         skills={quals.skills}
         specializations={quals.specializations}
         certifications={quals.certifications}
+        projects={projects}
         practiceStatus={profile?.practiceStatus}
       />
       <EducationContent education={edu} />

@@ -9,6 +9,7 @@ import { KycView, VerificationLevelCard } from "@/components/dashboard/kyc-view"
 import { StatusBadge } from "@/components/dashboard/kit/status-badge";
 import type { ProfileData } from "@/lib/services/profile";
 import type { Experience, Cert, Edu } from "@/lib/services/qualifications";
+import type { PortfolioProject } from "@/lib/services/projects";
 import type { KycState } from "@/lib/services/kyc";
 
 type Named = { id: string; name: string };
@@ -32,7 +33,7 @@ type Key = (typeof TABS)[number]["key"];
 // and re-triggers child sync-effects (see education-content/qualifications).
 const NO_EDU: Edu[] = [];
 
-export function ProfileTabs({ initial = "public", profile, quals, education = NO_EDU, kycState }: { initial?: Key; profile?: ProfileData; quals?: Quals; education?: Edu[]; kycState?: KycState }) {
+export function ProfileTabs({ initial = "public", profile, quals, education = NO_EDU, projects = [], kycState }: { initial?: Key; profile?: ProfileData; quals?: Quals; education?: Edu[]; projects?: PortfolioProject[]; kycState?: KycState }) {
   /**
    * A member only counts as a professional — and so only then sees the
    * Qualifications, Education History and Verification tabs — once they have
@@ -135,7 +136,7 @@ export function ProfileTabs({ initial = "public", profile, quals, education = NO
               </div>
             </div>
             <div className={tab === "education" ? "" : "hidden"}>
-              <QualificationsContent mode="experience" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} practiceStatus={profile?.practiceStatus} />
+              <QualificationsContent mode="experience" experience={quals?.experience} skills={quals?.skills} specializations={quals?.specializations} certifications={quals?.certifications} projects={projects} practiceStatus={profile?.practiceStatus} />
             </div>
             <div className={tab === "verification" ? "" : "hidden"}>{kycState && <KycView kycState={kycState} embedded />}</div>
           </div>

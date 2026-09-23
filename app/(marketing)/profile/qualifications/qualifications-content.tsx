@@ -17,8 +17,9 @@ import {
   getRegistrations, addRegistration, removeRegistration, setExperiencePhotos,
   type Experience, type Cert, type Registration,
 } from "@/lib/services/qualifications";
+import { createProject, deleteProject as deletePortfolioProject, type PortfolioProject } from "@/lib/services/projects";
 
-type Which = null | "work" | "skill" | "spec" | "cert" | "reg";
+type Which = null | "work" | "project" | "skill" | "spec" | "cert" | "reg";
 type Named = { id: string; name: string };
 const tmp = () => `tmp_${Math.random().toString(36).slice(2)}`;
 const YEAR_OPTIONS = Array.from({ length: 60 }, (_, i) => { const y = String(new Date().getFullYear() + 1 - i); return { value: y, label: y }; });
@@ -87,6 +88,17 @@ function WorkGallery({ entry, onRemove }: { entry: Experience; onRemove: (url: s
   );
 }
 
+function ProjectGallery({ title, images }: { title: string; images: string[] }) {
+  if (!images.length) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-3">
+      {images.map((p) => (
+        <img key={p} src={p} alt={`${title} project image`} className="h-20 w-28 rounded-lg border border-[#ececec] bg-white object-cover dark:border-white/10" />
+      ))}
+    </div>
+  );
+}
+
 function fmtRange(s: string | null, e: string | null, current: boolean) {
   const f = (d: string | null) => (d ? new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "2-digit", year: "numeric" }) : "");
   if (!s && !e) return "";
@@ -99,12 +111,13 @@ function fmtRange(s: string | null, e: string | null, current: boolean) {
 const NO_EXPERIENCE: Experience[] = [];
 const NO_NAMED: Named[] = [];
 const NO_CERTS: Cert[] = [];
+const NO_PROJECTS: PortfolioProject[] = [];
 
 export function QualificationsContent({
-  experience = NO_EXPERIENCE, skills = NO_NAMED, specializations = NO_NAMED, certifications = NO_CERTS, practiceStatus = "",
+  experience = NO_EXPERIENCE, skills = NO_NAMED, specializations = NO_NAMED, certifications = NO_CERTS, projects = NO_PROJECTS, practiceStatus = "",
   mode = "full",
 }: {
-  experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; practiceStatus?: string;
+  experience?: Experience[]; skills?: Named[]; specializations?: Named[]; certifications?: Cert[]; projects?: PortfolioProject[]; practiceStatus?: string;
   /** Which sections to render. "full" = everything; "experience" = work
    *  experience + specializations; "skills" = skills/specializations skipped,
    *  i.e. skills, certifications and registrations only. */
@@ -124,10 +137,12 @@ export function QualificationsContent({
 
   // ── optimistic local lists (seeded from props, reconciled after server refresh) ──
   const [exp, setExp] = useState<Experience[]>(experience);
+  const [pr, setPr] = useState<PortfolioProject[]>(projects);
   const [sk, setSk] = useState<Named[]>(skills);
   const [sp, setSp] = useState<Named[]>(specializations);
   const [ce, setCe] = useState<Cert[]>(certifications);
   useEffect(() => { setExp(experience); }, [experience]);
+  useEffect(() => { setPr(projects); }, [projects]);
   useEffect(() => { setSk(skills); }, [skills]);
   useEffect(() => { setSp(specializations); }, [specializations]);
   useEffect(() => { setCe(certifications); }, [certifications]);
@@ -140,6 +155,7 @@ export function QualificationsContent({
 
   // work modal fields
   const [w, setW] = useState({ title: "", company: "", description: "", location: "", workplaceType: "", current: false, workPhotos: [] as string[] });
+  const [projectForm, setProjectForm] = useState({ title: "", role: "", description: "", location: "", images: [] as string[] });
   const [expStart, setExpStart] = useState("");
   const [expEnd, setExpEnd] = useState("");
   const [uploadingWork, setUploadingWork] = useState(false);
@@ -175,6 +191,43 @@ export function QualificationsContent({
   function removeExperience(id: string) {
     const prev = exp; setExp((p) => p.filter((x) => x.id !== id));
     bg(deleteExperience(id), () => setExp(prev), "Removed");
+  }
+  function submitProject() {
+    if (!projectForm.title.trim()) { toast.error("Project title is required"); return; }
+    const id = tmp();
+    const images = projectForm.images.filter(Boolean);
+    const row: PortfolioProject = {
+      id,
+      title: projectForm.title.trim(),
+      role: projectForm.role.trim(),
+      description: projectForm.description.trim(),
+      location: projectForm.location.trim(),
+      coverUrl: images[0] ?? "",
+      gallery: images.slice(1),
+      responsibilities: [],
+      startDate: null,
+      endDate: null,
+      ongoing: false,
+      draft: false,
+      createdAt: null,
+    };
+    setPr((p) => [row, ...p]);
+    close();
+    const payload = { title: projectForm.title, role: projectForm.role, description: projectForm.description, location: projectForm.location, coverUrl: images[0], gallery: images.slice(1) };
+    setProjectForm({ title: "", role: "", description: "", location: "", images: [] });
+    bg(
+      createProject(payload).then((res) => { if (!res.ok) throw new Error(res.error ?? "Couldn't save the project."); }),
+      () => setPr((p) => p.filter((x) => x.id !== id)),
+      "Project added",
+    );
+  }
+  function removeProject(id: string) {
+    const prev = pr; setPr((p) => p.filter((x) => x.id !== id));
+    bg(
+      deletePortfolioProject(id).then((res) => { if (!res.ok) throw new Error(res.error ?? "Couldn't delete the project."); }),
+      () => setPr(prev),
+      "Removed",
+    );
   }
   /** Upload one or more photos onto an existing experience row. */
   async function addRowWorkPhotos(id: string, files: FileList | File[]) {
@@ -266,6 +319,27 @@ export function QualificationsContent({
               ))}
             </div>
           )}
+
+          <div className="mt-8">
+            <SectionHeader title="Projects" className="mb-4" />
+            <AddRow Icon={Briefcase} label="Add Project" count={`(${pr.length})`} onAdd={() => setOpen("project")} />
+            {pr.length === 0 ? <p className="text-[13px] text-[#9a9a9a] mt-5">No projects yet — add completed work with images for your portfolio.</p> : (
+              <div className="space-y-5">
+                {pr.map((p) => {
+                  const images = [...new Set([p.coverUrl, ...p.gallery].filter(Boolean))];
+                  return (
+                    <div key={p.id} className="group relative">
+                      <button onClick={() => removeProject(p.id)} className="absolute right-0 top-0 text-[#b3b3b3] hover:text-[#e5484d] opacity-0 group-hover:opacity-100"><X size={15} /></button>
+                      <p className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white">{p.title}{p.role ? ` • ${p.role}` : ""}</p>
+                      {p.location && <p className="text-[13px] text-[#9a9a9a] mt-0.5">{p.location}</p>}
+                      {p.description && <p className="text-[13px] text-[#6b6b6b] dark:text-white/60 leading-relaxed mt-3 max-w-[560px]">{p.description}</p>}
+                      <ProjectGallery title={p.title} images={images} />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </>
       )}
 
@@ -345,6 +419,19 @@ export function QualificationsContent({
           <label className="flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60"><input type="checkbox" checked={w.current} onChange={(e) => setW({ ...w, current: e.target.checked })} className="accent-[#ffd716]" /> I am currently working in this role</label>
           <Field label="Work photos" hint="Optional — add one or more photos of the work this role delivered">
             <FileUpload multiple accept="image/png,image/jpeg,image/webp" maxSizeMB={5} label="Upload work photos" upload={(f) => uploadFile(f, "project")} onChange={(items) => setW({ ...w, workPhotos: items.map((i) => i.url!).filter(Boolean) })} />
+          </Field>
+        </div>
+      </Modal>
+
+      <Modal open={open === "project"} onClose={close} title="Add Project" subtitle="Add project details and images to your professional profile." maxWidth="max-w-[520px]"
+        footer={<><GhostButton type="button" onClick={close}>Cancel</GhostButton><PrimaryButton type="button" onClick={submitProject}>Add</PrimaryButton></>}>
+        <div className="space-y-4">
+          <Field label="Project title"><input className={inputClass} value={projectForm.title} onChange={(e) => setProjectForm({ ...projectForm, title: e.target.value })} placeholder="e.g. Modern Residential Building" /></Field>
+          <Field label="Role on the project"><input className={inputClass} value={projectForm.role} onChange={(e) => setProjectForm({ ...projectForm, role: e.target.value })} placeholder="e.g. Lead Architect" /></Field>
+          <Field label="Description"><textarea rows={3} className={inputClass} value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })} placeholder="What was delivered?" /></Field>
+          <Field label="Location"><input className={inputClass} value={projectForm.location} onChange={(e) => setProjectForm({ ...projectForm, location: e.target.value })} placeholder="City, State" /></Field>
+          <Field label="Images" hint="Optional — first image becomes the project cover">
+            <FileUpload multiple accept="image/png,image/jpeg,image/webp" maxSizeMB={5} label="Upload project images" upload={(f) => uploadFile(f, "project")} onChange={(items) => setProjectForm({ ...projectForm, images: items.map((i) => i.url!).filter(Boolean) })} />
           </Field>
         </div>
       </Modal>

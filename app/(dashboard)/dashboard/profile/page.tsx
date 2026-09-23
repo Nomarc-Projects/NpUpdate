@@ -3,6 +3,7 @@ import { ProfileTabs } from "@/components/profile/profile-tabs";
 import { EmployerProfileShell } from "@/components/profile/employer-profile-shell";
 import { getMyProfile } from "@/lib/services/profile";
 import { getQualifications, getEducationList } from "@/lib/services/qualifications";
+import { listMyProjects } from "@/lib/services/projects";
 import { getKycState } from "@/lib/services/kyc";
 import { getEmployerProfile } from "@/lib/services/employer";
 import { getViewer } from "@/lib/viewer-server";
@@ -38,7 +39,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   }
 
   const initial = tab === "qualifications" || tab === "education" || tab === "verification" ? tab : "public";
-  const [data, quals, education, kycState] = await Promise.all([
+  const [data, quals, education, projects, kycState] = await Promise.all([
     // Logged, not swallowed silently: this exact `.catch` is what turned a hard
     // "column does not exist" error into a blank form that looked like a saving
     // bug, and kept it invisible for weeks.
@@ -50,7 +51,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       }),
     getQualifications().catch(() => undefined),
     getEducationList().catch(() => undefined),
+    listMyProjects().catch(() => []),
     getKycState().catch(() => undefined),
   ]);
-  return <ProfileTabs initial={initial} profile={data} quals={quals} education={education} kycState={kycState} />;
+  return <ProfileTabs initial={initial} profile={data} quals={quals} education={education} projects={projects} kycState={kycState} />;
 }
