@@ -6,7 +6,7 @@ import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
   Upload, FileText, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, type LucideIcon,
+  Bell, Sun, Moon, Package, Store, ArrowUpRight, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
 import { animateThemeChange } from "@/lib/theme-transition";
@@ -20,6 +20,8 @@ import { signOut as authSignOut } from "@/lib/auth-client";
 import { getUnreadCount } from "@/lib/services/messaging";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
 import { cn } from "@/lib/utils";
+import { useViewer } from "@/lib/use-viewer";
+import { PLAN_LABEL, getNextPlan } from "@/lib/entitlements";
 
 /** Lucide icons plus our own glyphs (e.g. HelmIcon), which take the same props. */
 type NavIcon = LucideIcon | ((props: { className?: string; size?: number | string }) => React.ReactElement);
@@ -71,6 +73,25 @@ const navGroups: Group[] = [
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "NM";
+}
+
+function UpgradeSidebar() {
+  const viewer = useViewer();
+  const nextPlan = getNextPlan(viewer.plan, viewer.role);
+  if (!nextPlan) return null;
+
+  return (
+    <Link
+      href="/dashboard/plans"
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors flex-shrink-0",
+        "bg-[#ffd716]/15 text-[#caa400] hover:bg-[#ffd716]/25 border border-[#ffd716]/30"
+      )}
+    >
+      <ArrowUpRight size={10} />
+      Upgrade to {PLAN_LABEL[nextPlan]}
+    </Link>
+  );
 }
 
 function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapsed: boolean; active: boolean; onNavigate?: () => void }) {
@@ -211,6 +232,7 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
                 <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white truncate">{name}</p>
                 <p className="text-[11px] text-[#9a9a9a] truncate">{email}</p>
               </div>
+              <UpgradeSidebar />
               <button onClick={handleSignOut} aria-label="Log out" className="text-[#9a9a9a] hover:text-[#e5484d] transition-colors flex-shrink-0"><LogOut size={17} /></button>
             </>
           )}

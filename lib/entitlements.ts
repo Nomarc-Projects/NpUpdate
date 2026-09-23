@@ -67,6 +67,21 @@ export const PLAN_LABEL: Record<Plan, string> = {
   sme: "SMEs", exhibitor: "Exhibitors", key_player: "Key players",
 };
 
+/** Next upgrade step for a given plan/role. Returns null if already on the highest tier. */
+export function getNextPlan(plan: Plan, role: Role): Plan | null {
+  if (role === "professional" || role === "employer" || role === "client") {
+    const ladder: ProfessionalPlan[] = ["free", "plus", "pro", "premium"];
+    const idx = ladder.indexOf(plan as ProfessionalPlan);
+    return idx >= 0 && idx < ladder.length - 1 ? ladder[idx + 1] : null;
+  }
+  if (role === "exhibitor") {
+    const ladder: ExhibitorPlan[] = ["free", "sme", "exhibitor", "key_player"];
+    const idx = ladder.indexOf(plan as ExhibitorPlan);
+    return idx >= 0 && idx < ladder.length - 1 ? ladder[idx + 1] : null;
+  }
+  return null;
+}
+
 /** Requirement to unlock a capability. */
 type Requirement =
   | { kind: "signin" }                 // must be signed in

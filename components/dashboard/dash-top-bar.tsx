@@ -4,13 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, Settings, User, LayoutGrid, LogOut, ChevronDown } from "lucide-react";
+import { Bell, Search, Settings, User, LayoutGrid, LogOut, ChevronDown, ArrowUpRight } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { TourLauncher } from "@/components/tour/tour-launcher";
 import { ResetAccountButton } from "@/components/dashboard/reset-account-button";
 import { CartButton } from "@/components/exhibition-hub/cart-button";
+import { useViewer } from "@/lib/use-viewer";
+import { PLAN_LABEL, getNextPlan } from "@/lib/entitlements";
+import { cn } from "@/lib/utils";
 
 // "Profile" was removed per the redesign — profile editing is reached through
 // Account Settings, so the dropdown no longer offers two routes to it.
@@ -19,6 +22,25 @@ const MENU_ITEMS = [
   { label: "Notifications",    href: "/dashboard/notifications", Icon: Bell },
   { label: "Account Settings", href: "/dashboard/settings",      Icon: Settings },
 ];
+
+function UpgradeButton() {
+  const viewer = useViewer();
+  const nextPlan = getNextPlan(viewer.plan, viewer.role);
+  if (!nextPlan) return null; // Already on highest plan
+
+  return (
+    <Link
+      href="/dashboard/plans"
+      className={cn(
+        "inline-flex items-center gap-1.5 w-full justify-center px-3 py-2 rounded-lg text-[12px] font-semibold transition-colors",
+        "bg-[#ffd716]/15 text-[#caa400] hover:bg-[#ffd716]/25 border border-[#ffd716]/30"
+      )}
+    >
+      <ArrowUpRight size={11} />
+      Upgrade to {PLAN_LABEL[nextPlan]}
+    </Link>
+  );
+}
 
 export function DashTopBar({ notificationCount = 0 }: { notificationCount?: number }) {
   const router = useRouter();
@@ -143,6 +165,10 @@ export function DashTopBar({ notificationCount = 0 }: { notificationCount?: numb
                   <p className="text-[11px] text-[#9a9a9a] truncate">{email}</p>
                 </div>
               </div>
+              <div className="my-1.5 h-px bg-[#ececec] dark:bg-white/10" />
+
+              <UpgradeButton />
+
               <div className="my-1.5 h-px bg-[#ececec] dark:bg-white/10" />
 
               {MENU_ITEMS.map(({ label, href, Icon }) => (
