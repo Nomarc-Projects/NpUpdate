@@ -291,7 +291,6 @@ export const KEY_PLAYERS_DEFAULT: KeyPlayersSetting = {
     { name: "The Building Practice", src: "/logos/partners/building-practice.png", href: "https://www.instagram.com/thebuildingpractice" },
     { name: "CEP — Construction Economists Partnership Limited", src: "/logos/partners/cep.png", href: "https://www.linkedin.com/company/construction-economists-partnership-limited-cep-/" },
     { name: "DanBran Projects Limited", src: "/logos/partners/danbran-projects.png", href: "https://danbranprojectsltd.com/danbran12dx/" },
-    { name: "Nomadic Architects", src: "/logos/partners/nomadic-architects.png", href: "https://nomarcprojects.com" },
     { name: "Tivisto", src: "/logos/partners/tivisto.png", href: "https://drive.google.com/file/d/19crZRwag_msXnClaN8VGW8q71iMOjKy1/view" },
   ],
 };

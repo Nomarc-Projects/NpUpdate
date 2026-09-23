@@ -224,48 +224,6 @@
   .animate-\[nm-marquee-4_48s_linear_infinite\] { animation: none; }
 }
 
-/* Homepage "Key Players" glass-card marquee */
-.marquee-viewport {
-  overflow: hidden;
-  cursor: grab;
-  user-select: none;
-  touch-action: pan-y;
-  mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
-  -webkit-mask-image: linear-gradient(to right, transparent, black 8%, black 92%, transparent);
-}
-.marquee-track {
-  display: flex;
-  gap: 24px;
-  width: max-content;
-  padding-right: 24px;
-}
-.marquee-card {
-  flex: 0 0 224px;            /* sm:w-56 */
-  background: rgba(17,17,17,.6);
-  backdrop-filter: blur(20px);
-  border: 1px solid #1f2937;
-  border-radius: 16px;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: border-color .3s, color .3s;
-}
-.marquee-card:hover { border-color: #3b82f6; }
-.marquee-card img {
-  height: 48px;
-  filter: grayscale(1);
-  transition: filter .3s, transform .3s;
-}
-.marquee-card:hover img { filter: grayscale(0); transform: scale(1.05); }
-.marquee-card .name { font-size: 24px; font-weight: 900; color: #6b7280; transition: color .3s; }
-.marquee-card:hover .name { color: #fff; }
-.marquee-card .tag { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #4b5563; }
-/* keep long brand names readable inside the 224px card */
-.marquee-card .name { text-align: center; line-height: 1.15; word-break: break-word; }
-
 /* ── react-big-calendar ───────────────────────────────────────────────── */
 .pm-calendar .rbc-calendar { background: transparent; font-family: 'Outfit', sans-serif; font-size: 13px; }
 .pm-calendar .rbc-header { padding: 8px; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #9a9a9a; border-bottom: 1px solid #ececec; background: #fafafa; }

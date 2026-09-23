@@ -1,4 +1,4 @@
-import { LogoMarquee } from "./logo-marquee";
+import { LogoMarqueeWithModal } from "./logo-modal";
 import { getKeyPlayers } from "@/lib/services/platform-settings-read";
 import { KEY_PLAYERS_DEFAULT } from "@/lib/services/platform-settings-shared";
 
@@ -9,23 +9,21 @@ import { KEY_PLAYERS_DEFAULT } from "@/lib/services/platform-settings-shared";
 export async function TrustedByStrip() {
   const setting = await getKeyPlayers().catch(() => KEY_PLAYERS_DEFAULT);
 
+  // Nomadic Architects was delisted — filter it out here too so a stored
+  // setting that still contains it stops rendering immediately.
+  const logos = setting.logos.filter((l) => !/nomad|nomard/i.test(l.name));
+
   // Admin can hide the strip entirely, or delete every company on it — either
   // way it renders nothing rather than an empty marquee.
-  if (!setting.enabled || setting.logos.length === 0) return null;
+  if (!setting.enabled || logos.length === 0) return null;
 
   return (
-    <section className="bg-white dark:bg-[#111] pt-10">
+    <section className="bg-white dark:bg-[#111] pt-4 pb-16">
       <div className="px-6 md:px-10 lg:px-14">
         <p className="text-center text-[10px] font-semibold text-[#898989] uppercase tracking-[0.22em] mb-6">
           {setting.heading}
         </p>
-        <div className="border-t border-[#ececec] dark:border-white/10" />
-        <div className="py-7 sm:py-8 grid grid-cols-12">
-          <div className="col-span-12 sm:col-span-12">
-            <LogoMarquee logos={setting.logos} interactive />
-          </div>
-        </div>
-        <div className="border-b border-[#ececec] dark:border-white/10" />
+        <LogoMarqueeWithModal logos={logos} badge="Key Player" />
       </div>
     </section>
   );
