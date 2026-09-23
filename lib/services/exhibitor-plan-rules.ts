@@ -20,6 +20,14 @@ export const EXHIBITOR_LISTING_CAP: Record<ExhibitorPlan, number> = {
   key_player: 10,
 };
 
+/** Product categories (shops) allowed per tier. */
+export const EXHIBITOR_CATEGORY_CAP: Record<ExhibitorPlan, number> = {
+  free: 0,
+  sme: 1,
+  exhibitor: 5,
+  key_player: 10,
+};
+
 /** Profile promotion ads bundled with the tier ("Includes 1 active profile promotion ad"). */
 export const EXHIBITOR_PROFILE_ADS: Record<ExhibitorPlan, number> = {
   free: 0,
@@ -31,9 +39,14 @@ export const EXHIBITOR_PROFILE_ADS: Record<ExhibitorPlan, number> = {
 /** Feature bullets shown on the plan card and in checkout. */
 export function exhibitorPlanFeatures(plan: Exclude<ExhibitorPlan, "free">): string[] {
   const cap = EXHIBITOR_LISTING_CAP[plan];
+  const catCap = EXHIBITOR_CATEGORY_CAP[plan];
   const ads = EXHIBITOR_PROFILE_ADS[plan];
   return [
     `Max of ${cap} active product listing${cap === 1 ? "" : "s"}.`,
+    `Up to ${catCap} product categor${catCap === 1 ? "y" : "ies"} (shops).`,
     ...(ads > 0 ? [`Includes ${ads} active profile promotion ad.`] : []),
   ];
 }
+
+/** Default plan for new exhibitor signups (before they subscribe). */
+export const DEFAULT_EXHIBITOR_PLAN = "sme" as const;

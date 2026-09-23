@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, X, Loader2, Camera, Paperclip } from "lucide-react";
+import { ArrowRight, X, Loader2, Camera, Paperclip, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Field, inputClass } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
@@ -13,6 +13,7 @@ import { saveCompany } from "@/lib/services/company";
 import { submitKycDoc } from "@/lib/services/kyc";
 import { useMultiStep } from "@/components/ui/stepper";
 import { cn } from "@/lib/utils";
+import { EXHIBITOR_CATEGORY_CAP, DEFAULT_EXHIBITOR_PLAN } from "@/lib/services/exhibitor-plan-rules";
 import {
   WizardFooter,
   SegmentBar,
@@ -60,12 +61,18 @@ export function ExhibitorOnboardingWizard() {
   const [cacFileName, setCacFileName] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // During onboarding the user isn't yet an exhibitor; they get the default SME plan (1 category)
+  // after saveCompany grants the role. Upgrading later increases the cap.
+  const exhibitorPlan: "free" | "sme" | "exhibitor" | "key_player" = DEFAULT_EXHIBITOR_PLAN;
+  const categoryCap = EXHIBITOR_CATEGORY_CAP[exhibitorPlan];
   const logoInput = useRef<HTMLInputElement>(null);
   const cacInput = useRef<HTMLInputElement>(null);
 
   function goToDocuments() {
     if (!name.trim()) { toast.error("Enter your company name."); return; }
     if (!companyType) { toast.error("Select a company type."); return; }
+    if (categories.length === 0) { toast.error("Select at least one product category (shop)."); return; }
+    if (categories.length > categoryCap) { toast.error(`Your plan allows up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"}.`); return; }
     next();
   }
 
@@ -189,13 +196,29 @@ export function ExhibitorOnboardingWizard() {
                     <Field label="About the Company" required hint={`${about.length}/2,000`}>
                       <textarea rows={4} maxLength={2000} className={inputClass} value={about} onChange={(e) => setAbout(e.target.value)} placeholder="We are West Africa's leading supplier of…" />
                     </Field>
-                    <Field label="Product Category" required hint="(Select all that apply)">
-                      <MultiSelect
-                        options={PRODUCT_CATEGORIES}
-                        value={categories}
-                        onChange={setCategories}
-                        placeholder="enter company address"
-                      />
+                    <Field
+                      label="Product Category"
+                      hint={`Select up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} (shop${categoryCap === 1 ? "" : "s"})`}
+                      required
+                    >
+                      <div className="space-y-2">
+                        <MultiSelect
+                          options={PRODUCT_CATEGORIES}
+                          value={categories}
+                          onChange={(selected) => {
+                            if (selected.length <= categoryCap) setCategories(selected);
+                            else {
+                              toast.error(`You can only select up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} on your current plan.`);
+                              setCategories(selected.slice(0, categoryCap));
+                            }
+                          }}
+                          placeholder="Search or add categories…"
+                        />
+                        <p className="text-[12px] text-[#9a9a9a]">
+                          {categories.length} / {categoryCap} categor${categoryCap === 1 ? "y" : "ies"} selected
+                          {exhibitorPlan !== "sme" && <span className="text-[#caa400] ml-2">({String(exhibitorPlan).toUpperCase()} plan)</span>}
+                        </p>
+                      </div>
                     </Field>
                     <button onClick={goToDocuments} className={cn(yellowBtn, "w-full py-3")}>
                       <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Continue

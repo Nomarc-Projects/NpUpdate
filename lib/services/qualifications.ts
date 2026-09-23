@@ -39,7 +39,7 @@ function mergeCerts(arr: CertDoc[] | null | undefined, legacyUrl: string | null 
 export async function getQualifications() {
   const uid = await requireUserId();
   const [exp, sk, certs, regs] = await Promise.all([
-    db.select().from(workExperience).where(eq(workExperience.userId, uid)).orderBy(desc(workExperience.startDate)),
+    db.select().from(workExperience).where(eq(workExperience.userId, uid)).orderBy(desc(workExperience.startDate), desc(workExperience.createdAt)),
     db.select().from(profileSkill).where(eq(profileSkill.userId, uid)).orderBy(asc(profileSkill.createdAt)),
     db.select().from(certification).where(eq(certification.userId, uid)).orderBy(desc(certification.year)),
     // resilient: returns [] until the professional_registration migration is applied

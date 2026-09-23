@@ -4,11 +4,13 @@ import { headers } from "next/headers";
 import { and, asc, count, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
-import { company, companyCertification, product } from "@/lib/db/schema";
+import { company, companyCertification, product, userRole } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany, getOwnCompany } from "@/lib/company-internal";
 import { grantRole } from "@/lib/roles-internal";
+import { asExhibitorPlan } from "@/lib/entitlements";
+import { EXHIBITOR_CATEGORY_CAP } from "@/lib/services/exhibitor-plan-rules";
 
 const bump = () => { revalidatePath("/dashboard/company"); revalidatePath("/dashboard"); };
 
@@ -80,6 +82,17 @@ export async function saveCompany(input: {
   registrationNumber?: string;
 }) {
   const uid = await requireUserId();
+
+  // Validate category count against plan limit if categories are being updated
+  if (input.categories !== undefined) {
+    const plan = await getExhibitorPlan(uid);
+    const maxCategories = EXHIBITOR_CATEGORY_CAP[plan] ?? 0;
+    const uniqueCategories = [...new Set(input.categories.map((c) => c.trim()).filter(Boolean))];
+    if (uniqueCategories.length > maxCategories) {
+      throw new Error(`Your ${plan} plan allows up to ${maxCategories} product categor${maxCategories === 1 ? "y" : "ies"}. You selected ${uniqueCategories.length}.`);
+    }
+  }
+
   // Only write what the caller actually supplied. Every field used to be set
   // unconditionally, so a form that didn't render companyType/categories — i.e.
   // the company profile editor — silently nulled whatever onboarding collected
@@ -113,6 +126,33 @@ export async function saveCompany(input: {
     await grantRole(uid, "exhibitor", "self_serve_tier1");
   }
   bump();
+}
+
+/** Get the exhibitor's current plan tier (for the signed-in user). */
+export async function getExhibitorPlanForCurrentUser(): Promise<"free" | "sme" | "exhibitor" | "key_player"> {
+  const uid = await requireUserId();
+  const rows = await db
+    .select({ plan: userRole.plan })
+    .from(userRole)
+    .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")));
+  for (const r of rows) {
+    const p = asExhibitorPlan(r.plan);
+    if (p !== "free") return p;
+  }
+  return "free" as const;
+}
+
+/** Get the exhibitor's current plan tier (by explicit user id). */
+export async function getExhibitorPlan(uid: string): Promise<"free" | "sme" | "exhibitor" | "key_player"> {
+  const rows = await db
+    .select({ plan: userRole.plan })
+    .from(userRole)
+    .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")));
+  for (const r of rows) {
+    const p = asExhibitorPlan(r.plan);
+    if (p !== "free") return p;
+  }
+  return "free" as const;
 }
 
 export async function addCompanyCertification(input: { name: string; issuer?: string; year?: number; url?: string }) {

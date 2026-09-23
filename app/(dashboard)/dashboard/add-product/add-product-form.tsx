@@ -6,13 +6,11 @@ import { toast } from "sonner";
 import { Plus, X, ArrowRight } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
-import { MultiSelect } from "@/components/ui/multi-select";
 import { createProduct } from "@/lib/services/products";
 import { uploadFile } from "@/lib/upload-client";
 import { PRODUCT_UNITS, UNIT_CUSTOM } from "@/lib/constants/product-units";
 import { cn } from "@/lib/utils";
 
-const PRODUCT_CATEGORIES = ["Structural Steel", "Rebar", "Heavy Machinery", "Cement & Concrete", "Flooring", "Ceramic & Porcelain", "HVAC", "Cooling Systems", "Electrical", "Plumbing", "Roofing", "Doors & Windows", "Tools & Hardware", "Safety & PPE", "Industrial Metals", "Heavy Framework"];
 const DESC_MAX = 500;
 
 function FormSection({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
@@ -62,6 +60,11 @@ const GALLERY_MAX_ITEMS = 10;
 const GALLERY_IMAGE_MB = 5;
 const GALLERY_VIDEO_MB = 10;
 
+interface AddProductFormProps {
+  /** Categories the exhibitor's current plan allows them to use. */
+  allowedCategories?: string[];
+}
+
 /**
  * Single-page "Add new product" form (image 76), wired to `createProduct`.
  *
@@ -70,10 +73,10 @@ const GALLERY_VIDEO_MB = 10;
  * dropzones that validated and previewed files and then discarded them on
  * submit, so a seller could attach ten photos and publish a product with none.
  */
-export function AddProductForm() {
+export function AddProductForm({ allowedCategories = [] }: AddProductFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [category, setCategory] = useState("");
   const [material, setMaterial] = useState("");
   const [price, setPrice] = useState("");
   // `unit` holds either a listed unit or the UNIT_CUSTOM sentinel; when it's the
@@ -117,10 +120,22 @@ export function AddProductForm() {
     // specs so the upload isn't silently thrown away.
     for (const url of docUrls) specs.push({ label: "Document", value: url });
 
+    // Validate category against allowed categories (for published products)
+    if (!draft && !category.trim()) {
+      toast.error("Product category is required");
+      setSaving(false);
+      return;
+    }
+    if (!draft && allowedCategories.length > 0 && !allowedCategories.map((c) => c.toLowerCase()).includes(category.trim().toLowerCase())) {
+      toast.error(`Category must be one of your registered shops: ${allowedCategories.join(", ")}`);
+      setSaving(false);
+      return;
+    }
+
     createProduct({
       name,
-      category: tags[0],
-      tags,
+      category: category.trim() || undefined,
+      tags: [],
       type: material || undefined,
       description,
       specs,
@@ -155,8 +170,25 @@ export function AddProductForm() {
             <Field label="Product Name" required>
               <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. High-Yield TMT Rebar" />
             </Field>
-            <Field label="Product Categories/Tags" required>
-              <MultiSelect options={PRODUCT_CATEGORIES} value={tags} onChange={setTags} allowCreate placeholder="Search or add categories…" />
+            <Field
+              label="Product Category (Shop)"
+              hint={allowedCategories.length ? `Your plan allows: ${allowedCategories.join(", ")}` : "Enter the product category"}
+              required
+            >
+              <div className="relative">
+                <input
+                  list="allowed-categories"
+                  className={inputClass}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  placeholder="e.g. Structural Steel"
+                />
+                <datalist id="allowed-categories">
+                  {allowedCategories.map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+              </div>
             </Field>
             <Field label="Material / Grade (Optional)">
               <input className={inputClass} value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="e.g. Grade 500 / BS 4449" />

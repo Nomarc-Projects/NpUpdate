@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { MultiSelect } from "@/components/ui/multi-select";
-import { saveCompany, type CompanyData } from "@/lib/services/company";
+import { saveCompany, type CompanyData, getExhibitorPlanForCurrentUser } from "@/lib/services/company";
 import { uploadFile } from "@/lib/upload-client";
+import { EXHIBITOR_CATEGORY_CAP } from "@/lib/services/exhibitor-plan-rules";
 
 const INDUSTRIES = [
   "Core Building Materials", "Heavy Machinery & Plant", "Interior Finishes & Fit-outs",
@@ -42,8 +43,18 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
   const [regNumber, setRegNumber] = useState(initial?.registrationNumber ?? "");
   const [avatar, setAvatar] = useState(initial?.avatarUrl ?? "");
   const [uploading, setUploading] = useState(false);
+  const [exhibitorPlan, setExhibitorPlan] = useState<"free" | "sme" | "exhibitor" | "key_player">("sme");
+  const [categoryCap, setCategoryCap] = useState(1);
   const fileRef = useRef<HTMLInputElement>(null);
   const [pending, start] = useTransition();
+
+  // Fetch the exhibitor's current plan to enforce category limits
+  useEffect(() => {
+    getExhibitorPlanForCurrentUser().then((plan) => {
+      setExhibitorPlan(plan);
+      setCategoryCap(EXHIBITOR_CATEGORY_CAP[plan] ?? 1);
+    }).catch(() => {});
+  }, []);
 
   async function pickLogo(file: File | undefined) {
     if (!file) return;
@@ -110,8 +121,27 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
         </Field>
       </div>
 
-      <Field label="Product Category" hint="Choose the categories that best represent your inventory. This ensures your showroom appears in the right buyer searches.">
-        <MultiSelect placeholder="Select product category" value={categories} onChange={setCategories} options={PRODUCT_CATEGORIES} />
+      <Field
+        label="Product Category"
+        hint={`Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} (shop${categoryCap === 1 ? "" : "s"}) that represent your inventory. Current plan: ${exhibitorPlan.toUpperCase()}.`}
+      >
+        <div className="space-y-2">
+          <MultiSelect
+            placeholder="Select product category"
+            value={categories}
+            onChange={(selected) => {
+              if (selected.length <= categoryCap) setCategories(selected);
+              else {
+                toast.error(`Your ${exhibitorPlan} plan allows up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"}.`);
+                setCategories(selected.slice(0, categoryCap));
+              }
+            }}
+            options={PRODUCT_CATEGORIES}
+          />
+          <p className="text-[12px] text-[#9a9a9a]">
+            {categories.length} / {categoryCap} categor${categoryCap === 1 ? "y" : "ies"} selected
+          </p>
+        </div>
       </Field>
 
       <Field label="About the Company" hint={`${about.length}/2,000`}>

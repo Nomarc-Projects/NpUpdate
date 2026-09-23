@@ -4,6 +4,7 @@ import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 import { getTrialState } from "@/lib/services/exhibitor-trial";
 import { TrialExhausted } from "@/components/dashboard/exhibitor/trial-exhausted";
+import { getMyCompany } from "@/lib/services/company";
 
 export const metadata = { title: "Add new product" };
 
@@ -27,5 +28,8 @@ export default async function AddProductPage() {
     return <TrialExhausted expired={trial.reason === "trial_expired"} daysLeft={trial.daysLeft} />;
   }
 
-  return <AddProductForm />;
+  const company = await getMyCompany().catch(() => null);
+  const allowedCategories = company?.data?.categories ?? [];
+
+  return <AddProductForm allowedCategories={allowedCategories} />;
 }
