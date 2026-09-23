@@ -21,7 +21,7 @@ const PROFESSIONAL_TIERS: Tier[] = [
   { plan: "free", icon: Star, tagline: "Get started on Nomarc", features: ["Browse & apply to jobs", "Exhibition Hub access", "Professional directory", "AI Assistant (support)", "Your profile, services & reviews"] },
   { plan: "plus", icon: Sparkles, tagline: "Tools to work smarter", features: ["Everything in Free", "Project Management (Asana-style)", "Professional Practice Templates", "AI Consultant", "Monthly Industry Reports"] },
   { plan: "pro", icon: Crown, tagline: "Win more work", features: ["Everything in Plus", "Verified Professionals access", "Bids & Competitions", "Priority ranking on applications"] },
-  { plan: "premium", icon: Crown, tagline: "The full Nomarc suite", features: ["Everything in Pro", "Nomarc Digital Seal", "Building Permit tools", "BIM Tools"], comingSoon: true },
+  { plan: "premium", icon: Crown, tagline: "The full Nomarc suite", features: ["Everything in Pro", "Nomarc Digital Seal", "Building Permit tools", "BIM Tools"] },
 ];
 
 /** Listing/ad bullets come from the entitlement table so the cards can't
