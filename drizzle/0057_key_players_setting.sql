@@ -14,6 +14,7 @@ INSERT INTO "platform_setting" ("key", "value") VALUES (
     {"name": "The Building Practice", "src": "/logos/partners/building-practice.png", "href": "https://www.instagram.com/thebuildingpractice"},
     {"name": "CEP \u2014 Construction Economists Partnership Limited", "src": "/logos/partners/cep.png", "href": "https://www.linkedin.com/company/construction-economists-partnership-limited-cep-/"},
     {"name": "DanBran Projects Limited", "src": "/logos/partners/danbran-projects.png", "href": "https://danbranprojectsltd.com/danbran12dx/"},
+    {"name": "14Eter Limited", "src": "/logos/partners/14eter.svg", "href": "https://14eter.org"},
     {"name": "Tivisto", "src": "/logos/partners/tivisto.png", "href": "https://drive.google.com/file/d/19crZRwag_msXnClaN8VGW8q71iMOjKy1/view"}
   ]}'::jsonb
 ) ON CONFLICT ("key") DO NOTHING;

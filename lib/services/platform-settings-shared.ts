@@ -288,9 +288,10 @@ export const KEY_PLAYERS_DEFAULT: KeyPlayersSetting = {
   heading: "Key Players and Fastest Growing Companies in the Industry",
   logos: [
     { name: "MC&T — Migliore Construzione & Tecniche", src: "/logos/partners/mct.png", href: "https://mcandt.com.ng/" },
-    { name: "The Building Practice", src: "/logos/partners/building-practice.png", href: "https://www.instagram.com/thebuildingpractice" },
-    { name: "CEP — Construction Economists Partnership Limited", src: "/logos/partners/cep.png", href: "https://www.linkedin.com/company/construction-economists-partnership-limited-cep-/" },
+    { name: "The Building Practice", src: "/logos/partners/building-practice.png", href: "https://www.buildingpractice.biz/" },
+    { name: "CEP — Construction Economists Partnership Limited", src: "/logos/partners/cep.png", href: "http://cepeconomists.com" },
     { name: "DanBran Projects Limited", src: "/logos/partners/danbran-projects.png", href: "https://danbranprojectsltd.com/danbran12dx/" },
+    { name: "14Eter Limited", src: "/logos/partners/14eter.svg", href: "https://14eter.org" },
     { name: "Tivisto", src: "/logos/partners/tivisto.png", href: "https://drive.google.com/file/d/19crZRwag_msXnClaN8VGW8q71iMOjKy1/view" },
   ],
 };
