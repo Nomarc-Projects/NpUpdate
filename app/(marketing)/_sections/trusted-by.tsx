@@ -20,7 +20,7 @@ export async function TrustedByStrip() {
   return (
     <section className="bg-white dark:bg-[#111] pt-4 pb-16">
       <div className="px-6 md:px-10 lg:px-14">
-        <p className="text-center text-[10px] font-semibold text-[#898989] uppercase tracking-[0.22em] mb-6">
+        <p className="text-center text-[11px] font-bold text-[#898989] uppercase tracking-[0.22em] mb-6">
           {setting.heading}
         </p>
         <LogoMarqueeWithModal logos={logos} badge="Key Player" />
