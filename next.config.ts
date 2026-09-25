@@ -21,6 +21,24 @@ const r2Host = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN
 const mediaHosts = [...new Set([r2Host, LEGACY_R2_HOST])];
 
 /**
+ * Origins permitted to embed the app in an iframe. 14eter.org renders these
+ * pages; anyone else stays blocked.
+ */
+const frameAncestors = ["'self'", "https://14eter.org"];
+
+/**
+ * Enforced policy, scoped to framing alone.
+ *
+ * X-Frame-Options can't express an origin allowlist (`ALLOW-FROM` was dropped
+ * from browsers years ago; it degrades to SAMEORIGIN), so the allowlist has to
+ * ride on a real Content-Security-Policy header. Only frame-ancestors is set
+ * here — every other fetch directive is omitted rather than defaulted, so this
+ * adds no restriction beyond framing. The broader policy below stays
+ * report-only for its own reasons.
+ */
+const framePolicy = `frame-ancestors ${frameAncestors.join(" ")}`;
+
+/**
  * Content Security Policy.
  *
  * Shipped as report-only first. The app renders admin-authored HTML through
@@ -41,7 +59,7 @@ const csp = [
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
   `connect-src 'self' ${mediaHosts.join(" ")} https://nominatim.openstreetmap.org`,
-  "frame-ancestors 'none'",
+  `frame-ancestors ${frameAncestors.join(" ")}`,
   "form-action 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -52,11 +70,16 @@ const csp = [
  * Security headers. There were none — no CSP, no HSTS, no framing control —
  * so the app was clickjackable and had no second line of defence behind the
  * news feed sanitiser.
+ *
+ * No X-Frame-Options: it read `DENY`, and the header is single-valued with no
+ * working allowlist form (`ALLOW-FROM` was dropped from browsers years ago and
+ * degrades to SAMEORIGIN), so it could not name 14eter.org as an exception.
+ * Framing is governed by `framePolicy` above instead.
  */
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: framePolicy },
   { key: "Content-Security-Policy-Report-Only", value: csp },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
-  { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   // Chat records voice notes and captures photos (components/dashboard/
