@@ -155,7 +155,13 @@ export async function getProfessionalDetail(userId: string): Promise<ProDetail |
   if (!r) return null;
 
   const [exp, edu, skillRows, certs, recs, services] = await Promise.all([
-    db.select().from(workExperience).where(eq(workExperience.userId, userId)).orderBy(desc(workExperience.startDate)),
+    // Latest job first (mirrors getQualifications): current roles on top,
+    // then most recently ended, newest-added wins ties.
+    db.select().from(workExperience).where(eq(workExperience.userId, userId)).orderBy(
+      desc(workExperience.current),
+      desc(sql`coalesce(${workExperience.endDate}, ${workExperience.startDate}, '1900-01-01')`),
+      desc(workExperience.createdAt),
+    ),
     db.select().from(education).where(eq(education.userId, userId)).orderBy(desc(education.endYear)),
     db.select().from(profileSkill).where(eq(profileSkill.userId, userId)),
     db.select().from(certification).where(eq(certification.userId, userId)).orderBy(desc(certification.year)),

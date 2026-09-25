@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink, X } from "lucide-react";
@@ -98,10 +98,61 @@ function CompanyModal({ logo, badge, onClose }: { logo: Logo; badge: string; onC
 /**
  * Homepage logo marquee with tap-to-preview. Looks exactly like the default
  * marquee; every logo opens the company spotlight modal instead of
- * navigating away.
+ * navigating away. Draggable left/right (mouse drag on desktop, swipe on
+ * mobile) with a gentle auto-scroll that pauses while interacting.
  */
 export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: string }) {
   const [selected, setSelected] = useState<Logo | null>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ active: false, startX: 0, startScroll: 0 });
+  const hovering = useRef(false);
+  const justDragged = useRef(false);
+  const lastInteract = useRef(0);
+
+  // The four groups are identical — keep the scroll position inside the
+  // middle window so the loop is seamless in both directions.
+  const wrap = () => {
+    const el = viewportRef.current;
+    if (!el || el.scrollWidth === 0) return;
+    const group = el.scrollWidth / 4;
+    if (el.scrollLeft >= group * 3) {
+      el.scrollLeft -= group;
+      drag.current.startScroll -= group;
+    } else if (el.scrollLeft < group) {
+      el.scrollLeft += group;
+      drag.current.startScroll += group;
+    }
+  };
+
+  // Start mid-loop so both drag directions work immediately.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (el && el.scrollWidth > 0) el.scrollLeft = el.scrollWidth / 2;
+  }, [logos]);
+
+  // Gentle auto-scroll (same pace as the old CSS loop), paused while the
+  // user hovers, drags, or recently interacted.
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    let prev = performance.now();
+    const tick = (now: number) => {
+      raf = requestAnimationFrame(tick);
+      const el = viewportRef.current;
+      if (!el || el.scrollWidth === 0) {
+        prev = now;
+        return;
+      }
+      const dt = Math.min((now - prev) / 1000, 0.1);
+      prev = now;
+      if (!hovering.current && !drag.current.active && now - lastInteract.current > 2500) {
+        el.scrollLeft += ((el.scrollWidth / 4) / 48) * dt;
+        wrap();
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const plate =
     "flex-shrink-0 flex items-center justify-center rounded-2xl px-5 sm:px-7 h-16 sm:h-20 opacity-80 transition-opacity bg-transparent ring-0 shadow-none dark:bg-white dark:ring-1 dark:ring-white/10 dark:shadow-sm cursor-pointer hover:opacity-100 hover:ring-2 hover:ring-[#ffd716] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ffd716]";
@@ -117,7 +168,7 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
           tabIndex={k !== 0 ? -1 : undefined}
           className={plate}
         >
-          <Image src={p.src} alt={p.name} width={320} height={96} className="h-7 sm:h-9 w-auto object-contain" />
+          <Image src={p.src} alt={p.name} width={320} height={96} draggable={false} className="h-7 sm:h-9 w-auto object-contain" />
         </button>
       ))}
     </div>
@@ -128,7 +179,54 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
       <div className="relative overflow-hidden">
         <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-r from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
         <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-10 bg-gradient-to-l from-white dark:from-[#111] to-transparent z-10 pointer-events-none" />
-        <div className="flex items-center w-max animate-[nm-marquee-4_48s_linear_infinite]">{groups}</div>
+        <div
+          ref={viewportRef}
+          onMouseEnter={() => {
+            hovering.current = true;
+          }}
+          onMouseLeave={() => {
+            hovering.current = false;
+          }}
+          onPointerDown={(e) => {
+            // Touch uses native swipe scrolling; manual drag is for mouse.
+            if (e.pointerType !== "mouse") return;
+            const el = viewportRef.current;
+            if (!el) return;
+            drag.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft };
+            justDragged.current = false;
+            el.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (!drag.current.active || e.pointerType !== "mouse") return;
+            const el = viewportRef.current;
+            if (!el) return;
+            const dx = e.clientX - drag.current.startX;
+            if (Math.abs(dx) > 6) justDragged.current = true;
+            el.scrollLeft = drag.current.startScroll - dx;
+            wrap();
+            lastInteract.current = performance.now();
+          }}
+          onPointerUp={() => {
+            drag.current.active = false;
+            lastInteract.current = performance.now();
+          }}
+          onPointerCancel={() => {
+            drag.current.active = false;
+            lastInteract.current = performance.now();
+          }}
+          onClickCapture={(e) => {
+            // A drag ending over a logo must not open the modal.
+            if (justDragged.current) {
+              justDragged.current = false;
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+          onDragStart={(e) => e.preventDefault()}
+          className="flex w-max items-center overflow-x-auto no-scrollbar overscroll-x-contain cursor-grab select-none active:cursor-grabbing"
+        >
+          {groups}
+        </div>
       </div>
 
       <AnimatePresence>

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { workExperience, profileSkill, certification, education, professionalRegistration, reference, type CertDoc } from "@/lib/db/schema";
@@ -39,7 +39,16 @@ function mergeCerts(arr: CertDoc[] | null | undefined, legacyUrl: string | null 
 export async function getQualifications() {
   const uid = await requireUserId();
   const [exp, sk, certs, regs] = await Promise.all([
-    db.select().from(workExperience).where(eq(workExperience.userId, uid)).orderBy(desc(workExperience.startDate), desc(workExperience.createdAt)),
+    // Latest job first: currently-held roles on top, then most recently
+    // ended (falling back to start date when no end date was entered, and
+    // treating dateless entries as oldest), newest-added wins ties. COALESCE
+    // matters because bare DESC sorts NULLs first, which would otherwise
+    // float undated entries above real history.
+    db.select().from(workExperience).where(eq(workExperience.userId, uid)).orderBy(
+      desc(workExperience.current),
+      desc(sql`coalesce(${workExperience.endDate}, ${workExperience.startDate}, '1900-01-01')`),
+      desc(workExperience.createdAt),
+    ),
     db.select().from(profileSkill).where(eq(profileSkill.userId, uid)).orderBy(asc(profileSkill.createdAt)),
     db.select().from(certification).where(eq(certification.userId, uid)).orderBy(desc(certification.year)),
     // resilient: returns [] until the professional_registration migration is applied
