@@ -39,6 +39,10 @@ import {
   KEY_PLAYERS_DEFAULT,
   normalizeKeyPlayers,
   type KeyPlayersSetting,
+  TRUSTED_CLIENTS_TAG,
+  TRUSTED_CLIENTS_DEFAULT,
+  normalizeTrustedClients,
+  type TrustedClientsSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -308,4 +312,31 @@ const readKeyPlayers = unstable_cache(
 
 export async function getKeyPlayers(): Promise<KeyPlayersSetting> {
   return readKeyPlayers();
+}
+
+/**
+ * Homepage "Trusted Clients" strip. Same fail-open reasoning as Key Players:
+ * the strip used to be a hardcoded array, so anything unreadable here has to
+ * resolve to that same designed set rather than an empty marquee.
+ */
+const readTrustedClients = unstable_cache(
+  async (): Promise<TrustedClientsSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'trusted_clients' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return TRUSTED_CLIENTS_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeTrustedClients(value);
+    } catch {
+      return TRUSTED_CLIENTS_DEFAULT;
+    }
+  },
+  ["platform-setting-trusted-clients"],
+  { revalidate: 30, tags: [TRUSTED_CLIENTS_TAG] },
+);
+
+export async function getTrustedClients(): Promise<TrustedClientsSetting> {
+  return readTrustedClients();
 }

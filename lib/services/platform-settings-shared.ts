@@ -15,6 +15,7 @@ export const PAYMENT_PLANS_TAG = "platform-setting:payment-plans";
 export const ABOUT_TEAM_TAG = "platform-setting:about-team";
 export const PWA_TAG = "platform-setting:pwa";
 export const KEY_PLAYERS_TAG = "platform-setting:key-players";
+export const TRUSTED_CLIENTS_TAG = "platform-setting:trusted-clients";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
  * Seconds for one full marquee pass. Higher = slower. Adjustable without a
@@ -273,13 +274,7 @@ export interface KeyPlayer {
   href: string;
 }
 
-export interface KeyPlayersSetting {
-  /** True = the strip renders on the homepage. */
-  enabled: boolean;
-  /** The strip's headline, shown above the marquee. */
-  heading: string;
-  logos: KeyPlayer[];
-}
+export type KeyPlayersSetting = LogoStripSetting;
 
 /** Defaults mirror the companies baked into trusted-by.tsx, so a super admin
  *  who never edits anything sees exactly the designed strip. */
@@ -313,11 +308,60 @@ export function normalizeKeyPlayer(raw: unknown): KeyPlayer | null {
  *  explicit empty list stays empty (the strip then hides itself); only a
  *  missing row resolves to the default. */
 export function normalizeKeyPlayers(raw: unknown): KeyPlayersSetting {
-  const v = (raw ?? {}) as Partial<KeyPlayersSetting>;
+  return normalizeLogoStrip(raw, KEY_PLAYERS_DEFAULT.heading);
+}
+
+/** The shape both homepage logo strips share. Kept as one interface because
+ *  Key Players and Trusted Clients are curated the same way — heading, on/off
+ *  switch, ordered company cards — and only their copy differs. */
+export interface LogoStripSetting {
+  /** True = the strip renders on the homepage. */
+  enabled: boolean;
+  /** The strip's headline, shown above the marquee. */
+  heading: string;
+  logos: KeyPlayer[];
+}
+
+/** `fallbackHeading` is the designed default for the calling strip, so a row
+ *  that predates an admin renaming the heading keeps rendering the old copy
+ *  rather than an empty line. */
+export function normalizeLogoStrip(raw: unknown, fallbackHeading: string): LogoStripSetting {
+  const v = (raw ?? {}) as Partial<LogoStripSetting>;
   const logos = Array.isArray(v.logos) ? v.logos.map(normalizeKeyPlayer).filter((l): l is KeyPlayer => l !== null) : [];
   return {
     enabled: v.enabled === true,
-    heading: typeof v.heading === "string" && v.heading.trim() ? v.heading.trim() : KEY_PLAYERS_DEFAULT.heading,
+    heading: typeof v.heading === "string" && v.heading.trim() ? v.heading.trim() : fallbackHeading,
     logos,
   };
+}
+
+/* ── Homepage "Trusted Clients" strip ─────────────────────────────────────
+ * The second logo marquee, last section before the footer. It used to be a
+ * hardcoded array in logo-marquee.tsx merged with the Key Players list at
+ * render time, which meant editing it needed a deploy and a company could not
+ * be delisted without a code change. It is now curated the same way as Key
+ * Players, from the `trusted_clients` platform setting.
+ *
+ * The two lists are deliberately independent: a Key Player is no longer
+ * auto-added here. Showing a company under one heading and not the other is a
+ * real editorial choice, and the old merge made it impossible to express.
+ */
+export type TrustedClientsSetting = LogoStripSetting;
+
+/** Seeds the strip with the companies that were previously hardcoded, so the
+ *  homepage renders identically until a super admin edits it. */
+export const TRUSTED_CLIENTS_DEFAULT: TrustedClientsSetting = {
+  enabled: true,
+  heading: "Trusted Clients",
+  logos: [
+    { name: "FSB Real Estate", src: "/logos/partners/fsb-real-estate.png", href: "" },
+    { name: "Punuka", src: "/logos/partners/punuka.png", href: "" },
+    { name: "Sheraton", src: "/logos/partners/sheraton.png", href: "" },
+    { name: "Lagos State Government", src: "/logos/partners/lagos-state.png", href: "" },
+    { name: "DanBran Projects", src: "/logos/partners/danbran.png", href: "" },
+  ],
+};
+
+export function normalizeTrustedClients(raw: unknown): TrustedClientsSetting {
+  return normalizeLogoStrip(raw, TRUSTED_CLIENTS_DEFAULT.heading);
 }

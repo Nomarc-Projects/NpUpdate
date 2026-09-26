@@ -1,20 +1,15 @@
 import Image from "next/image";
 
+/** One company in a homepage logo strip. The strips themselves are curated by a
+ *  super admin and live in the `key_players` and `trusted_clients` platform
+ *  settings — see KEY_PLAYERS_DEFAULT / TRUSTED_CLIENTS_DEFAULT in
+ *  lib/services/platform-settings-shared.ts for the designed defaults. */
 export type Logo = {
   name: string;
   src: string;
   /** Where the mark links to. Omit for a non-clickable plate. */
   href?: string;
 };
-
-/** "Trusted Clients" strip, last section before the footer. */
-export const partners: Logo[] = [
-  { name: "FSB Real Estate", src: "/logos/partners/fsb-real-estate.png" },
-  { name: "Punuka", src: "/logos/partners/punuka.png" },
-  { name: "Sheraton", src: "/logos/partners/sheraton.png" },
-  { name: "Lagos State Government", src: "/logos/partners/lagos-state.png" },
-  { name: "DanBran Projects", src: "/logos/partners/danbran.png" },
-];
 
 /**
  * One marquee group. The logos are full-colour artwork on transparency, so in

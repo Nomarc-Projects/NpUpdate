@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa, getKeyPlayers } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa, getKeyPlayers, getTrustedClients } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -34,6 +34,9 @@ import {
   KEY_PLAYERS_TAG,
   normalizeKeyPlayers,
   type KeyPlayersSetting,
+  TRUSTED_CLIENTS_TAG,
+  normalizeTrustedClients,
+  type TrustedClientsSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -371,6 +374,38 @@ export async function setKeyPlayers(
   // Purge immediately so an edit shows on the live homepage right away, not
   // after the 30s cache window or the hourly ISR revalidation.
   revalidateTag(KEY_PLAYERS_TAG, { expire: 0 });
+  revalidatePath("/");
+  return next;
+}
+
+/* ── Homepage "Trusted Clients" strip: the write path ────────────────────
+ * Super-admin only, for the same reason as setKeyPlayers: this strip is on
+ * the public homepage and hiding it is visible to every visitor.
+ */
+export async function setTrustedClients(
+  input: Partial<TrustedClientsSetting>,
+): Promise<TrustedClientsSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getTrustedClients();
+  const next = normalizeTrustedClients({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('trusted_clients', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "trusted_clients_show" : "trusted_clients_hide"}, 'platform_setting', 'trusted_clients', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  revalidateTag(TRUSTED_CLIENTS_TAG, { expire: 0 });
   revalidatePath("/");
   return next;
 }
