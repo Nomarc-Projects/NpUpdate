@@ -132,10 +132,19 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
 
   // Gentle auto-scroll (same pace as the old CSS loop), paused while the
   // user hovers, drags, or recently interacted.
+  //
+  // The fractional accumulator is load-bearing, not a rounding nicety. At this
+  // pace one frame is worth about 0.2px, and scrollLeft is rounded to whole
+  // pixels, so writing the increment directly discarded every frame's movement:
+  // ten consecutive `scrollLeft += 0.21` read back as ten zeroes, and the strip
+  // sat perfectly still while the rAF loop ran at full speed. Carrying the
+  // remainder and only writing whole pixels keeps the scroll moving without
+  // letting it jump ahead of the intended rate.
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0;
     let prev = performance.now();
+    let carry = 0;
     const tick = (now: number) => {
       raf = requestAnimationFrame(tick);
       const el = viewportRef.current;
@@ -146,8 +155,13 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
       const dt = Math.min((now - prev) / 1000, 0.1);
       prev = now;
       if (!hovering.current && !drag.current.active && now - lastInteract.current > 2500) {
-        el.scrollLeft += ((el.scrollWidth / 4) / 48) * dt;
-        wrap();
+        carry += ((el.scrollWidth / 4) / 48) * dt;
+        if (carry >= 1) {
+          const whole = Math.floor(carry);
+          carry -= whole;
+          el.scrollLeft += whole;
+          wrap();
+        }
       }
     };
     raf = requestAnimationFrame(tick);
@@ -223,9 +237,17 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
             }
           }}
           onDragStart={(e) => e.preventDefault()}
-          className="flex w-max items-center overflow-x-auto no-scrollbar overscroll-x-contain cursor-grab select-none active:cursor-grabbing"
+          // No w-max here. This element is the scroll viewport, and w-max would
+          // size it to its own content so clientWidth === scrollWidth — zero
+          // overflow, so scrollLeft can never change and the auto-scroll below
+          // writes to an element that cannot move. The width belongs on the inner
+          // track (w-max on the groups' parent) so the content overflows instead.
+          className="flex items-center overflow-x-auto no-scrollbar overscroll-x-contain cursor-grab select-none active:cursor-grabbing"
         >
-          {groups}
+          {/* w-max lives on this inner track, not the scroll viewport above, so
+              the four groups stay one unshrinkable row wider than the viewport
+              and the strip actually has somewhere to scroll to. */}
+          <div className="flex w-max items-center">{groups}</div>
         </div>
       </div>
 
