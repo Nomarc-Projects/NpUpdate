@@ -375,10 +375,10 @@ export const TRUSTED_CLIENTS_DEFAULT: TrustedClientsSetting = {
   heading: "Trusted Clients",
   logos: [
     { name: "FSB Real Estate", src: "/logos/partners/fsb-real-estate.png", href: "" },
-    { name: "Punuka", src: "/logos/partners/punuka.png", href: "" },
+    { name: "Punuka", src: "/logos/partners/punuka.png", href: "https://punuka.com/" },
     { name: "Sheraton", src: "/logos/partners/sheraton.png", href: "" },
-    { name: "Lagos State Government", src: "/logos/partners/lagos-state.png", href: "" },
-    { name: "DanBran Projects", src: "/logos/partners/danbran.png", href: "" },
+    { name: "Lagos State Government", src: "/logos/partners/lagos-state.png", href: "https://lagosstate.gov.ng/" },
+    { name: "DanBran Projects", src: "/logos/partners/danbran.png", href: "https://danbranprojectsltd.com/danbran12dx/" },
   ],
 };
 
