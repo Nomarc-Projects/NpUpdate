@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Radio, Plus, Trash2, Eye, EyeOff, Pencil, ChevronUp, ChevronDown, Gauge } from "lucide-react";
@@ -10,6 +10,8 @@ import {
   type TickerItem,
 } from "@/lib/services/ticker";
 import { setTickerSpeed } from "@/lib/services/platform-settings";
+import { marqueeLoop, useMarqueeDuration } from "@/components/ui/marquee-speed";
+import { TICKER_SPEED_DEFAULT } from "@/lib/services/platform-settings-shared";
 import { DashBanner, BannerContent, bannerPrimaryBtn } from "@/components/dashboard/dash-banner";
 import { r2Url } from "@/lib/r2-public";
 
@@ -51,9 +53,49 @@ function ItemForm({ init, onSave, onClose, pending }: {
   );
 }
 
-export function AdminNewsTicker({ items: initial = [], seconds: initialSeconds = 90 }: {
+/** The admin's live preview strip. Markup mirrors the public ticker closely
+ *  enough that the rate reads the same, and the animation is driven by the shared
+ *  `useMarqueeDuration` hook so the two can't drift apart. */
+function TickerPreview({ items, speed }: { items: TickerItem[]; speed: number }) {
+  const loop = marqueeLoop(items);
+  const { trackRef, duration } = useMarqueeDuration(speed, loop.length);
+
+  return (
+    <div className="mb-6 rounded-xl overflow-hidden border border-[#e3e3e3] dark:border-white/10">
+      <p className="text-[11px] font-semibold text-[#b3b3b3] uppercase tracking-wide px-4 pt-3 pb-1.5">Live preview</p>
+      <div className="relative bg-[#1e1e1e] text-white">
+        <div className="flex items-center">
+          <span className="hidden sm:flex items-center gap-1.5 bg-[#ffd716] text-[#1e1e1e] text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 flex-shrink-0">
+            <Radio size={12} /> News
+          </span>
+          <div className="group flex-1 overflow-hidden">
+            <div
+              ref={trackRef}
+              className={`flex w-max group-hover:[animation-play-state:paused] py-1.5 ${
+                duration ? "nm-marquee-track" : ""
+              }`}
+              style={duration ? { animationDuration: `${duration}s` } : undefined}
+            >
+              {loop.map((it, i) => (
+                <span key={i} className="flex items-center text-[13px] text-white/85 whitespace-nowrap px-6">
+                  <span className="text-[#ffd716] mr-2">●</span>
+                  {it.content}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function AdminNewsTicker({
+  items: initial = [],
+  pxPerSecond: initialRate = TICKER_SPEED_DEFAULT.pxPerSecond,
+}: {
   items?: TickerItem[];
-  seconds?: number;
+  pxPerSecond?: number;
 }) {
   const router = useRouter();
   const [list, setList] = useState(initial);
@@ -61,16 +103,29 @@ export function AdminNewsTicker({ items: initial = [], seconds: initialSeconds =
   const [pending, start] = useTransition();
   // `speed` drives the preview live as the slider moves; `savedSpeed` is what is
   // actually persisted, so the Save button knows when there is a change to write.
-  const [speed, setSpeed] = useState(initialSeconds);
-  const [savedSpeed, setSavedSpeed] = useState(initialSeconds);
+  // The unit is pixels per second, matching what the public strip derives its
+  // animation duration from.
+  const [speed, setSpeed] = useState(initialRate);
+  const [savedSpeed, setSavedSpeed] = useState(initialRate);
+
+  // Re-sync when the server sends a new list. Without this the component keeps
+  // the state it was mounted with: `router.refresh()` after addTicker re-renders
+  // the page with a fresh `items` array, but this instance is already mounted,
+  // so React discards the new prop and the added item never shows up in the
+  // list — the "Item added" toast fires and the row is missing until a hard
+  // reload. Keying on the array identity is enough: setList re-renders, but
+  // `initial` keeps its reference, so this cannot loop.
+  useEffect(() => {
+    setList(initial);
+  }, [initial]);
 
   const saveSpeed = () => {
     start(async () => {
       try {
         const next = await setTickerSpeed(speed);
-        setSpeed(next.seconds);
-        setSavedSpeed(next.seconds);
-        toast.success(`Ticker speed set to ${next.seconds}s per loop`);
+        setSpeed(next.pxPerSecond);
+        setSavedSpeed(next.pxPerSecond);
+        toast.success(`Ticker speed set to ${next.pxPerSecond}px per second`);
         router.refresh();
       } catch (e) { toast.error(e instanceof Error ? e.message : "Couldn't save speed"); }
     });
@@ -130,60 +185,41 @@ export function AdminNewsTicker({ items: initial = [], seconds: initialSeconds =
       </DashBanner>
       <div className="mb-5" />
 
-      {/* Scroll speed. Seconds per full loop, so the number rises as the ticker
-          slows — the label says so, because the slider alone reads backwards. */}
+      {/* Scroll speed, as a rate. Higher is faster, so the slider finally reads
+          the right way round; the range matches the clamp in normalizeTickerSpeed. */}
       <div className="mb-6 rounded-xl border border-[#e3e3e3] dark:border-white/10 p-4">
         <div className="flex items-center gap-2 mb-1">
           <Gauge size={15} className="text-[#b3b3b3]" />
           <p className="text-[11px] font-semibold text-[#b3b3b3] uppercase tracking-wide">Scroll speed</p>
         </div>
         <p className="text-[12.5px] text-[#6b6b6b] dark:text-white/50 mb-3">
-          How long one full pass takes. Higher is slower — raise it when there are more items to read.
+          How fast the strip travels, in pixels per second. Higher is faster. This stays the same
+          speed however many items you add.
         </p>
         <div className="flex items-center gap-4">
           <input
             type="range"
             min={10}
-            max={300}
+            max={200}
             step={5}
             value={speed}
             onChange={(e) => setSpeed(Number(e.target.value))}
             className="flex-1 accent-[#ffd716]"
-            aria-label="Seconds per full ticker loop"
+            aria-label="Ticker scroll speed in pixels per second"
           />
-          <span className="tabular-nums text-[13px] font-semibold w-14 text-right">{speed}s</span>
+          <span className="tabular-nums text-[13px] font-semibold w-20 text-right">{speed} px/s</span>
           <PrimaryButton type="button" disabled={pending || speed === savedSpeed} onClick={saveSpeed}>
             {pending ? "Saving…" : "Save"}
           </PrimaryButton>
         </div>
       </div>
 
-      {/* live preview strip */}
-      {list.some((i) => i.active) && (
-        <div className="mb-6 rounded-xl overflow-hidden border border-[#e3e3e3] dark:border-white/10">
-          <p className="text-[11px] font-semibold text-[#b3b3b3] uppercase tracking-wide px-4 pt-3 pb-1.5">Live preview</p>
-          <div className="relative bg-[#1e1e1e] text-white">
-            <div className="flex items-center">
-              <span className="hidden sm:flex items-center gap-1.5 bg-[#ffd716] text-[#1e1e1e] text-[11px] font-bold uppercase tracking-wide px-3 py-1.5 flex-shrink-0">
-                <Radio size={12} /> News
-              </span>
-              <div className="group flex-1 overflow-hidden">
-                <div
-                  className="flex w-max animate-[nm-marquee_30s_linear_infinite] group-hover:[animation-play-state:paused] py-1.5"
-                  style={{ animationDuration: `${speed}s` }}
-                >
-                  {[...list.filter((i) => i.active), ...list.filter((i) => i.active)].map((it, i) => (
-                    <span key={i} className="flex items-center text-[13px] text-white/85 whitespace-nowrap px-6">
-                      <span className="text-[#ffd716] mr-2">●</span>
-                      {it.content}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Live preview. Uses the same repeat count and the same px/s → duration
+          derivation as the public strip, so the speed shown here is the speed
+          visitors get. It used to duplicate the items twice and hardcode a
+          duration, which made the preview move at a different rate than the
+          homepage. */}
+      {list.some((i) => i.active) && <TickerPreview items={list.filter((i) => i.active)} speed={speed} />}
 
       {/* item list */}
       {list.length === 0 ? (

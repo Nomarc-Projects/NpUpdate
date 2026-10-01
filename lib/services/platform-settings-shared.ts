@@ -18,24 +18,44 @@ export const KEY_PLAYERS_TAG = "platform-setting:key-players";
 export const TRUSTED_CLIENTS_TAG = "platform-setting:trusted-clients";
 
 /* ── News ticker speed ──────────────────────────────────────────────────
- * Seconds for one full marquee pass. Higher = slower. Adjustable without a
- * deploy because the right value depends on how many items are live and how
- * long they are, which changes every time the ticker is edited.
+ * Scroll rate in pixels per second. Higher = faster.
+ *
+ * This was "seconds per loop", which turned out to be an unstable unit: the
+ * marquee keyframe translates -50% of a track that is the item set repeated 12x,
+ * so the distance covered in one "loop" grows every time an item is added. A
+ * fixed duration therefore meant a different speed for a different item count —
+ * and the admin preview (2x repeat) never matched the live strip (12x repeat) at
+ * all, so the control read as broken. Pixels per second is independent of both,
+ * so what the admin sets is what every visitor sees, and adding an item no
+ * longer silently speeds the ticker up.
+ *
+ * The stored value is the rate; the animation duration is derived per render
+ * from the measured track width (see TickerRow in components/ui/news-ticker).
+ *
+ * Legacy rows holding `{ "seconds": N }` are ignored rather than converted:
+ * turning seconds into a rate needs a track width, and guessing one would bake
+ * in a wrong speed. They fall through to the default and are overwritten on the
+ * next save.
  */
 export interface TickerSpeedSetting {
-  /** Duration of one loop, in seconds. */
-  seconds: number;
+  /** Scroll rate in pixels per second. */
+  pxPerSecond: number;
 }
 
-/** 90s reads comfortably at the current item count; 30s was too fast to follow. */
-export const TICKER_SPEED_DEFAULT: TickerSpeedSetting = { seconds: 90 };
+/** ~35px/s is a comfortable reading pace and matches what the old 90s default
+ *  looked like on a two-item track. */
+/** Roughly the rate the previous `{ "seconds": 300 }` setting produced on a
+ *  typical track. Chosen to match the old perceived speed rather than to look
+ *  tidy in isolation: a lap is `trackWidth / 2 / pxPerSecond`, so a low rate on a
+ *  long track reads as a frozen strip rather than a slow one. */
+export const TICKER_SPEED_DEFAULT: TickerSpeedSetting = { pxPerSecond: 75 };
 
-/** Clamped: 0 would freeze the animation and a huge value stalls it entirely. */
+/** Clamped: 0 would freeze the strip and a very high rate is unreadable. */
 export function normalizeTickerSpeed(raw: unknown): TickerSpeedSetting {
   const v = (raw ?? {}) as Partial<TickerSpeedSetting>;
-  const n = Number(v.seconds);
+  const n = Number(v.pxPerSecond);
   return {
-    seconds: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 10), 600) : TICKER_SPEED_DEFAULT.seconds,
+    pxPerSecond: Number.isFinite(n) ? Math.min(Math.max(Math.round(n), 10), 200) : TICKER_SPEED_DEFAULT.pxPerSecond,
   };
 }
 

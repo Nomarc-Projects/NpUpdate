@@ -9,12 +9,13 @@ import { getTickerSpeed } from "@/lib/services/platform-settings-read";
 
 export type TickerItem = { id: string; content: string; href: string | null; active: boolean };
 
-/** Public: active ticker items in order, plus the configured scroll speed.
+/** Public: active ticker items in order, plus the configured scroll rate.
  *  Both travel together so the strip needs one round trip, not two — it renders
- *  on every marketing page. */
+ *  on every marketing page. Also called directly from the homepage's server
+ *  render so the items are in the HTML rather than fetched after hydration. */
 export async function getActiveTicker(): Promise<{
   items: { content: string; href: string | null }[];
-  seconds: number;
+  pxPerSecond: number;
 }> {
   const [rows, speed] = await Promise.all([
     db.select().from(tickerItem).where(eq(tickerItem.active, true)).orderBy(asc(tickerItem.sortOrder), asc(tickerItem.createdAt)),
@@ -22,7 +23,7 @@ export async function getActiveTicker(): Promise<{
   ]);
   return {
     items: rows.map((r) => ({ content: r.content, href: r.href })),
-    seconds: speed.seconds,
+    pxPerSecond: speed.pxPerSecond,
   };
 }
 

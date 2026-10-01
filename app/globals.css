@@ -219,8 +219,18 @@
   from { transform: translateX(0); }
   to   { transform: translateX(-25%); }
 }
+/* Name, easing and iteration only — deliberately no duration. The duration is a
+   per-render measurement (track width / pixels-per-second, see
+   components/ui/marquee-speed.ts) and is set inline. It used to be baked into a
+   Tailwind arbitrary value, where a stale number silently disagreed with the
+   inline one. */
+.nm-marquee-track {
+  animation-name: nm-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .animate-\[nm-marquee_30s_linear_infinite\],
+  .nm-marquee-track,
   .animate-\[nm-marquee-4_48s_linear_infinite\] { animation: none; }
 }
 

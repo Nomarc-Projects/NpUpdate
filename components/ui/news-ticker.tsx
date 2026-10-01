@@ -1,24 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Megaphone, Asterisk, X } from "lucide-react";
 import { getActiveTicker } from "@/lib/services/ticker";
+import { TICKER_SPEED_DEFAULT } from "@/lib/services/platform-settings-shared";
+import { marqueeLoop, useMarqueeDuration } from "./marquee-speed";
 
 type Item = { content: string; href: string | null };
 
-/** Matches TICKER_SPEED_DEFAULT. Only visible for the moment before the fetch
- *  resolves; the strip renders nothing until there are items anyway. */
-const DEFAULT_SECONDS = 90;
+/**
+ * The yellow "Latest News" chip + the looping marquee — shared by the site-wide
+ * ticker and the inline (in-page) copy.
+ *
+ * `pxPerSecond` is a rate, not a duration: the animation's duration is derived
+ * from the measured track width so the strip travels at the same visual speed no
+ * matter how many items are live. A hardcoded duration made perceived speed a
+ * function of item count.
+ */
+function TickerRow({ items, pxPerSecond }: { items: Item[]; pxPerSecond: number }) {
+  const loop = marqueeLoop(items);
+  const { trackRef, duration } = useMarqueeDuration(pxPerSecond, loop.length);
 
-/** The yellow "Latest News" chip + the looping marquee — shared by the
- *  site-wide ticker and the inline (in-page) copy. */
-function TickerRow({ items, seconds }: { items: Item[]; seconds: number }) {
-  // Repeat the set enough to span very wide screens, then duplicate the whole
-  // thing — the keyframe translates -50%, so two identical halves loop seamlessly.
-  const repeated = Array.from({ length: 6 }).flatMap(() => items);
-  const loop = [...repeated, ...repeated];
   return (
     <>
       <span className="flex items-center gap-1.5 bg-[#ffd716] text-[#1e1e1e] text-[10.5px] sm:text-[11px] font-bold uppercase tracking-wide px-2.5 sm:px-3 py-1.5 flex-shrink-0">
@@ -26,13 +30,14 @@ function TickerRow({ items, seconds }: { items: Item[]; seconds: number }) {
         <span>Latest News</span>
       </span>
       <div className="group flex-1 overflow-hidden min-w-0 flex items-center">
-        {/* Duration is admin-configurable, so it has to be an inline style: a
-            Tailwind arbitrary value is compiled at build time and cannot take a
-            runtime number. The class still carries name/timing/iteration, and
-            the inline declaration overrides only the duration. */}
+        {/* The animation is held back until the track has been measured, so the
+            first painted frame is never at a wrong speed. */}
         <div
-          className="flex w-max animate-[nm-marquee_90s_linear_infinite] group-hover:[animation-play-state:paused]"
-          style={{ animationDuration: `${seconds}s` }}
+          ref={trackRef}
+          className={`flex w-max group-hover:[animation-play-state:paused] ${
+            duration ? "nm-marquee-track" : ""
+          }`}
+          style={duration ? { animationDuration: `${duration}s` } : undefined}
         >
           {loop.map((it, i) => (
             <span key={i} className="flex items-center gap-2 text-[12.5px] sm:text-[13px] text-white/85 whitespace-nowrap px-5 sm:px-6">
@@ -50,12 +55,33 @@ function TickerRow({ items, seconds }: { items: Item[]; seconds: number }) {
   );
 }
 
+/** Refetch when the tab regains focus, so a ticker saved in another tab shows up
+ *  without a manual reload. Pauses while the tab is hidden — a background tab
+ *  refetching is both wasted work and a way to serve a request nobody sees. */
+function useRefreshOnFocus(refresh: () => void, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    const onFocus = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refresh, enabled]);
+}
+
 /**
  * Site-wide news ticker. Rests at the very top, above the navbar.
  * The dark background is full page-width (full-bleed), while the inner content
  * (the yellow "News" chip + the marquee) is aligned to the hero banner's edges
  * via the same horizontal padding the hero uses (`md:px-10 lg:px-14`).
  * Marketing pages only — dismissible, pauses on hover.
+ *
+ * Mounted in the root layout, so it has no server props: it fetches on mount and
+ * on tab focus. The homepage's inline copy is server-rendered instead.
  */
 export function NewsTicker() {
   const pathname = usePathname();
@@ -71,19 +97,24 @@ export function NewsTicker() {
     pathname === "/maintenance";
 
   const [items, setItems] = useState<Item[]>([]);
-  const [seconds, setSeconds] = useState(DEFAULT_SECONDS);
+  const [pxPerSecond, setPxPerSecond] = useState(TICKER_SPEED_DEFAULT.pxPerSecond);
   const [dismissed, setDismissed] = useState(true);
 
-  useEffect(() => {
-    if (inApp) return;
+  const load = useCallback(() => {
     getActiveTicker()
-      .then(({ items: rows, seconds: s }) => {
+      .then(({ items: rows, pxPerSecond: rate }) => {
         setItems(rows);
-        setSeconds(s);
+        setPxPerSecond(rate);
         if (rows.length) setDismissed(sessionStorage.getItem("nm-ticker-dismissed") === "1");
       })
       .catch(() => {});
-  }, [inApp]);
+  }, []);
+
+  useEffect(() => {
+    if (!inApp) load();
+  }, [inApp, load]);
+
+  useRefreshOnFocus(load, !inApp);
 
   if (inApp || !items.length || dismissed) return null;
 
@@ -92,7 +123,7 @@ export function NewsTicker() {
       {/* Inner content is aligned to the hero banner's edges */}
       <div className="px-4 sm:px-6 md:px-10 lg:px-14">
         <div className="flex items-stretch">
-          <TickerRow items={items} seconds={seconds} />
+          <TickerRow items={items} pxPerSecond={pxPerSecond} />
           {/* Dismiss — pinned far right, marquee ends just before it */}
           <button
             onClick={() => { sessionStorage.setItem("nm-ticker-dismissed", "1"); setDismissed(true); }}
@@ -111,16 +142,38 @@ export function NewsTicker() {
  * Inline copy of the news ticker, dropped between homepage sections (full-bleed
  * black strip). Not fixed, not dismissible — always shows the same live ticker
  * items. Renders nothing when there are none.
+ *
+ * `initialItems` / `initialPxPerSecond` come from the server, so the strip and
+ * its text are in the HTML on first paint (crawler-visible, no flash of empty
+ * strip). A background refresh on tab focus still runs, so an edit saved in
+ * another tab appears without a reload.
  */
-export function InlineNewsTicker() {
-  const [items, setItems] = useState<Item[]>([]);
-  const [seconds, setSeconds] = useState(DEFAULT_SECONDS);
+export function InlineNewsTicker({
+  initialItems = [],
+  initialPxPerSecond = TICKER_SPEED_DEFAULT.pxPerSecond,
+}: {
+  initialItems?: Item[];
+  initialPxPerSecond?: number;
+}) {
+  const [items, setItems] = useState<Item[]>(initialItems);
+  const [pxPerSecond, setPxPerSecond] = useState(initialPxPerSecond);
 
+  // Adopt a fresh server render (e.g. a navigation that re-renders the page).
   useEffect(() => {
+    setItems(initialItems);
+    setPxPerSecond(initialPxPerSecond);
+  }, [initialItems, initialPxPerSecond]);
+
+  const load = useCallback(() => {
     getActiveTicker()
-      .then(({ items: rows, seconds: s }) => { setItems(rows); setSeconds(s); })
+      .then(({ items: rows, pxPerSecond: rate }) => {
+        setItems(rows);
+        setPxPerSecond(rate);
+      })
       .catch(() => {});
   }, []);
+
+  useRefreshOnFocus(load, true);
 
   if (!items.length) return null;
 
@@ -128,7 +181,7 @@ export function InlineNewsTicker() {
     <div className="w-full bg-[#1e1e1e] dark:bg-[#0c0c0c] text-white border-y border-transparent dark:border-white/10">
       <div className="px-4 sm:px-6 md:px-10 lg:px-14">
         <div className="flex items-stretch">
-          <TickerRow items={items} seconds={seconds} />
+          <TickerRow items={items} pxPerSecond={pxPerSecond} />
         </div>
       </div>
     </div>

@@ -4,5 +4,5 @@ import { getTickerSpeedSetting } from "@/lib/services/platform-settings";
 
 export default async function AdminNewsTickerPage() {
   const [items, speed] = await Promise.all([listTicker(), getTickerSpeedSetting()]);
-  return <AdminNewsTicker items={items} seconds={speed.seconds} />;
+  return <AdminNewsTicker items={items} pxPerSecond={speed.pxPerSecond} />;
 }

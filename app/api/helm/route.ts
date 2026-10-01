@@ -3,16 +3,17 @@ import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
-import { helmChat, helmConfigured, type HelmChatTurn } from "@/lib/helm/client";
+import { helmChat, helmAvailable, type HelmChatTurn } from "@/lib/helm/backend";
 import { getQuotaState, recordUsage } from "@/lib/services/helm";
 
 export const runtime = "nodejs";
 
 /**
- * Helm consultant relay. Server-only boundary between the browser and the VM
- * brain: enforces the `aiConsultant` entitlement (plan-gated) and the signed-in
- * user before forwarding. When the VM env is unset the route returns 503 so the
- * UI shows the gate/coming-soon state instead of erroring.
+ * Helm consultant relay. Server-only boundary between the browser and whichever
+ * backend is active (see lib/helm/backend.ts): enforces the `aiConsultant`
+ * entitlement (plan-gated) and the signed-in user before forwarding. Returns 503
+ * only when neither the VM nor a hosted provider is configured, so the UI shows
+ * the coming-soon state instead of erroring.
  */
 export async function POST(req: Request) {
   const uid = await getCurrentUserId();
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Upgrade required to use Nomabot" }, { status: 403 });
   }
 
-  if (!helmConfigured) {
+  if (!helmAvailable()) {
     return NextResponse.json({ error: "Nomabot isn't available yet." }, { status: 503 });
   }
 

@@ -155,9 +155,9 @@ export async function getTickerSpeedSetting(): Promise<TickerSpeedSetting> {
   return getTickerSpeed();
 }
 
-export async function setTickerSpeed(seconds: number): Promise<TickerSpeedSetting> {
+export async function setTickerSpeed(pxPerSecond: number): Promise<TickerSpeedSetting> {
   const admin = await requireAdmin();
-  const next = normalizeTickerSpeed({ seconds });
+  const next = normalizeTickerSpeed({ pxPerSecond });
 
   await db.execute(sql`
     INSERT INTO platform_setting (key, value, updated_at, updated_by)

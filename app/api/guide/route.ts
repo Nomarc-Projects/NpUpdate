@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
-import { guideChat, helmConfigured, type HelmChatTurn } from "@/lib/helm/client";
+import { guideChat, helmAvailable, type HelmChatTurn } from "@/lib/helm/backend";
 
 export const runtime = "nodejs";
 
 /**
  * Nomarc Guide relay — the public site assistant. Ungated, so it's protected by
- * a coarse per-IP rate limit to keep anonymous traffic from saturating the VM.
- * Best-effort in-memory limiter (per serverless instance); a durable limiter
- * lands with the metering work in a later phase.
+ * a coarse per-IP rate limit to keep anonymous traffic from saturating the
+ * assistant's provider budget. Best-effort in-memory limiter (per serverless
+ * instance); a durable limiter lands with the metering work in a later phase.
  */
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 12;
@@ -31,7 +31,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Slow down a moment and try again." }, { status: 429 });
   }
 
-  if (!helmConfigured) {
+  // Either backend may serve this — see lib/helm/backend.ts. 503 only when
+  // neither the VM nor a hosted provider is configured.
+  if (!helmAvailable()) {
     return NextResponse.json({ error: "Chat isn't available right now." }, { status: 503 });
   }
 
