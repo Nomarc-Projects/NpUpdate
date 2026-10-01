@@ -219,6 +219,22 @@
   from { transform: translateX(0); }
   to   { transform: translateX(-25%); }
 }
+/* The Key Players / Trusted Clients logo strips. Pure CSS so the scroll runs on
+   the compositor instead of a requestAnimationFrame loop on the main thread,
+   which is what left both strips visibly frozen before. The track holds four
+   identical groups, so -25% is exactly one group's width and the loop closes
+   with no seam. `will-change` promotes the track to its own layer so the
+   transform does not repaint on every frame; translateZ(0) is the fallback for
+   Safari, which ignores will-change for this. */
+.nm-marquee-4-track {
+  animation-name: nm-marquee-4;
+  animation-duration: 48s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
 /* Name, easing and iteration only — deliberately no duration. The duration is a
    per-render measurement (track width / pixels-per-second, see
    components/ui/marquee-speed.ts) and is set inline. It used to be baked into a
@@ -231,6 +247,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .nm-marquee-track,
+  .nm-marquee-4-track,
   .animate-\[nm-marquee-4_48s_linear_infinite\] { animation: none; }
 }
 
