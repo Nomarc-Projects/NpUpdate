@@ -10,11 +10,17 @@ import { attachDbRetry } from "./retry";
  * mirrors lib/auth.ts (env cert → committed cert → system CAs).
  */
 function resolveSSL() {
+  const dburl = process.env.DATABASE_URL || "";
+  if (dburl.startsWith("postgres://") || !dburl.includes("sslmode=verify-full")) {
+    return undefined;
+  }
   const envCert = process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
   if (envCert && envCert.includes("BEGIN CERTIFICATE")) {
     return { ca: envCert, rejectUnauthorized: true as const };
   }
   try {
+    const fs = require("node:fs");
+    const path = require("node:path");
     return { ca: fs.readFileSync(path.join(process.cwd(), "certs", "cockroach-ca.crt"), "utf8"), rejectUnauthorized: true as const };
   } catch {
     return { rejectUnauthorized: true as const };

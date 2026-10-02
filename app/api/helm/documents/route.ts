@@ -4,7 +4,7 @@ import { frozenResponse } from "@/lib/maintenance-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 import { forgetDocument, helmConfigured, ingestDocument } from "@/lib/helm/client";
-import { deletePrivateObject, getPrivateObject, r2PrivateConfigured } from "@/lib/r2";
+import { deletePrivateObject, getPrivateObject, storagePrivateConfigured as r2PrivateConfigured } from "@/lib/storage";
 import {
   deleteDocument, getOwnedDocument, listDocuments, registerDocument, setDocumentStatus,
 } from "@/lib/services/helm";

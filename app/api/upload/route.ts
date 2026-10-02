@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
-import { uploadObject, r2Configured } from "@/lib/r2";
+import { uploadObject, storageConfigured as r2Configured } from "@/lib/storage";
 
 export const runtime = "nodejs";
 

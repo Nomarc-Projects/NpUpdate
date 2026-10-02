@@ -19,8 +19,10 @@ import { resolveSiteUrl, PRODUCTION_ORIGIN, stripTrailingSlash } from "@/lib/sit
  * available (per the "always use cert" rule), falling back gracefully.
  */
 function resolveSSL() {
-  // Doppler stores the cluster CA PEM as COCKROACH_CERT; COCKROACH_CA_CERT is
-  // an alternate name. Either works; otherwise fall back to the committed file.
+  const dburl = process.env.DATABASE_URL || "";
+  if (dburl.startsWith("postgres://") || !dburl.includes("sslmode=verify-full")) {
+    return undefined;
+  }
   const envCert = process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
   if (envCert && envCert.includes("BEGIN CERTIFICATE")) {
     return { ca: envCert, rejectUnauthorized: true as const };
@@ -29,7 +31,6 @@ function resolveSSL() {
   try {
     return { ca: fs.readFileSync(certPath, "utf8"), rejectUnauthorized: true as const };
   } catch {
-    // CA still validates against Node's built-in trust store (ISRG Root X1).
     return { rejectUnauthorized: true as const };
   }
 }

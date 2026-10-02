@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
-import { r2Configured, r2PrivateConfigured, publicUrl, privateUploadUrl } from "@/lib/r2";
+import { storageConfigured as r2Configured, storagePrivateConfigured as r2PrivateConfigured, publicUrl, privateUploadUrl } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
