@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nomarc Projects — Site Capability Demo</title>
+<style>
+  :root {
+    --bg: #0f172a; --card: #1e293b; --card2: #273449; --line: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #22d3ee; --good: #4ade80; --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, Segoe UI, Roboto, sans-serif; line-height: 1.6; padding: 2rem 1rem; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 1.5rem; margin-bottom: 2rem; }
+  h1 { font-size: 2rem; color: #fff; }
+  h1 .accent { color: var(--accent); }
+  .sub { color: var(--muted); margin-top: .5rem; }
+  .badge { display:inline-block; padding: .2rem .6rem; border-radius: 999px; font-size: .75rem; margin-left: .5rem; vertical-align: middle; }
+  .badge.ok { background: rgba(74,222,128,.15); color: var(--good); border: 1px solid rgba(74,222,128,.4); }
+  .badge.warn { background: rgba(251,191,36,.12); color: var(--warn); border: 1px solid rgba(251,191,36,.4); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1rem; text-align: center; }
+  .stat .n { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+  .stat .l { color: var(--muted); font-size: .85rem; margin-top: .2rem; }
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.3rem; color: #fff; margin-bottom: 1rem; border-left: 4px solid var(--accent); padding-left: .8rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(290px,1fr)); gap: 1rem; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 1.1rem; transition: .15s; }
+  .card:hover { border-color: var(--accent); background: var(--card2); }
+  .card h3 { color: #fff; font-size: 1rem; margin-bottom: .4rem; }
+  .card p { color: var(--muted); font-size: .9rem; }
+  .card .route { display:inline-block; margin-top: .6rem; font-size: .75rem; color: var(--accent); background: rgba(34,211,238,.1); padding: .15rem .5rem; border-radius: 6px; }
+  .check { color: var(--good); font-weight: 700; margin-right: .3rem; }
+  .note { background: rgba(251,191,36,.08); border: 1px solid rgba(251,191,36,.3); border-radius: 10px; padding: 1rem; color: #fcd34d; font-size: .9rem; margin-top: 1rem; }
+  .okbar { background: rgba(74,222,128,.1); border: 1px solid rgba(74,222,128,.35); border-radius: 10px; padding: 1rem; color: var(--good); margin-top: 1rem; }
+  footer { border-top: 1px solid var(--line); margin-top: 3rem; padding-top: 1.5rem; color: var(--muted); font-size: .85rem; }
+  ul { padding-left: 1.3rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Nomarc Projects <span class="accent">· Site Capabilities</span></h1>
+    <div class="badge ok">Production mode</div>
+    <div class="sub">Live capability map of what the site can do right now — tested against the running app and its connected CockroachDB database. Generated <span id="date"></span>.</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="n">5</div><div class="l">Registered users</div></div>
+    <div class="stat"><div class="n">5</div><div class="l">Jobs posted</div></div>
+    <div class="stat"><div class="n">8</div><div class="l">Sales orders</div></div>
+    <div class="stat"><div class="n">98</div><div class="l">DB tables</div></div>
+    <div class="stat"><div class="n">70+</div><div class="l">Site routes</div></div>
+    <div class="stat"><div class="n">200</div><div class="l">Public pages OK</div></div>
+  </div>
+
+  <section>
+    <h2>What's working right now</h2>
+    <div class="okbar">
+      <span class="check">✓</span> The database bug that caused <strong>"Could not save job"</strong> is fixed — job posting (and every other database-backed page) now writes and reads correctly. All core routes compile and load without crashing.
+    </div>
+  </section>
+
+  <section>
+    <h2>Posts &amp; Jobs</h2>
+    <div class="grid">
+      <div class="card"><h3>Post a job <span class="badge ok">Fixed</span></h3><p>Full wizard to create construction roles (title, company, location, salary, skills, deadlines, application method). This was the previously-broken flow.</p><span class="route">/dashboard/jobs/post</span></div>
+      <div class="card"><h3>Browse jobs</h3><p>Find and apply to open roles across the marketplace.</p><span class="route">/dashboard/jobs</span></div>
+      <div class="card"><h3>Manage posted jobs</h3><p>View and edit jobs you've posted.</p><span class="route">/dashboard/jobs/posted</span></div>
+      <div class="card"><h3>Job drafts</h3><p>Save work-in-progress job postings as drafts.</p><span class="route">/dashboard/jobs/posted/drafts</span></div>
+      <div class="card"><h3>Saved jobs</h3><p>Bookmark jobs to apply to later.</p><span class="route">/dashboard/jobs/saved</span></div>
+      <div class="card"><h3>Applications</h3><p>Track job applications and inquiries.</p><span class="route">/dashboard/applications</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Professional &amp; Marketplace</h2>
+    <div class="grid">
+      <div class="card"><h3>Profile</h3><p>Public profile, bio, headline, practice status, licensing and registration info, completeness score.</p><span class="route">/dashboard/profile</span></div>
+      <div class="card"><h3>Find professionals</h3><p>Discover other pros to hire or collaborate with.</p><span class="route">/dashboard/people</span></div>
+      <div class="card"><h3>Products</h3><p>List, sell and shop construction products.</p><span class="route">/dashboard/products</span></div>
+      <div class="card"><h3>Services</h3><p>Offer and order professional services.</p><span class="route">/dashboard/services</span></div>
+      <div class="card"><h3>Projects</h3><p>Create and manage construction projects.</p><span class="route">/dashboard/add-project</span></div>
+      <div class="card"><h3>Messaging</h3><p>Built-in inbox with conversations and unread counts.</p><span class="route">/dashboard/messages</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Business &amp; Commerce</h2>
+    <div class="grid">
+      <div class="card"><h3>Orders</h3><p>Customer and merchant order management with invoices.</p><span class="route">/dashboard/orders</span></div>
+      <div class="card"><h3>Wallet</h3><p>Digital wallet for balances and transactions.</p><span class="route">/dashboard/wallet</span></div>
+      <div class="card"><h3>Billing</h3><p>Invoices, payments and billing verification.</p><span class="route">/dashboard/billing</span></div>
+      <div class="card"><h3>Quotes</h3><p>Request and review price quotes.</p><span class="route">/dashboard/quotes</span></div>
+      <div class="card"><h3>Plans &amp; checkout</h3><p>Subscription plans with checkout and receipts.</p><span class="route">/dashboard/plans</span></div>
+      <div class="card"><h3>Customers</h3><p>Manage your customer base.</p><span class="route">/dashboard/customers</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Professional utilities &amp; more</h2>
+    <div class="grid">
+      <div class="card"><h3>Newsfeed</h3><p>Activity feed for your network.</p><span class="route">/dashboard/newsfeed</span></div>
+      <div class="card"><h3>Events</h3><p>Construction events, competitions and exhibitions.</p><span class="route">/dashboard/events</span></div>
+      <div class="card"><h3>BIM tools</h3><p>Building Information Modelling utilities.</p><span class="route">/dashboard/bim-tools</span></div>
+      <div class="card"><h3>Building permits</h3><p>Permit tracking and management.</p><span class="route">/dashboard/building-permit</span></div>
+      <div class="card"><h3>Digital seal</h3><p>Verification seal for professionals/companies.</p><span class="route">/dashboard/digital-seal</span></div>
+      <div class="card"><h3>AI consultant</h3><p>AI assistant for project/marketplace guidance.</p><span class="route">/dashboard/ai-consultant</span></div>
+      <div class="card"><h3>Exhibition hub</h3><p>Browse, compare and buy exhibition space &amp; stalls.</p><span class="route">/exhibition-hub</span></div>
+      <div class="card"><h3>Notifications</h3><p>In-app notification centre.</p><span class="route">/dashboard/notifications</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Admin (staff)</h2>
+    <div class="grid">
+      <div class="card"><h3>User management</h3><p>Professionals, exhibitors, roles and permissions.</p><span class="route">/admin/user-management</span></div>
+      <div class="card"><h3>Verification</h3><p>Identity and corporate verification queues.</p><span class="route">/admin/verification</span></div>
+      <div class="card"><h3>Marketplace</h3><p>Moderate jobs, products, orders and adverts.</p><span class="route">/admin/marketplace</span></div>
+      <div class="card"><h3>CRM &amp; campaigns</h3><p>Customers, broadcasts, email campaigns, audience segments.</p><span class="route">/admin/crm</span></div>
+      <div class="card"><h3>Finance</h3><p>Reports, invoices and financial oversight.</p><span class="route">/admin/finance</span></div>
+      <div class="card"><h3>Content</h3><p>Blog, news ticker, taxonomy, templates, announcements.</p><span class="route">/admin/blog</span></div>
+      <div class="card"><h3>Platform</h3><p>Maintenance mode, settings, audit log, helm quotas.</p><span class="route">/admin/settings</span></div>
+      <div class="card"><h3>Support &amp; disputes</h3><p>Support inbox and dispute resolution.</p><span class="route">/admin/support-inbox</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Things to know</h2>
+    <ul>
+      <li><strong>Authentication:</strong> login / signup / password reset / email verification are all wired up.</li>
+      <li><strong>Route safety:</strong> every public page returns HTTP 200; every logged-in page redirects to login (307) instead of crashing — no 500s on load.</li>
+      <li><strong>Data volume:</strong> the connected database is lightly populated (5 users, 5 jobs, 8 orders, 3 adverts). Profiles, products, companies and projects have no records yet — so those sections will show "empty state" until you add content.</li>
+      <li><strong>Still to seed:</strong> taxonomy terms, news ticker, notifications and profiles are empty — content-driven pages will look bare until data is added.</li>
+    </ul>
+  </section>
+
+  <footer>Nomarc Projects — Nigeria's construction-industry marketplace. Demo generated from a live capability test of the deployed app and connected CockroachDB database. Committed fixes: database query parameter handling &amp; Drizzle transient-error retry.</footer>
+</div>
+<script>document.getElementById('date').textContent = new Date().toLocaleString();</script>
+</body>
+</html>
