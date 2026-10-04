@@ -1,7 +1,7 @@
 import { pgTable, uuid, text, integer, bigint, boolean, timestamp, date, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 
 /**
- * Nomarc app schema (Drizzle) on CockroachDB. Better Auth manages
+ * Nomarc app schema (Drizzle) on PostgreSQL. Better Auth manages
  * user/session/account/verification separately; here `userId` columns are TEXT
  * referencing that auth `user.id` (FKs added in the migration apply step).
  */

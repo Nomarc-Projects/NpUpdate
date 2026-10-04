@@ -12,26 +12,23 @@ import { resolveSiteUrl, PRODUCTION_ORIGIN, stripTrailingSlash } from "@/lib/sit
 
 /**
  * Better Auth server instance (Next.js, same-origin httpOnly cookies).
- * Database: CockroachDB (Postgres wire-compatible) via node-postgres Pool.
- *
- * TLS: CockroachDB Cloud certs chain to ISRG Root X1 (publicly trusted), so
- * Node's system CAs already validate them. We still load the cluster CA when
- * available (per the "always use cert" rule), falling back gracefully.
+ * Database: PostgreSQL via node-postgres Pool.
  */
 function resolveSSL() {
-  // Doppler stores the cluster CA PEM as COCKROACH_CERT; COCKROACH_CA_CERT is
-  // an alternate name. Either works; otherwise fall back to the committed file.
-  const envCert = process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
+  const envCert = process.env.PG_CA_CERT || process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
   if (envCert && envCert.includes("BEGIN CERTIFICATE")) {
     return { ca: envCert, rejectUnauthorized: true as const };
   }
   const certPath = path.join(process.cwd(), "certs", "cockroach-ca.crt");
   try {
-    return { ca: fs.readFileSync(certPath, "utf8"), rejectUnauthorized: true as const };
-  } catch {
-    // CA still validates against Node's built-in trust store (ISRG Root X1).
-    return { rejectUnauthorized: true as const };
+    if (fs.existsSync(certPath)) {
+      return { ca: fs.readFileSync(certPath, "utf8"), rejectUnauthorized: true as const };
+    }
+  } catch {}
+  if (process.env.DATABASE_URL?.includes("sslmode=require")) {
+    return { rejectUnauthorized: false as const };
   }
+  return undefined;
 }
 
 const pool = new Pool({

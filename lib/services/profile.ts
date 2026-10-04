@@ -240,10 +240,9 @@ export async function completeProfessionalOnboarding(input: {
   if (certRows.length) await db.insert(certification).values(certRows).catch(() => {});
 
   // The onboarding collects work dates as year-only strings (e.g. "2020"), but
-  // `work_experience.start_date/end_date` are `date` columns, which CockroachDB
+  // `work_experience.start_date/end_date` are `date` columns; Postgres
   // rejects if they lack a full YYYY-MM-DD. Normalise a bare year to Jan 1 of
-  // that year so the insert doesn't throw (and then get swallowed by the catch
-  // below, silently dropping the experience from the Qualifications tab).
+  // that year so the insert doesn't throw.
   const fullDate = (y?: string) => (y && /^\d{4}$/.test(y) ? `${y}-01-01` : y || null);
   const expRows = (input.experience ?? []).filter((x) => x.title.trim()).map((x) => ({
     userId: uid, title: x.title.trim(), company: x.company?.trim() || "", description: x.description?.trim() || null,

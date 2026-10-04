@@ -81,9 +81,9 @@ export async function getJobsForBrowse(): Promise<JobCard[]> {
 
 /** A single job (for the apply page header). */
 /** `job.id` is a uuid column, and comparing it to a malformed literal makes
- *  CockroachDB raise "invalid input syntax for type uuid" rather than returning
- *  no rows. That threw straight out of the /dashboard/jobs/apply server component
- *  and crashed the page, when the right answer is "no such job". */
+ *  Postgres raises "invalid input syntax for type uuid" rather than returning
+ *  no rows if you compare against an improperly formatted UUID. That would throw
+ *  if not guarded; return "no such job" instead. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function getJobById(id: string): Promise<JobCard | null> {

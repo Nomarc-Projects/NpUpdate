@@ -2,7 +2,7 @@
 
 This is the product. Everything a user sees, and nearly all of the business
 logic, lives here. It is a **Next.js 16 App Router** application that talks
-directly to CockroachDB through Drizzle server actions; there is no API tier
+directly to PostgreSQL through Drizzle server actions; there is no API tier
 between the two.
 
 > **The single most important thing to know:** `npm run dev` reads and writes
@@ -41,7 +41,7 @@ between the two.
 | Styling | Tailwind CSS v4 | via `@tailwindcss/postcss`; no `tailwind.config.js` |
 | Primitives | Radix UI + `class-variance-authority` | wrapped in `components/ui/` |
 | ORM | Drizzle ORM `0.45` | `drizzle-orm/node-postgres` |
-| Database | CockroachDB (PostgreSQL wire-compatible) | CockroachDB Cloud |
+| Database | PostgreSQL | Self-hosted/Postgres (migrated from CockroachDB) |
 | Auth | Better Auth `1.6` | email/password + Google OAuth |
 | Client state | Zustand | 6 stores, `lib/store/` |
 | Server cache | TanStack Query | client components only |
@@ -55,9 +55,8 @@ Node is pinned to `22.x` in `engines`. The deployed Vercel project runs `24.x`.
 
 ## Working against production
 
-`frontend/.env` contains a `DATABASE_URL` pointing at the **same CockroachDB
-cluster** as the Doppler `prd` config. There is no separate development
-database.
+`frontend/.env` contains a `DATABASE_URL` pointing at your PostgreSQL
+database. Adjust it for your local/VPS environment.
 
 Consequences, all of which have bitten before:
 
@@ -68,9 +67,9 @@ Consequences, all of which have bitten before:
 - Seed and reset scripts (`scripts/seed-*.ts`, `scripts/dev-reset`) are
   destructive against real rows.
 
-If you need a scratch database, point `DATABASE_URL` at your own CockroachDB
-instance and apply `drizzle/*.sql` in order. Nothing in the code assumes the
-shared cluster.
+If you need a scratch database, point `DATABASE_URL` at your own PostgreSQL
+instance and apply `drizzle/*.sql` in order. Nothing in the code assumes a
+specific host.
 
 ---
 
@@ -90,7 +89,7 @@ frontend/
 ├── lib/                     # all non-UI logic
 ├── drizzle/                 # 47 SQL migrations + meta/
 ├── scripts/                 # 24 operational scripts (not app code)
-├── certs/                   # cockroach-ca.crt (committed, non-secret)
+├── certs/                   # CA certs (committed, non-secret if public)
 ├── types/                   # ambient declarations
 └── public/                  # brand assets, media, favicon
 ```
@@ -170,7 +169,7 @@ A typical authenticated page:
 2. **Session**; Better Auth resolves the session from a host-only cookie.
    Role and plan are read off the session.
 3. **Data**; the page `await`s one or more functions from `lib/services/*`.
-   These are `"use server"` modules using Drizzle against CockroachDB.
+   These are `"use server"` modules using Drizzle against PostgreSQL.
 4. **Render**; the page renders a component from `components/dashboard/`.
    Its co-located `XxxSkeleton` export is used by the route's `loading.tsx`.
 5. **Mutation**; form submissions call another server action in the same
@@ -192,12 +191,12 @@ migration step, not inferred from the schema file.
 
 1. `COCKROACH_CA_CERT` or `COCKROACH_CERT` from the environment, if it contains
    `BEGIN CERTIFICATE`
-2. the committed `certs/cockroach-ca.crt`
+2. a committed CA cert in `certs/` (if any)
 3. system CAs
 
 The pool is cached on `globalThis` outside production so hot reload does not
-leak connections, and an `error` listener is attached because CockroachDB drops
-idle connections aggressively; without it, an idle-client error is an unhandled
+leak connections, and an `error` listener is attached because many Postgres
+hosts drop idle connections aggressively; without it, an idle-client error is an unhandled
 `'error'` event and takes the process down.
 
 Service reads are written to be **resilient**: a `try/catch` that returns an
@@ -376,8 +375,8 @@ Next.js reads `frontend/.env`; the repo-root `.env` is **not** read by the app.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | CockroachDB connection string |
-| `COCKROACH_CERT` | yes | CA certificate (falls back to `certs/cockroach-ca.crt`) |
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `PG_CA_CERT` | optional | CA certificate for Postgres (falls back to `COCKROACH_*`/`certs/cockroach-ca.crt`) |
 | `AUTH_SECRET` | yes | Better Auth session secret |
 | `AUTH_URL` | yes | canonical app origin |
 | `ALLOWED_ORIGINS` | yes | CORS allowlist |

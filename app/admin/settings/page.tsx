@@ -288,10 +288,10 @@ export default function AdminSettingsPage() {
 
         {/* ── 9. Storage ───────────────────────────────── */}
         <Card id="storage" icon={Cloud} title="Storage" desc="File uploads, media, and object storage">
-          <Row icon={Cloud} label="Cloudflare R2" desc="Object storage for uploads, attachments, and media"
-            badge={{ text: "R2_ACCOUNT_ID set", color: "bg-[#fff3cd] text-[#b45309]" }} />
-          <Row icon={Database} label="R2 Access Key" desc="R2_ACCESS_KEY_ID in Doppler prd config" value="Pending" />
-          <Row icon={Database} label="R2 Bucket" desc="Bucket name for production assets" value="nomarc-assets" />
+          <Row icon={Cloud} label="Object Storage (S3/MinIO)" desc="Object storage for uploads, attachments, and media"
+            badge={{ text: "S3-compatible configured", color: "bg-[#fff3cd] text-[#b45309]" }} />
+          <Row icon={Database} label="Storage Access Key" desc="S3-compatible access key" value="Configured" />
+          <Row icon={Database} label="Storage Bucket" desc="Bucket name for production assets" value={process.env.R2_BUCKET_NAME || "nomarcdb"} />
           <Row icon={Database} label="Public URL" desc="CDN URL for serving uploaded files" value="Not configured" />
         </Card>
 
@@ -344,7 +344,7 @@ export default function AdminSettingsPage() {
             { label: "Doppler (Secrets)", status: "Synced", ok: true },
             { label: "Resend (Email)", status: "Configured", ok: true },
             { label: "Paystack", status: "Pending keys", ok: false },
-            { label: "Cloudflare R2", status: "Partial (account ID set)", ok: false },
+            { label: "Object Storage (S3/MinIO)", status: process.env.R2_ENDPOINT ? "Configured" : "Needs endpoint", ok: !!process.env.R2_ENDPOINT },
             { label: "Google OAuth", status: "Not configured", ok: false },
           ].map((s) => (
             <div key={s.label} className="flex items-center justify-between py-2.5 border-b border-[#f5f5f5] dark:border-white/5 last:border-0">

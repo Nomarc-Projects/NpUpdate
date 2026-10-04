@@ -1,15 +1,11 @@
 import type { Pool, PoolClient, QueryResult } from "pg";
 
 /* ── Transient DB connection errors: retry + backoff ───────────────────
- * CockroachDB Cloud resolves through a proxy hostname that has occasionally
- * thrown `getaddrinfo EAI_AGAIN` (DNS blips) plus the usual TCP dropouts
- * (resets, timeouts, "connection terminated"). A single one of those used to
- * take down whichever server-side call happened to be in flight — most
- * visibly the admin overview, which opens with session + stats reads, but the
- * same flake could hit any query. These helpers retry the *connection*, not
- * the transaction: only transient network/DNS failures are retried, real
- * query failures (constraint violations, bad SQL, permission denials) are
- * rethrown untouched.
+ * Managed Postgres hosts can occasionally throw transient DNS/TCP errors
+ * (e.g. `getaddrinfo EAI_AGAIN`, resets, timeouts, "connection terminated").
+ * These helpers retry the *connection*, not the transaction: only transient
+ * network/DNS failures are retried, real query failures (constraint violations,
+ * bad SQL, permission denials) are rethrown untouched.
  */
 
 const TRANSIENT_CODES = new Set([

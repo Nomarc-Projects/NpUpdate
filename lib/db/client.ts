@@ -6,19 +6,27 @@ import * as schema from "./schema";
 import { attachDbRetry } from "./retry";
 
 /**
- * Drizzle client on the SAME CockroachDB Better Auth uses. SSL/CA resolution
- * mirrors lib/auth.ts (env cert → committed cert → system CAs).
+ * Drizzle client for PostgreSQL. SSL/CA resolution:
+ * - Use PG_CA_CERT if provided (PEM)
+ * - Fallback to COCKROACH_* vars for backward compatibility during migration
+ * - For sslmode=require without custom CA, allow self-signed (rejectUnauthorized false)
  */
 function resolveSSL() {
-  const envCert = process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
+  const envCert = process.env.PG_CA_CERT || process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
   if (envCert && envCert.includes("BEGIN CERTIFICATE")) {
     return { ca: envCert, rejectUnauthorized: true as const };
   }
   try {
-    return { ca: fs.readFileSync(path.join(process.cwd(), "certs", "cockroach-ca.crt"), "utf8"), rejectUnauthorized: true as const };
-  } catch {
-    return { rejectUnauthorized: true as const };
+    const caPath = path.join(process.cwd(), "certs", "cockroach-ca.crt");
+    if (fs.existsSync(caPath)) {
+      return { ca: fs.readFileSync(caPath, "utf8"), rejectUnauthorized: true as const };
+    }
+  } catch {}
+  // For managed Postgres with sslmode=require but no CA, don't reject
+  if (process.env.DATABASE_URL?.includes("sslmode=require")) {
+    return { rejectUnauthorized: false as const };
   }
+  return undefined;
 }
 
 const globalForDb = globalThis as unknown as { __nomarcPool?: Pool };
