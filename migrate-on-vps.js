@@ -6,12 +6,11 @@ async function main() {
     connectionString: 'postgresql://nomarc:OiSkSJ3_qNPWutCrkqqPGg@nomarc-production-32243.j77.aws-eu-central-1.cockroachlabs.cloud:26257/defaultdb?sslmode=verify-full',
     ssl: { ca: fs.readFileSync('./certs/cockroach-ca.crt').toString() }
   });
-  // Internal Postgres - adjust host if different (postgres, db, etc.)
+  const host = process.env.POSTGRES_HOST || 'victor';
   const dst = new Pool({
-    connectionString: 'postgresql://nomarc:.Adgjmptw14@postgres:5432/nomarcdb'
+    connectionString: `postgresql://nomarc:.Adgjmptw14@${host}:5432/nomarcdb`
   });
 
-  // Get all public tables
   const tablesRes = await src.query(`
     SELECT table_name 
     FROM information_schema.tables 
@@ -19,8 +18,7 @@ async function main() {
     ORDER BY table_name
   `);
   const tables = tablesRes.rows.map(r => r.table_name);
-
-  console.log(`Found ${tables.length} tables`);
+  console.log(`Found ${tables.length} tables, using host=${host}`);
 
   for (let t of tables) {
     try {
