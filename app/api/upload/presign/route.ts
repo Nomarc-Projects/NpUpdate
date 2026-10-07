@@ -3,7 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
-import { r2Configured, r2PrivateConfigured, publicUrl, privateUploadUrl } from "@/lib/r2";
+import { r2Configured, r2PrivateConfigured, publicUrl, privateUploadUrl, missingUploadConfig } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
@@ -51,7 +51,8 @@ export async function POST(req: Request) {
   const { kind = "doc", contentType = "", size = 0 } = await req.json().catch(() => ({}));
   const isPrivate = PRIVATE_KINDS.has(kind);
   if (isPrivate ? !r2PrivateConfigured : !r2Configured) {
-    return NextResponse.json({ error: "Uploads are not configured yet." }, { status: 503 });
+    const missing = missingUploadConfig();
+    return NextResponse.json({ error: "Uploads are not configured yet" + (missing.length ? " — missing " + missing.join(", ") : ".") }, { status: 503 });
   }
 
   const allowed = RULES[kind] ?? RULES.doc;

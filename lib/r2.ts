@@ -8,6 +8,10 @@ const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 const bucket = process.env.R2_BUCKET_NAME;
 // public base URL (r2.dev or a custom domain), no trailing slash
 const publicBase = (process.env.R2_PUBLIC_DOMAIN || "").replace(/\/$/, "");
+// R2_ENDPOINT overrides the Cloudflare-hosted endpoint so an S3-compatible
+// server (e.g. MinIO) can back this deployment. If the custom endpoint is set,
+// R2_ACCOUNT_ID is not required.
+const endpoint = process.env.R2_ENDPOINT || (accountId ? `https://${accountId}.r2.cloudflarestorage.com` : "");
 
 /**
  * Private bucket — Helm documents (contracts, BOQs, drawings) and anything else
@@ -17,16 +21,29 @@ const publicBase = (process.env.R2_PUBLIC_DOMAIN || "").replace(/\/$/, "");
  */
 const privateBucket = process.env.R2_PRIVATE_BUCKET;
 
-export const r2Configured = !!(accountId && accessKeyId && secretAccessKey && bucket && publicBase);
-export const r2PrivateConfigured = !!(accountId && accessKeyId && secretAccessKey && privateBucket);
+export const r2Configured = !!(accessKeyId && secretAccessKey && bucket && publicBase && endpoint);
+export const r2PrivateConfigured = !!(accessKeyId && secretAccessKey && privateBucket && endpoint);
+
+/**
+ * Names of the environment variables currently missing that prevent uploads.
+ * Lets the API routes say what actually has to be fixed instead of a bare
+ * "not configured".
+ */
+export function missingUploadConfig(): string[] {
+  const missing: string[] = [];
+  if (!process.env.R2_ENDPOINT && !accountId) missing.push("R2_ENDPOINT or R2_ACCOUNT_ID");
+  if (!accessKeyId) missing.push("R2_ACCESS_KEY_ID");
+  if (!secretAccessKey) missing.push("R2_SECRET_ACCESS_KEY");
+  if (!bucket) missing.push("R2_BUCKET_NAME");
+  if (!privateBucket) missing.push("R2_PRIVATE_BUCKET");
+  if (!publicBase) missing.push("R2_PUBLIC_DOMAIN");
+  return missing;
+}
 
 let _client: S3Client | null = null;
 function client() {
   if (!r2Configured) throw new Error("R2 is not configured");
   if (!_client) {
-    // R2_ENDPOINT overrides the Cloudflare-hosted endpoint so an S3-compatible
-    // server (e.g. MinIO) can back local development. Unset in production.
-    const endpoint = process.env.R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
     _client = new S3Client({
       region: "auto",
       endpoint,

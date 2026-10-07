@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
-import { uploadObject, r2Configured } from "@/lib/r2";
+import { uploadObject, r2Configured, missingUploadConfig } from "@/lib/r2";
 
 export const runtime = "nodejs";
 
@@ -24,7 +24,10 @@ export async function POST(req: Request) {
   if (!uid) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const frozen = await frozenResponse();
   if (frozen) return frozen;
-  if (!r2Configured) return NextResponse.json({ error: "Uploads are not configured yet." }, { status: 503 });
+  if (!r2Configured) {
+    const missing = missingUploadConfig();
+    return NextResponse.json({ error: "Uploads are not configured yet" + (missing.length ? " — missing " + missing.join(", ") : ".") }, { status: 503 });
+  }
 
   let form: FormData;
   try { form = await req.formData(); } catch { return NextResponse.json({ error: "Invalid upload" }, { status: 400 }); }
