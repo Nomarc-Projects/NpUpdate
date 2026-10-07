@@ -102,6 +102,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script
+          defer
+          src="https://analytics.nomarcprojects.com/script.js"
+          data-website-id="a020e75f-fc01-41f4-95f7-7692aad1c249"
+        />
       </head>
       <body className={`${inter.variable} font-sans`}>
         <script
