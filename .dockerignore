@@ -1,0 +1,23 @@
+.git
+.gitignore
+.next
+out
+build
+coverage
+node_modules
+Dockerfile
+.dockerignore
+README.md
+
+# Never bake secrets; Dokploy injects env at runtime. Public values that must be
+# inlined are passed as build args.
+.env
+.env.*
+!.env.example
+
+*.log
+npm-debug.log*
+.DS_Store
+.vscode
+.idea
+uploads
