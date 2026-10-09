@@ -91,6 +91,13 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle (.next/standalone) so the Docker runtime
+  // stage only needs the traced node_modules, not a full `npm ci`.
+  output: "standalone",
+  // Pin the Turbopack workspace root to this app. Without it, a stray lockfile in
+  // an ancestor directory makes Next infer that directory as the root and nest
+  // the standalone bundle under .next/standalone/<ancestor-path>/.
+  turbopack: { root: process.cwd() },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
