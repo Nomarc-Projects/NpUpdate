@@ -171,7 +171,9 @@ export const professionalWalkthrough: TourDef = {
     centerStep({ key: "wt-pro-intro", icon: "compass", showEstimate: true, title: "The full tour", content: "A stop on each page of your dashboard — jobs, applications, the marketplace, your network and Nomabot." }),
     { ...centerStep({ key: "wt-pro-jobs", icon: "briefcase", title: "Browse jobs", content: "Filter by location, salary and work model, then apply straight from a listing." }), route: "/dashboard/jobs", page: "Jobs" },
     { ...centerStep({ key: "wt-pro-apps", icon: "fileText", title: "Track your applications", content: "See status at a glance, and pick up drafts right where you left off." }), route: "/dashboard/applications", page: "Applications" },
-    { ...centerStep({ key: "wt-pro-hub", icon: "store", title: "Source materials & equipment", content: "Browse the Exhibition Hub, save favourites, and request quotes from exhibitors." }), route: "/dashboard/products", page: "Exhibition Hub" },
+    // No route: the Hub lives on the public site, and leaving /dashboard unmounts
+    // the TourProvider. The sidebar "View Product" row (now /exhibition-hub) hands off.
+    { ...centerStep({ key: "wt-pro-hub", icon: "store", title: "Source materials & equipment", content: "Open the Exhibition Hub from the sidebar to browse, save favourites and request quotes from exhibitors." }), page: "Exhibition Hub" },
     { ...centerStep({ key: "wt-pro-directory", icon: "users", title: "Your network", content: "Search professionals and companies, and save leads into custom lists." }), route: "/dashboard/people", page: "Directory" },
     { ...centerStep({ key: "wt-pro-helm", icon: "helm", title: "Ask Nomabot", content: "Your AI construction consultant — contract review, BOQs, and code lookups, grounded in real sources." }), route: "/dashboard/ai-consultant", page: "Nomabot" },
     { ...centerStep({ key: "wt-pro-done", icon: "thumbsUp", title: "That's the tour", content: "Head back to your dashboard home to check your profile completeness and recent activity." }), route: "/dashboard", page: "Dashboard" },

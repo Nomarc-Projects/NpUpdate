@@ -64,7 +64,7 @@ const navGroups: Group[] = [
     { label: "Saved jobs",   href: "/dashboard/jobs/saved",    icon: Bookmark },
   ]},
   { title: "Exhibition Hub", items: [
-    { label: "View Product",     href: "/dashboard/products",       icon: Package },
+    { label: "View Product",     href: "/exhibition-hub",           icon: Package },
     { label: "Saved Product",    href: "/dashboard/products/saved", icon: Bookmark },
     { label: "Showcase Product", href: "/dashboard/my-products",    icon: Store },
   ]},

@@ -127,9 +127,10 @@ export const clientWalkthrough: TourDef = {
         icon: "store",
         title: "Sourcing, and selling",
         content:
-          "Browse the Exhibition Hub and save products as a buyer. Listing your own is the Exhibitor path — company details plus registration documents.",
+          "Open the Exhibition Hub from the sidebar to browse and save products as a buyer. Listing your own is the Exhibitor path — company details plus registration documents.",
       }),
-      route: "/dashboard/products",
+      // No route: the Hub lives on the public site, and leaving /dashboard would
+      // unmount the TourProvider. The sidebar row hands off instead.
       page: "Exhibition Hub",
     },
     {

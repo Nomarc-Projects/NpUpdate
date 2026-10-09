@@ -9,10 +9,9 @@ const ITEMS = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Jobs", href: "/dashboard/jobs", icon: Briefcase },
   { label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
-  // In-dashboard catalog, not the public /exhibition-hub — that one is still
-  // behind its coming-soon gate and is meant to stay withheld from the public
-  // website only, not from signed-in members.
-  { label: "Products", href: "/dashboard/products", icon: Store },
+  // The Exhibition Hub (the marketplace). Gated by the same super-admin toggle
+  // as the desktop sidebar — off hides this doorway.
+  { label: "Products", href: "/exhibition-hub", icon: Store },
   { label: "More", href: "/dashboard/settings", icon: MoreHorizontal },
 ];
 
@@ -32,7 +31,7 @@ export function MobileBottomNav({ exhibitionEnabled }: { exhibitionEnabled: bool
 
   // The super-admin Exhibition Hub availability toggle decides whether the
   // in-dashboard Products doorway appears. Off = hidden from the nav bar.
-  const items = exhibitionEnabled ? ITEMS : ITEMS.filter((i) => i.href !== "/dashboard/products");
+  const items = exhibitionEnabled ? ITEMS : ITEMS.filter((i) => i.href !== "/exhibition-hub");
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-20 md:hidden flex justify-center pointer-events-none px-4" aria-label="Mobile navigation">

@@ -101,6 +101,15 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  async redirects() {
+    return [
+      // The in-dashboard "Browse Products" list duplicated the public Exhibition
+      // Hub and has been removed; the sidebar now opens the Hub directly. Keep
+      // the old URL resolving (orders, quotes, saved bookmarks, old links).
+      // Exact match only, so /dashboard/products/saved and /[id] are untouched.
+      { source: "/dashboard/products", destination: "/exhibition-hub", permanent: false },
+    ];
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   // Externalize only the server-side DB packages so Better Auth's optional

@@ -129,7 +129,9 @@ export function HubBrowse({
   /** Signed-out visitors can browse everything, but the dashboard shop and
    *  exhibitor stores are behind auth — same convention as `handleSave`. */
   const gated = (path: string) => (signedIn ? path : `/signup?redirect=${path}`);
-  const shopHref = gated("/dashboard/products");
+  // The in-dashboard catalog was removed; "View all" jumps to the full grid on
+  // this page instead of leaving for a duplicate route.
+  const shopHref = "#all-products";
   const sellHref = gated("/dashboard/add-product");
 
   /** Category names and their card images are admin-managed (Admin → Taxonomy →
@@ -370,7 +372,7 @@ export function HubBrowse({
         )}
 
         {/* ── Full grid ─────────────────────────────────────────────────── */}
-        <div ref={gridRef} className="scroll-mt-24">
+        <div id="all-products" ref={gridRef} className="scroll-mt-24">
           {filtering ? (
             <div className="flex items-center justify-between gap-3 mb-4">
               <p className="text-[13px] text-[#9a9a9a]">
@@ -388,7 +390,6 @@ export function HubBrowse({
             <SectionHeader
               title="All products"
               subtitle={`${filtered.length} listing${filtered.length !== 1 ? "s" : ""} from suppliers across Nigeria.`}
-              viewAllHref={shopHref}
             />
           )}
 
