@@ -10,7 +10,7 @@ import { requireUserId } from "@/lib/server-user";
 import { ensureCompany, getOwnCompany } from "@/lib/company-internal";
 import { grantRole } from "@/lib/roles-internal";
 import { asExhibitorPlan } from "@/lib/entitlements";
-import { EXHIBITOR_CATEGORY_CAP } from "@/lib/services/exhibitor-plan-rules";
+import { EXHIBITOR_CATEGORY_CAP, DEFAULT_EXHIBITOR_PLAN } from "@/lib/services/exhibitor-plan-rules";
 
 const bump = () => { revalidatePath("/dashboard/company"); revalidatePath("/dashboard"); };
 
@@ -86,10 +86,14 @@ export async function saveCompany(input: {
   // Validate category count against plan limit if categories are being updated
   if (input.categories !== undefined) {
     const plan = await getExhibitorPlan(uid);
-    const maxCategories = EXHIBITOR_CATEGORY_CAP[plan] ?? 0;
+    // New exhibitors haven't chosen a paid plan yet — plan selection follows
+    // account setup — so validate against the default onboarding tier rather
+    // than the zero cap of "free", which would reject every first-time signup.
+    const effective = plan === "free" ? DEFAULT_EXHIBITOR_PLAN : plan;
+    const maxCategories = EXHIBITOR_CATEGORY_CAP[effective] ?? 0;
     const uniqueCategories = [...new Set(input.categories.map((c) => c.trim()).filter(Boolean))];
     if (uniqueCategories.length > maxCategories) {
-      throw new Error(`Your ${plan} plan allows up to ${maxCategories} product categor${maxCategories === 1 ? "y" : "ies"}. You selected ${uniqueCategories.length}.`);
+      throw new Error(`Your ${effective} plan allows up to ${maxCategories} product categor${maxCategories === 1 ? "y" : "ies"}. You selected ${uniqueCategories.length}.`);
     }
   }
 

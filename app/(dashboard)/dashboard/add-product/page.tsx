@@ -1,9 +1,9 @@
+import { redirect } from "next/navigation";
 import { AddProductForm } from "./add-product-form";
 import { ExhibitorGate } from "@/components/dashboard/onboarding/exhibitor-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 import { getTrialState } from "@/lib/services/exhibitor-trial";
-import { TrialExhausted } from "@/components/dashboard/exhibitor/trial-exhausted";
 import { getMyCompany } from "@/lib/services/company";
 
 export const metadata = { title: "Add new product" };
@@ -19,14 +19,12 @@ export default async function AddProductPage() {
     );
   }
 
-  // The dashboard raises a modal before sending anyone here, but the URL is
-  // typeable — so the allowance is checked again on the way in. Drafting is
-  // still permitted when the allowance is spent; only publishing is blocked,
-  // which createProduct enforces independently.
+  // Plan selection comes after account setup: nobody reaches the upload form
+  // without an active, unexpired paid plan. The dashboard routes here as a
+  // courtesy, but the URL is typeable — so the gate is enforced again on the
+  // way in, and createProduct/setProductStatus enforce it independently.
   const trial = await getTrialState().catch(() => null);
-  if (trial && !trial.canPublish) {
-    return <TrialExhausted expired={trial.reason === "trial_expired"} daysLeft={trial.daysLeft} />;
-  }
+  if (!trial?.subscribed) redirect("/dashboard/plans");
 
   const company = await getMyCompany().catch(() => null);
   const allowedCategories = company?.data?.categories ?? [];

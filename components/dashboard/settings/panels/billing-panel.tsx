@@ -55,12 +55,10 @@ export function BillingPanel({ paymentPlansEnabled = true }: { paymentPlansEnabl
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-[14px] font-bold text-[#1e1e1e] dark:text-white">
-                {trial.inTrial ? "Free exhibitor trial" : "Free trial ended"}
+                No active exhibitor plan
               </h2>
               <p className="mt-1 text-[12.5px] leading-relaxed text-[#8a7400] dark:text-[#ffd716]">
-                {trial.inTrial
-                  ? `${trial.daysLeft} day${trial.daysLeft === 1 ? "" : "s"} left · ${trial.publishedCount} of ${trial.listingCap} free listing${trial.listingCap === 1 ? "" : "s"} published`
-                  : "Published listings have moved back to drafts. Activate a subscription to publish again — nothing was deleted."}
+                Choose a plan to publish products to your showroom. Your drafts and account details are safe.
               </p>
             </div>
             {paymentPlansEnabled && (

@@ -9,8 +9,25 @@ import { NomarcAvatar } from "@/components/ui/avatar";
 import { FiltersRail, type FilterGroup } from "@/components/admin/filters-rail";
 import { setUserBanned, adminDeleteUser, type AdminUser } from "@/lib/services/admin";
 import { startImpersonation } from "@/lib/services/impersonation";
+import { PLAN_LABEL, type Plan } from "@/lib/entitlements";
 
 const VERIFICATION_LABEL: Record<0 | 1 | 2, string> = { 0: "Unverified", 1: "Tier 1", 2: "Tier 2" };
+
+const PROFESSIONAL_PLAN_OPTIONS = [
+  { value: "", label: "All plans" },
+  { value: "free", label: "Free" },
+  { value: "plus", label: "Plus" },
+  { value: "pro", label: "Pro" },
+  { value: "premium", label: "Premium" },
+];
+
+const EXHIBITOR_PLAN_OPTIONS = [
+  { value: "", label: "All plans" },
+  { value: "free", label: "Free" },
+  { value: "sme", label: "SMEs" },
+  { value: "exhibitor", label: "Exhibitors" },
+  { value: "key_player", label: "Key players" },
+];
 
 export function UserManagementTable({ kind, rows }: { kind: "professional" | "exhibitor"; rows: AdminUser[] }) {
   const router = useRouter();
@@ -92,7 +109,7 @@ export function UserManagementTable({ kind, rows }: { kind: "professional" | "ex
       ? { key: "primaryContact", label: "Primary Contact", render: (u) => <span className="text-[13px] text-[#4a4a4a] dark:text-white/70">{u.primaryContact || "—"}</span> }
       : { key: "profession", label: "Profession", render: (u) => <span className="text-[13px] text-[#4a4a4a] dark:text-white/70">{u.profession || "—"}</span> },
     ...(isExhibitor ? [{ key: "industry", label: "Industry", render: (u: AdminUser) => <span className="text-[13px] text-[#4a4a4a] dark:text-white/70">{u.industry || "—"}</span> } as DataTableColumn<AdminUser>] : []),
-    { key: "plan", label: "Plan", render: (u) => <span className="text-[13px] capitalize text-[#4a4a4a] dark:text-white/70">{u.plan}</span> },
+    { key: "plan", label: "Plan", render: (u) => <span className="text-[13px] text-[#4a4a4a] dark:text-white/70">{PLAN_LABEL[u.plan as Plan] ?? u.plan}</span> },
     { key: "status", label: "Status", render: (u) => <span className={`text-[13px] font-semibold ${u.banned ? "text-[#b7791f]" : "text-[#1a7f43]"}`}>{u.banned ? "Suspended" : "Active"}</span> },
     { key: "verification", label: "Verification", render: (u) => <span className={`text-[13px] font-semibold ${u.tier === 0 ? "text-[#c53434]" : "text-[#1e1e1e] dark:text-white"}`}>{VERIFICATION_LABEL[u.tier]}</span> },
   ];
@@ -103,7 +120,7 @@ export function UserManagementTable({ kind, rows }: { kind: "professional" | "ex
       key: "occupation", label: isExhibitor ? "Primary Industry" : "Occupation", value: occupation, onChange: setOccupation,
       options: [{ value: "", label: "All" }, ...occupationOrIndustryOptions.map((o) => ({ value: o, label: o }))],
     },
-    { key: "plan", label: "Plan", value: plan, onChange: setPlan, options: [{ value: "", label: "All plans" }, { value: "free", label: "Free" }, { value: "plus", label: "Plus" }, { value: "pro", label: "Pro" }, { value: "premium", label: "Premium" }] },
+    { key: "plan", label: "Plan", value: plan, onChange: setPlan, options: isExhibitor ? EXHIBITOR_PLAN_OPTIONS : PROFESSIONAL_PLAN_OPTIONS },
     { key: "status", label: "Status", value: status, onChange: setStatus, options: [{ value: "", label: "All" }, { value: "active", label: "Active" }, { value: "suspended", label: "Suspended" }] },
     { key: "verification", label: "Verification Status", value: verification, onChange: setVerification, options: [{ value: "", label: "All tiers" }, { value: "tier1", label: "Tier 1" }, { value: "tier2", label: "Tier 2" }, { value: "unverified", label: "Unverified" }] },
   ];
