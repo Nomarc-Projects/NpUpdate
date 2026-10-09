@@ -20,6 +20,11 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 
 # ---- build ----
 FROM base AS builder
+# Cap the Node heap so a memory spike fails inside Node (a clear error) instead
+# of tripping the kernel OOM killer on a small VPS. Override via the
+# NODE_MAX_OLD_SPACE_SIZE build arg on larger hosts.
+ARG NODE_MAX_OLD_SPACE_SIZE=4096
+ENV NODE_OPTIONS="--max-old-space-size=${NODE_MAX_OLD_SPACE_SIZE}"
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
