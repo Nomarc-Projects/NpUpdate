@@ -3,7 +3,7 @@ import { AddProductForm } from "./add-product-form";
 import { ExhibitorGate } from "@/components/dashboard/onboarding/exhibitor-gate";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
-import { getTrialState } from "@/lib/services/exhibitor-trial";
+import { getExhibitorLimitSummary, getTrialState } from "@/lib/services/exhibitor-trial";
 import { getMyCompany } from "@/lib/services/company";
 
 export const metadata = { title: "Add new product" };
@@ -26,8 +26,11 @@ export default async function AddProductPage() {
   const trial = await getTrialState().catch(() => null);
   if (!trial?.subscribed) redirect("/dashboard/plans");
 
-  const company = await getMyCompany().catch(() => null);
+  const [company, limits] = await Promise.all([
+    getMyCompany().catch(() => null),
+    getExhibitorLimitSummary().catch(() => null),
+  ]);
   const allowedCategories = company?.data?.categories ?? [];
 
-  return <AddProductForm allowedCategories={allowedCategories} />;
+  return <AddProductForm allowedCategories={allowedCategories} limits={limits} />;
 }

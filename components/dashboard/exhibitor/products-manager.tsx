@@ -15,13 +15,15 @@ import { DashBanner, BannerContent, bannerBtn } from "@/components/dashboard/das
 import { Pagination } from "@/components/ui/pagination";
 import { r2Url } from "@/lib/r2-public";
 import { ProductEditDrawer } from "@/components/dashboard/exhibitor/product-edit-drawer";
+import { PlanLimitBanner } from "@/components/dashboard/exhibitor/plan-limit-banner";
+import type { ExhibitorLimitSummary } from "@/lib/services/exhibitor-trial-rules";
 
 const PRODUCT_IMPORT: ImportConfig = {
   title: "Import products",
   subtitle: "Bulk-add your catalog from a spreadsheet.",
   noun: "product",
   columns: ["Name", "SKU", "Category", "Type", "Vendor", "Retail", "Wholesale", "Cost", "Stock", "Unit", "Description", "Tags"],
-  sample: ["High-Yield TMT Rebar 16mm", "RBR-16-500", "Rebar & Steel", "Structural", "Titan SteelCo", "18500", "15800", "14200", "4200", "length", "Grade 500B rebar", "Rebar;Structural Steel"],
+  sample: ["High-Yield TMT Rebar 16mm", "RBR-16-500", "Building Materials", "Structural", "Titan SteelCo", "18500", "15800", "14200", "4200", "length", "Grade 500B rebar", "Rebar;Structural Steel"],
   requiredKey: "name",
   templateName: "nomarc-products-template.csv",
   importRow: (r) => createProduct({
@@ -187,7 +189,7 @@ function toXls(rows: MyProduct[]) {
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"></head><body><table border="1">${body}</table></body></html>`;
 }
 
-export function ProductsManager({ products }: { products: MyProduct[] }) {
+export function ProductsManager({ products, limits = null }: { products: MyProduct[]; limits?: ExhibitorLimitSummary | null }) {
   const router = useRouter();
   const [list, setList] = useState(products);
   const [tab, setTab] = useState<ProductStatus | "all">("all");
@@ -221,7 +223,12 @@ export function ProductsManager({ products }: { products: MyProduct[] }) {
     const ids = [...sel]; const prev = list;
     setList((l) => l.map((p) => (sel.has(p.id) ? { ...p, status } : p)));
     toast.success(`${ids.length} product${ids.length > 1 ? "s" : ""} → ${status}`);
-    Promise.all(ids.map((id) => setProductStatus(id, status))).then(() => router.refresh()).catch(() => { setList(prev); toast.error("Some updates failed"); });
+    Promise.all(ids.map((id) => setProductStatus(id, status))).then(() => router.refresh()).catch((e) => {
+      setList(prev);
+      const msg = e instanceof Error ? e.message : "Some updates failed";
+      if (/upgrade/i.test(msg)) toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+      else toast.error(msg);
+    });
     clearSel();
   }
   function bulkDelete() {
@@ -255,6 +262,8 @@ export function ProductsManager({ products }: { products: MyProduct[] }) {
           }
         />
       </DashBanner>
+
+      {limits && <div className="mt-4"><PlanLimitBanner limits={limits} /></div>}
 
       {/* tabs */}
       <div className="mt-5 flex items-center gap-1 border-b border-[#ececec] dark:border-white/10 overflow-x-auto no-scrollbar">

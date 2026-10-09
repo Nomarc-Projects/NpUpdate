@@ -85,7 +85,12 @@ export function ProductEditDrawer({ open, onClose, productId }: { open: boolean;
         router.refresh();
         onCloseRef.current();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Couldn't save product");
+        const msg = e instanceof Error ? e.message : "Couldn't save product";
+        if (/upgrade/i.test(msg)) {
+          toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+        } else {
+          toast.error(msg);
+        }
       }
     });
   }

@@ -28,3 +28,32 @@ export type TrialState = {
   /** Why not, when canPublish is false — drives the plan prompt the UI raises. */
   reason: "ok" | "plan_limit_reached" | "plan_required" | "not_exhibitor";
 };
+
+/** Active listings currently sitting in one registered shop/category. */
+export type ExhibitorCategoryUsage = { name: string; count: number };
+
+/**
+ * A flat read of the exhibitor's plan and how much of it is already used, for
+ * the plan/limit banners. Caps themselves are owned by contributor
+ * ./exhibitor-plan-rules.ts and resolved through `getExhibitorLimitSummary()`.
+ */
+export type ExhibitorLimitSummary = {
+  plan: ExhibitorPlan;
+  planLabel: string;
+  /** Categories (shops) the plan allows, and how many are registered. */
+  categoryCap: number;
+  categoryUsed: number;
+  /** Max active products in any one category. */
+  perCategoryCap: number;
+  /** Total active listing allowance: categoryCap × perCategoryCap. */
+  totalCap: number;
+  totalActive: number;
+  /** Per-category active counts for the registered shops. */
+  categories: ExhibitorCategoryUsage[];
+  /** Every category slot is taken. */
+  atCategoryLimit: boolean;
+  /** A category is full, or the overall listing allowance is. */
+  atUploadLimit: boolean;
+  /** The next tier up, if any — for the upgrade CTA. */
+  nextPlanLabel: string | null;
+};

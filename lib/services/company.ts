@@ -9,7 +9,7 @@ import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany, getOwnCompany } from "@/lib/company-internal";
 import { grantRole } from "@/lib/roles-internal";
-import { asExhibitorPlan } from "@/lib/entitlements";
+import { asExhibitorPlan, getNextPlan, PLAN_LABEL } from "@/lib/entitlements";
 import { EXHIBITOR_CATEGORY_CAP, DEFAULT_EXHIBITOR_PLAN } from "@/lib/services/exhibitor-plan-rules";
 
 const bump = () => { revalidatePath("/dashboard/company"); revalidatePath("/dashboard"); };
@@ -93,7 +93,9 @@ export async function saveCompany(input: {
     const maxCategories = EXHIBITOR_CATEGORY_CAP[effective] ?? 0;
     const uniqueCategories = [...new Set(input.categories.map((c) => c.trim()).filter(Boolean))];
     if (uniqueCategories.length > maxCategories) {
-      throw new Error(`Your ${effective} plan allows up to ${maxCategories} product categor${maxCategories === 1 ? "y" : "ies"}. You selected ${uniqueCategories.length}.`);
+      const next = getNextPlan(effective, "exhibitor");
+      const hint = next ? ` Upgrade to ${PLAN_LABEL[next]} to add more.` : "";
+      throw new Error(`Your ${PLAN_LABEL[effective]} plan allows up to ${maxCategories} product categor${maxCategories === 1 ? "y" : "ies"}. You selected ${uniqueCategories.length}.${hint}`);
     }
   }
 

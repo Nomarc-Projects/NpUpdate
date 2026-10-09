@@ -9,6 +9,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { saveCompany, type CompanyData, getExhibitorPlanForCurrentUser } from "@/lib/services/company";
 import { uploadFile } from "@/lib/upload-client";
 import { EXHIBITOR_CATEGORY_CAP } from "@/lib/services/exhibitor-plan-rules";
+import { PLAN_LABEL } from "@/lib/entitlements";
 
 const INDUSTRIES = [
   "Core Building Materials", "Heavy Machinery & Plant", "Interior Finishes & Fit-outs",
@@ -80,7 +81,11 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
         await saveCompany({ name, industry, headquarters, about, companyType, categories, registrationNumber: regNumber, avatarUrl: avatar || "" });
         toast.success("Changes saved");
         router.refresh();
-      } catch { toast.error("Could not save changes"); }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Could not save changes";
+        if (/upgrade/i.test(msg)) toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+        else toast.error(msg);
+      }
     });
   }
 
@@ -123,7 +128,7 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
 
       <Field
         label="Product Category"
-        hint={`Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} (shop${categoryCap === 1 ? "" : "s"}) that represent your inventory. Current plan: ${exhibitorPlan.toUpperCase()}.`}
+        hint={`Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} (shop${categoryCap === 1 ? "" : "s"}) that represent your inventory. Current plan: ${PLAN_LABEL[exhibitorPlan]}.`}
       >
         <div className="space-y-2">
           <MultiSelect
@@ -132,7 +137,9 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
             onChange={(selected) => {
               if (selected.length <= categoryCap) setCategories(selected);
               else {
-                toast.error(`Your ${exhibitorPlan} plan allows up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"}.`);
+                toast.error(`Your ${PLAN_LABEL[exhibitorPlan]} plan covers ${categoryCap} product categor${categoryCap === 1 ? "y" : "ies"}.`, {
+                  action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") },
+                });
                 setCategories(selected.slice(0, categoryCap));
               }
             }}

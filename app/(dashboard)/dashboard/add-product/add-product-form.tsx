@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import { Plus, X, ArrowRight } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
+import { PlanLimitBanner } from "@/components/dashboard/exhibitor/plan-limit-banner";
 import { createProduct } from "@/lib/services/products";
+import type { ExhibitorLimitSummary } from "@/lib/services/exhibitor-trial-rules";
 import { uploadFile } from "@/lib/upload-client";
 import { PRODUCT_UNITS, UNIT_CUSTOM } from "@/lib/constants/product-units";
 import { cn } from "@/lib/utils";
@@ -63,6 +65,8 @@ const GALLERY_VIDEO_MB = 10;
 interface AddProductFormProps {
   /** Categories the exhibitor's current plan allows them to use. */
   allowedCategories?: string[];
+  /** Plan usage, for the limit banner. */
+  limits?: ExhibitorLimitSummary | null;
 }
 
 /**
@@ -73,7 +77,7 @@ interface AddProductFormProps {
  * dropzones that validated and previewed files and then discarded them on
  * submit, so a seller could attach ten photos and publish a product with none.
  */
-export function AddProductForm({ allowedCategories = [] }: AddProductFormProps) {
+export function AddProductForm({ allowedCategories = [], limits = null }: AddProductFormProps) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -153,11 +157,20 @@ export function AddProductForm({ allowedCategories = [] }: AddProductFormProps) 
         toast.success(draft ? "Saved as draft" : "Product published!");
         router.push(draft ? "/dashboard?tab=drafts" : "/dashboard?tab=catalog");
       })
-      .catch((e) => { setSaving(false); toast.error(e instanceof Error ? e.message : "Couldn't save product"); });
+      .catch((e) => {
+        setSaving(false);
+        const msg = e instanceof Error ? e.message : "Couldn't save product";
+        if (/upgrade/i.test(msg)) {
+          toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+        } else {
+          toast.error(msg);
+        }
+      });
   }
 
   return (
     <div className="mx-auto max-w-[960px] px-5 py-6 sm:px-6 lg:px-8">
+      {limits && <div className="mb-5"><PlanLimitBanner limits={limits} /></div>}
       <div className="mb-6">
         <h1 className="text-[20px] font-bold text-[#1e1e1e] dark:text-white">Add new product</h1>
         <p className="mt-0.5 text-[13px] text-[#9a9a9a]">Fill in the details below to add a new product to your catalog.</p>

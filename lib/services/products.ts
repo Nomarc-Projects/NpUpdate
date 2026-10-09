@@ -1,14 +1,12 @@
 "use server";
 
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { product, productVariant, company } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany } from "@/lib/company-internal";
-import { assertCanPublish } from "@/lib/services/exhibitor-trial";
-import { getExhibitorPlanForCurrentUser } from "@/lib/services/company";
-import { EXHIBITOR_PRODUCTS_PER_CATEGORY } from "@/lib/services/exhibitor-plan-rules";
+import { assertCanPublish, assertCategoryCapacity } from "@/lib/services/exhibitor-trial";
 
 export type ProductStatus = "active" | "draft" | "archived";
 export type StockLevel = "high" | "low" | "out";
@@ -61,9 +59,26 @@ function values(companyId: string, input: ProductInput) {
     unit: input.unit || null,
     seoTitle: input.seoTitle || null,
     seoDescription: input.seoDescription || null,
-    status: input.status || "active",
-    draft: (input.status || "active") === "draft",
+    // status/draft are intentionally NOT set here: createProduct sets them, and
+    // updateProduct must leave the existing status alone unless the caller
+    // explicitly passes one. Defaulting here used to flip every edited draft to
+    // "active", quietly publishing past the plan gate.
   };
+}
+
+/** A published listing may only sit in one of the company's registered shops.
+ *  `product.category` is free text, so without this an exhibitor could sidestep
+ *  the plan's category cap by inventing unlimited categories. Legacy accounts
+ *  that never collected shops (categories empty) stay unrestricted. */
+async function assertCategoryRegistered(companyId: string, category: string | null | undefined): Promise<void> {
+  const cat = category?.trim();
+  if (!cat) return;
+  const [co] = await db.select({ categories: company.categories }).from(company).where(eq(company.id, companyId)).limit(1);
+  const allowed = co?.categories ?? [];
+  if (allowed.length === 0) return;
+  if (!allowed.some((c) => c.trim().toLowerCase() === cat.toLowerCase())) {
+    throw new Error(`“${cat}” isn't one of your registered shops. Your plan lists in: ${allowed.join(", ")}. Add it to your company profile first.`);
+  }
 }
 
 export async function createProduct(input: ProductInput, draft = false): Promise<string> {
@@ -71,26 +86,18 @@ export async function createProduct(input: ProductInput, draft = false): Promise
   if (!input.name?.trim()) throw new Error("Product name is required");
   const companyId = await ensureCompany(uid);
   const status = draft ? "draft" : input.status ?? "active";
-  // Drafts are always free — the trial caps what's PUBLISHED, so an exhibitor
+  // Drafts are always free — the plan caps what's PUBLISHED, so an exhibitor
   // can keep preparing listings and publish them once they subscribe. Enforced
   // here rather than only in the UI: the action is callable directly.
-  if (status !== "draft") await assertCanPublish();
-
-  // Per-category product limit check
-  if (status !== "draft" && input.category) {
-    const plan = await getExhibitorPlanForCurrentUser();
-    const perCategoryCap = EXHIBITOR_PRODUCTS_PER_CATEGORY[plan] ?? 0;
-    const [{ n }] = await db
-      .select({ n: count() })
-      .from(product)
-      .where(and(eq(product.companyId, companyId), eq(product.category, input.category), eq(product.status, "active")));
-    const currentInCategory = Number(n ?? 0);
-    if (currentInCategory >= perCategoryCap) {
-      throw new Error(`Category limit reached: your ${plan} plan allows ${perCategoryCap} products per category.`);
-    }
+  if (status !== "draft") {
+    // Total listing cap + active paid plan.
+    await assertCanPublish();
+    // Must be one of the plan's registered shops, and that shop must not be full.
+    await assertCategoryRegistered(companyId, input.category);
+    if (input.category?.trim()) await assertCategoryCapacity(input.category.trim());
   }
 
-  const v = values(companyId, { ...input, status });
+  const v = { ...values(companyId, input), status, draft: status === "draft" };
   const [row] = await db.insert(product).values(v).returning({ id: product.id });
   bump();
   return row.id;
@@ -99,8 +106,38 @@ export async function createProduct(input: ProductInput, draft = false): Promise
 export async function updateProduct(id: string, input: ProductInput): Promise<void> {
   const uid = await requireUserId();
   const companyId = await ensureCompany(uid);
+  const [existing] = await db
+    .select({ status: product.status, category: product.category })
+    .from(product)
+    .where(and(eq(product.id, id), eq(product.companyId, companyId)))
+    .limit(1);
+  if (!existing) throw new Error("Product not found");
+
+  const nextStatus = (input.status ?? existing.status) as ProductStatus;
+  const nextCategory = input.category?.trim() || null;
+  const activating = nextStatus === "active" && existing.status !== "active";
+  const categoryChanged = nextCategory !== (existing.category ?? null);
+
+  // Publishing, or moving a live listing into another shop, must respect the
+  // plan caps exactly like create/setProductStatus — the edit form is just
+  // another typeable entry point.
+  if (activating) await assertCanPublish();
+  if (nextStatus === "active" && (activating || categoryChanged)) {
+    await assertCategoryRegistered(companyId, nextCategory);
+    if (nextCategory) await assertCategoryCapacity(nextCategory, id);
+  }
+
   const v = values(companyId, input);
-  await db.update(product).set({ ...v, updatedAt: new Date() }).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+  await db
+    .update(product)
+    .set({
+      ...v,
+      // Only touch status when the caller actually asked to change it; the edit
+      // drawer omits it, so editing a draft keeps it a draft.
+      ...(input.status ? { status: input.status, draft: input.status === "draft" } : {}),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(product.id, id), eq(product.companyId, companyId)));
   bump();
 }
 
@@ -140,12 +177,17 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
 export async function setProductStatus(id: string, status: ProductStatus): Promise<void> {
   const uid = await requireUserId();
   const companyId = await ensureCompany(uid);
-  // Un-drafting is a publish. Without this the trial cap could be walked around
-  // by saving drafts freely and flipping them live afterwards.
+  // Un-drafting is a publish. Without this the plan cap could be walked around
+  // by saving drafts freely and flipping them live afterwards. The per-category
+  // cap has to be re-checked too, or a whole shelf could be un-drafted at once.
   if (status === "active") {
-    const [current] = await db.select({ status: product.status }).from(product)
+    const [current] = await db.select({ status: product.status, category: product.category }).from(product)
       .where(and(eq(product.id, id), eq(product.companyId, companyId))).limit(1);
-    if (current && current.status !== "active") await assertCanPublish();
+    if (current && current.status !== "active") {
+      await assertCanPublish();
+      await assertCategoryRegistered(companyId, current.category);
+      if (current.category) await assertCategoryCapacity(current.category, id);
+    }
   }
   await db.update(product).set({ status, draft: status === "draft", updatedAt: new Date() }).where(and(eq(product.id, id), eq(product.companyId, companyId)));
   bump();

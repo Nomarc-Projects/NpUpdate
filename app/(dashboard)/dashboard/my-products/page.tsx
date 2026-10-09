@@ -1,6 +1,7 @@
 import { ProductsManager } from "@/components/dashboard/exhibitor/products-manager";
 import { ExhibitorGate } from "@/components/dashboard/onboarding/exhibitor-gate";
 import { getMyProducts } from "@/lib/services/products";
+import { getExhibitorLimitSummary } from "@/lib/services/exhibitor-trial";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 
@@ -16,6 +17,9 @@ export default async function MyProductsPage() {
       />
     );
   }
-  const products = await getMyProducts();
-  return <ProductsManager products={products} />;
+  const [products, limits] = await Promise.all([
+    getMyProducts(),
+    getExhibitorLimitSummary().catch(() => null),
+  ]);
+  return <ProductsManager products={products} limits={limits} />;
 }
