@@ -281,15 +281,10 @@ export function HubBrowse({
             <div className="relative min-h-[440px] md:min-h-0 md:h-[460px] flex flex-col items-center justify-center text-center px-5 md:px-10 py-14 md:py-0">
               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#ffd716] mb-3">Exhibition Hub</p>
               <h1 className="text-[clamp(1.5rem,6.4vw,2.5rem)] font-bold leading-[1.12] tracking-tight text-white max-w-[720px] [text-wrap:balance]">
-                The marketplace for everything you build with.
+                Explore building materials, equipment and products
               </h1>
               <p className="mt-3 text-[13.5px] sm:text-[15px] leading-relaxed text-white/70 max-w-[540px]">
-                Browse verified materials, equipment and products from suppliers across Nigeria.
-                {/* Second sentence is the first thing to go on a phone — it took the
-                    paragraph to five lines and pushed the search bar off-balance. */}
-                <span className="hidden sm:inline">
-                  {" "}Compare, request a quote, or order — with the back-and-forth a construction deal actually needs.
-                </span>
+                Browse, save, request a quote and order directly from trusted brands and suppliers.
               </p>
               {topCategory && (
                 <button
