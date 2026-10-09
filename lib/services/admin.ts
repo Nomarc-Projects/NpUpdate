@@ -270,7 +270,12 @@ export async function getUsers(search = ""): Promise<AdminUser[]> {
   await requireAdmin();
   const like = `%${search.toLowerCase()}%`;
   const res = await db.execute(sql`
-    SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
+    SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role,
+           CASE WHEN COALESCE(u.role,'professional') = 'exhibitor'
+                THEN COALESCE((SELECT ur.plan FROM user_role ur
+                               WHERE ur.user_id = u.id AND ur.role = 'exhibitor' AND ur.status = 'active'
+                               LIMIT 1), 'free')
+                ELSE COALESCE(u.plan, 'free') END AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
            COALESCE(u."isPartner",false) AS is_partner,
            COALESCE(p.verified, c.verified, false) AS verified,
@@ -380,7 +385,12 @@ export type AdminUserDetail = AdminUser & {
 export async function getUserDetail(userId: string): Promise<AdminUserDetail | null> {
   await requireAdmin();
   const res = await db.execute(sql`
-    SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role, COALESCE(u.plan,'free') AS plan,
+    SELECT u.id, u.name, u.email, COALESCE(u.role,'professional') AS role,
+           CASE WHEN COALESCE(u.role,'professional') = 'exhibitor'
+                THEN COALESCE((SELECT ur.plan FROM user_role ur
+                               WHERE ur.user_id = u.id AND ur.role = 'exhibitor' AND ur.status = 'active'
+                               LIMIT 1), 'free')
+                ELSE COALESCE(u.plan, 'free') END AS plan,
            COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
            COALESCE(u."isPartner",false) AS is_partner,
            p.avatar_url AS p_avatar, p.headline, p.bio, p.location, p.verified AS p_verified, p.availability,

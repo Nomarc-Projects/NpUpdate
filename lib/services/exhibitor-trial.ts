@@ -5,11 +5,15 @@ import { db } from "@/lib/db/client";
 import { company, product, userRole } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { asExhibitorPlan, PLAN_LABEL, type ExhibitorPlan } from "@/lib/entitlements";
-import { TRIAL_DAYS, FREE_PUBLISHED_LIMIT, type TrialState } from "@/lib/services/exhibitor-trial-rules";
+import { TRIAL_DAYS, type TrialState } from "@/lib/services/exhibitor-trial-rules";
 import { getExhibitorTotalListingCap } from "@/lib/services/exhibitor-plan-rules";
 
 /**
- * Exhibitor free trial: one published listing for the first 30 days.
+ * Exhibitor publishing requires an active paid plan. Account setup (the
+ * onboarding wizard) grants the exhibitor role; the plan is chosen and paid
+ * for afterwards, and nothing can be published until it is. The 30-day trial
+ * window is retained only to retire listings that predate this gate — it no
+ * longer grants any publish allowance.
  *
  * The rule lives here alone. `createProduct`, `setProductStatus`, the catalog
  * UI and the billing panel all defer to `getTrialState()` — a second copy of
@@ -21,25 +25,30 @@ import { getExhibitorTotalListingCap } from "@/lib/services/exhibitor-plan-rules
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * The exhibitor tier this account is on. "free" means unsubscribed — either on
- * trial or lapsed. `asExhibitorPlan` also absorbs rows still holding a
- * professional slug from before the exhibitor ladder existed; those grant
- * nothing rather than being mistaken for a paid tier.
+ * The active paid exhibitor tier this account is on, or "free". An expired
+ * period no longer counts — the gate must not let a lapsed subscription
+ * through. `asExhibitorPlan` also absorbs rows still holding a professional
+ * slug from before the exhibitor ladder existed; those grant nothing rather
+ * than being mistaken for a paid tier.
  */
 async function exhibitorPlan(uid: string): Promise<ExhibitorPlan> {
   const rows = await db
-    .select({ plan: userRole.plan })
+    .select({ plan: userRole.plan, currentPeriodEnd: userRole.currentPeriodEnd })
     .from(userRole)
     .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")));
   for (const r of rows) {
     const p = asExhibitorPlan(r.plan);
-    if (p !== "free") return p;
+    if (p === "free") continue;
+    // A null period end is a pre-0038 subscription — grandfathered. A past one
+    // is lapsed, so it grants nothing until renewed.
+    if (r.currentPeriodEnd && r.currentPeriodEnd.getTime() <= Date.now()) continue;
+    return p;
   }
   return "free";
 }
 
 /**
- * Current trial standing for the signed-in exhibitor.
+ * Current publishing standing for the signed-in exhibitor.
  *
  * Also performs the expiry sweep: when the window has lapsed and there's no
  * subscription, that exhibitor's active products are flipped to draft. This is
@@ -86,15 +95,15 @@ export async function getTrialState(): Promise<TrialState> {
     publishedCount = 0;
   }
 
-  // A paid tier caps how many listings may be live at once; an unpaid account
-  // gets the trial allowance while the window is open, and nothing after.
-  const listingCap = subscribed ? getExhibitorTotalListingCap(plan) : inTrial ? FREE_PUBLISHED_LIMIT : 0;
+  // Publishing requires an active paid plan. An unsubscribed account — trial
+  // window or not — has no allowance; the window only decides when relics of
+  // the old free listing are retired.
+  const listingCap = subscribed ? getExhibitorTotalListingCap(plan) : 0;
   const canPublish = publishedCount < listingCap;
   const reason: TrialState["reason"] = canPublish
     ? "ok"
     : subscribed ? "plan_limit_reached"
-    : !inTrial ? "trial_expired"
-    : "trial_limit_reached";
+    : "plan_required";
 
   return { isExhibitor: true, subscribed, plan, inTrial, daysLeft, publishedCount, listingCap, canPublish, reason };
 }
@@ -109,8 +118,6 @@ export async function assertCanPublish(): Promise<void> {
   throw new Error(
     t.reason === "plan_limit_reached"
       ? `Your ${PLAN_LABEL[t.plan]} plan covers ${t.listingCap} active listing${t.listingCap === 1 ? "" : "s"}. Upgrade, or unpublish one to make room.`
-      : t.reason === "trial_expired"
-        ? "Your 30-day free trial has ended. Activate a subscription to publish products."
-        : "Your free trial covers one published product. Activate a subscription to list more.",
+      : "Choose an exhibitor plan to publish products to your showroom.",
   );
 }

@@ -21,7 +21,6 @@ import { getUnreadCount } from "@/lib/services/messaging";
 import { getMyNotifications, type NotificationRow } from "@/lib/services/notifications";
 import { getTrialState } from "@/lib/services/exhibitor-trial";
 import type { TrialState } from "@/lib/services/exhibitor-trial-rules";
-import { ExhibitorTrialModal } from "@/components/dashboard/exhibitor/exhibitor-trial-modal";
 import { RecommendationsPanel } from "@/components/dashboard/shared/recommendations-panel";
 import { AdsBoardPanel } from "@/components/dashboard/shared/ads-board-panel";
 import { TourWizardButton } from "@/components/tour/tour-wizard-button";
@@ -233,7 +232,6 @@ export function ExhibitorHome() {
   const [tier2Verified, setTier2Verified] = useState<boolean | null>(null);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [trial, setTrial] = useState<TrialState | null>(null);
-  const [trialOpen, setTrialOpen] = useState(false);
   const [kpi, setKpi] = useState<{ quotes: number; pendingQuotes: number; impressions: number; activeAds: number; unread: number }>(
     { quotes: 0, pendingQuotes: 0, impressions: 0, activeAds: 0, unread: 0 },
   );
@@ -294,14 +292,14 @@ export function ExhibitorHome() {
   const upcoming: ActivityItem[] = [];
 
   /**
-   * Every route to the wizard goes through here. A subscribed exhibitor (or one
-   * still holding their free listing) is sent straight on; otherwise the modal
-   * explains which of the two situations they're in. The route itself re-checks
-   * this server-side, so this is a courtesy rather than the control.
+   * Plan selection comes after account setup, so an exhibitor only reaches the
+   * upload form with an active paid plan. Known non-subscribers go straight to
+   * the pricing page; while the plan state is still loading we defer to the
+   * route, which re-checks server-side.
    */
   function goToAddProduct() {
-    if (!trial || trial.canPublish) { router.push("/dashboard/add-product"); return; }
-    setTrialOpen(true);
+    if (trial && !trial.subscribed) { router.push("/dashboard/plans"); return; }
+    router.push("/dashboard/add-product");
   }
 
   const companyName = company?.name || (mounted && sUser?.name) || "Your Company";
@@ -527,16 +525,6 @@ export function ExhibitorHome() {
           </div>
         </div>
       </div>
-
-      {/* Upload gate — "offer" while the free listing is still available,
-          "paywall" once it's spent or the window closed. */}
-      <ExhibitorTrialModal
-        open={trialOpen}
-        mode={trial && trial.inTrial && trial.publishedCount < 1 ? "offer" : "paywall"}
-        daysLeft={trial?.daysLeft}
-        onClose={() => setTrialOpen(false)}
-        onUseFreeListing={() => { setTrialOpen(false); router.push("/dashboard/add-product"); }}
-      />
 
       {/* delete confirmation */}
       <AnimatePresence>

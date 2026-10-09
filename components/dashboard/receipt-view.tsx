@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { FileText, ArrowRight } from "lucide-react";
-import { naira } from "@/lib/entitlements";
+import { naira, isExhibitorPlan } from "@/lib/entitlements";
 import type { TxRow } from "@/lib/services/billing";
 import { ReceiptPrinterIntro } from "@/components/ui/receipt-printer";
 
@@ -59,10 +59,15 @@ export function ReceiptView({ tx }: { tx: TxRow }) {
 
         {/* actions */}
         <div className="px-7 pb-7 flex flex-col gap-2.5">
+          {isExhibitorPlan(tx.plan) && (
+            <Link href="/dashboard/add-product" className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">
+              Start listing products <ArrowRight size={15} />
+            </Link>
+          )}
           <Link href={`/dashboard/billing/invoice/${tx.id}`} className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">
             <FileText size={15} /> View invoice
           </Link>
-          <Link href="/dashboard" className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">
+          <Link href="/dashboard" className={`w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[13px] transition-colors ${isExhibitorPlan(tx.plan) ? "border border-[#e3e3e3] dark:border-white/15 font-semibold text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5" : "bg-[#ffd716] font-bold text-[#1e1e1e] hover:bg-[#e6c114]"}`}>
             Back to dashboard <ArrowRight size={15} />
           </Link>
         </div>

@@ -285,7 +285,7 @@ export function ExhibitorOnboardingWizard() {
               {step === 3 && (
                 <div className="pb-2">
                   <SegmentBar current={2} total={3} />
-                  <StepHeader title="Setup Exhibitor Profile" subtitle="You're all set! Your digital showroom is ready." onClose={requestClose} />
+                  <StepHeader title="Setup Exhibitor Profile" subtitle="You're all set! Your company profile is ready." onClose={requestClose} />
 
                   <div className="rounded-2xl border border-[#ececec] bg-[#fafafa] p-5 dark:border-white/10 dark:bg-white/[0.02]">
                     <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Profile Summary</h2>
@@ -308,17 +308,17 @@ export function ExhibitorOnboardingWizard() {
                     <p className="mt-1.5 text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">Your company profile has been successfully created and your baseline details are saved. To ensure quality for our community, your public visibility will be limited until your business is fully verified.</p>
                     <p className="mt-4 text-[13px] font-semibold text-[#1e1e1e] dark:text-white">What&apos;s Next:</p>
                     <ul className="mt-2 space-y-2.5 text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">
-                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Upload your first product (Free):</span> Enjoy one free product listing for your first 30 days. Get a feel for the platform before committing to a plan.</span></li>
-                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Activate a full subscription:</span> Ready to list your entire catalog? Choose an exhibitor plan to unlock multiple uploads, technical sheets, and premium visibility.</span></li>
+                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Choose a plan:</span> Pick a monthly, bi-annual or annual exhibitor plan to activate your digital showroom and unlock product uploads.</span></li>
+                      <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 flex-shrink-0 rounded-full bg-[#9a9a9a]" /><span><span className="font-semibold text-[#1e1e1e] dark:text-white">Upload your products:</span> Once your plan is active, add your full catalog, technical sheets, and premium visibility.</span></li>
                     </ul>
                   </div>
 
                   <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-                    <button onClick={() => { router.push("/dashboard/add-product"); router.refresh(); }} className={cn(ghostBtn, "w-full sm:flex-1")}>
-                      Upload Free Product
+                    <button onClick={() => { router.push("/dashboard/plans"); router.refresh(); }} className={cn(yellowBtn, "w-full sm:flex-1")}>
+                      <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Choose a Plan
                     </button>
-                    <button onClick={() => { router.push("/dashboard"); router.refresh(); }} className={cn(yellowBtn, "w-full sm:flex-1")}>
-                      <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Go to My Dashboard
+                    <button onClick={() => { router.push("/dashboard"); router.refresh(); }} className={cn(ghostBtn, "w-full sm:flex-1")}>
+                      Go to My Dashboard
                     </button>
                   </div>
                 </div>

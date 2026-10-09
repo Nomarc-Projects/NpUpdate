@@ -5,17 +5,19 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, XCircle, Loader2, Clock } from "lucide-react";
 import { verifyAndApply } from "@/lib/services/billing";
+import { isExhibitorPlan } from "@/lib/entitlements";
 
 export default function BillingVerifyPage() {
   const params = useSearchParams();
   const reference = params.get("reference") || params.get("tx_ref") || params.get("paymentReference") || "";
   const [state, setState] = useState<"checking" | "success" | "failed" | "pending">("checking");
+  const [plan, setPlan] = useState<string | null>(null);
 
   useEffect(() => {
     if (!reference) { setState("failed"); return; }
     let tries = 0;
     const run = () => verifyAndApply(reference).then((r) => {
-      if (r.status === "success") { setState("success"); }
+      if (r.status === "success") { setState("success"); setPlan(r.plan ?? null); }
       else if (r.status === "failed") { setState("failed"); }
       else if (tries++ < 4) { setState("pending"); setTimeout(run, 2500); } // webhook may still be in flight
       else setState("pending");
@@ -35,8 +37,11 @@ export default function BillingVerifyPage() {
       <div className="w-16 h-16 rounded-2xl bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center">{ui.icon}</div>
       <h1 className="mt-5 text-xl font-bold text-[#1e1e1e] dark:text-white">{ui.title}</h1>
       <p className="mt-2 text-sm text-[#9a9a9a]">{ui.body}</p>
-      <div className="mt-6 flex gap-3">
-        <Link href="/dashboard/plans" className="px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors">View plans</Link>
+      <div className="mt-6 flex flex-wrap justify-center gap-3">
+        {state === "success" && isExhibitorPlan(plan) && (
+          <Link href="/dashboard/add-product" className="px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors">Add your first product</Link>
+        )}
+        <Link href="/dashboard/plans" className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors ${state === "success" && isExhibitorPlan(plan) ? "border border-[#e3e3e3] dark:border-white/15 text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5" : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"}`}>View plans</Link>
         <Link href="/dashboard/billing" className="px-5 py-2.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-sm font-medium text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">Billing history</Link>
       </div>
     </div>
