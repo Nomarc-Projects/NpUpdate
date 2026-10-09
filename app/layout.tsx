@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { PwaRegister } from "@/components/pwa-register";
@@ -7,7 +7,16 @@ import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { getPwa } from "@/lib/services/platform-settings-read";
 import { PWA_DEFAULT } from "@/lib/services/platform-settings-shared";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
+// Self-hosted Inter (latin variable subset). next/font/google would fetch the
+// font at build time, which hangs the production build when the deploy
+// container has no egress to fonts.googleapis.com. The woff2 and its OFL
+// licence live in ./fonts.
+const inter = localFont({
+  src: "./fonts/inter-latin-variable.woff2",
+  variable: "--font-sans",
+  weight: "100 900",
+  display: "swap",
+});
 
 // Canonical domain since the cutover. Feeds metadataBase, so it decides the
 // host on every canonical link, OG image and Twitter card the site emits —
