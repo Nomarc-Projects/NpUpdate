@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/theme";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { naira, planPrice, cycleSaving, PLAN_LABEL, type BillingCycle, type ExhibitorPlan } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
 
@@ -163,7 +163,10 @@ export default function ExhibitorPlansPage() {
                       <span className={`text-3xl font-extrabold ${priceColor}`}>{naira(price)}</span>
                       <span className={`text-xs ${intervalColor}`}>{cycle === "monthly" ? "billed monthly" : cycle === "biannual" ? "billed bi-annually" : "billed annually"}</span>
                     </div>
-                    <button className={buttonStyles}>
+                    <button
+                      onClick={() => router.push(`/dashboard/plans/checkout?plan=${plan}&billing=${cycle}`)}
+                      className={buttonStyles}
+                    >
                       Pay Now
                     </button>
                   </div>
