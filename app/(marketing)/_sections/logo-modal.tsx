@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink, X } from "lucide-react";
 import type { Logo } from "./logo-marquee";
@@ -141,7 +140,7 @@ export function LogoMarqueeWithModal({ logos, badge }: { logos: Logo[]; badge: s
           tabIndex={k !== 0 ? -1 : undefined}
           className={plate}
         >
-          <Image src={p.src} alt={p.name} width={320} height={96} draggable={false} className="h-7 sm:h-9 w-auto object-contain" />
+          <img src={p.src} alt={p.name} className="h-7 sm:h-9 w-auto object-contain" draggable={false} />
         </button>
       ))}
     </div>

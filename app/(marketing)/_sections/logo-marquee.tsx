@@ -25,8 +25,12 @@ export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: b
   return (
     <div aria-hidden={ariaHidden} className="flex items-center gap-5 sm:gap-7 pr-5 sm:pr-7 shrink-0">
       {logos.map((p) => {
+        // Use <img> instead of <Image> for local SVGs — Next Image adds
+        // complexity (layout shift guards, blur placeholders) that breaks some
+        // inline SVGs at the small marquee sizes. The modal uses <img> and it
+        // works; the marquee should match.
         const img = (
-          <Image src={p.src} alt={p.name} width={320} height={96} className="h-7 sm:h-9 w-auto object-contain" />
+          <img src={p.src} alt={p.name} className="h-7 sm:h-9 w-auto object-contain" draggable={false} />
         );
         if (!p.href) {
           return <div key={p.name} title={p.name} className={`${plate} hover:opacity-100`}>{img}</div>;
