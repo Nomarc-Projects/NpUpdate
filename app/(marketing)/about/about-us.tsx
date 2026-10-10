@@ -162,7 +162,7 @@ export function AboutUs({ team }: { team: AboutTeamSetting }) {
             <div>
               <p className={cn(eyebrow, "mb-4")}>About Nomarc Projects</p>
               <h1 className="text-[clamp(2rem,4.4vw,3.25rem)] font-bold leading-[1.12] tracking-tight text-[#1e1e1e] dark:text-white">
-                Building the Digital Infrastructure for Africa&apos;s Construction Industry
+                Digital Infrastructure for The Construction Industry
               </h1>
               <div className="mt-10 flex justify-center lg:justify-start lg:pl-10">
                 <RotatingSeal />
