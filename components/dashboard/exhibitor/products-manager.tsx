@@ -226,7 +226,7 @@ export function ProductsManager({ products, limits = null }: { products: MyProdu
     Promise.all(ids.map((id) => setProductStatus(id, status))).then(() => router.refresh()).catch((e) => {
       setList(prev);
       const msg = e instanceof Error ? e.message : "Some updates failed";
-      if (/upgrade/i.test(msg)) toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+      if (/upgrade/i.test(msg)) toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } });
       else toast.error(msg);
     });
     clearSel();

@@ -298,7 +298,7 @@ export function ExhibitorHome() {
    * route, which re-checks server-side.
    */
   function goToAddProduct() {
-    if (trial && !trial.subscribed) { router.push("/dashboard/plans"); return; }
+    if (trial && !trial.subscribed) { router.push("/dashboard/plans/exhibitor"); return; }
     router.push("/dashboard/add-product");
   }
 

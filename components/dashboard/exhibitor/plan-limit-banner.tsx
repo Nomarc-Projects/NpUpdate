@@ -78,7 +78,7 @@ function Reason({ title, body, warning = false }: { title: string; body: string;
 function Upgrade({ label }: { label: string }) {
   return (
     <Link
-      href="/dashboard/plans"
+      href="/dashboard/plans/exhibitor"
       className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-[#1e1e1e] px-3.5 py-2 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#333] dark:bg-[#ffd716] dark:text-[#1e1e1e] dark:hover:bg-[#e6c114]"
     >
       {label} <ArrowUpRight size={14} />

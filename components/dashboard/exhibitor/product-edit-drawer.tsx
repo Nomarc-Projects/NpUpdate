@@ -87,7 +87,7 @@ export function ProductEditDrawer({ open, onClose, productId }: { open: boolean;
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Couldn't save product";
         if (/upgrade/i.test(msg)) {
-          toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") } });
+          toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } });
         } else {
           toast.error(msg);
         }

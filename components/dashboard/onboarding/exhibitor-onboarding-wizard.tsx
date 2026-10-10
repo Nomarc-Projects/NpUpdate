@@ -314,7 +314,7 @@ export function ExhibitorOnboardingWizard() {
                   </div>
 
                   <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-                    <button onClick={() => { router.push("/dashboard/plans"); router.refresh(); }} className={cn(yellowBtn, "w-full sm:flex-1")}>
+                    <button onClick={() => { router.push("/dashboard/plans/exhibitor"); router.refresh(); }} className={cn(yellowBtn, "w-full sm:flex-1")}>
                       <ArrowRight size={15} className="transition-transform group-hover:translate-x-0.5" /> Choose a Plan
                     </button>
                     <button onClick={() => { router.push("/dashboard"); router.refresh(); }} className={cn(ghostBtn, "w-full sm:flex-1")}>
