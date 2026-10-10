@@ -86,7 +86,6 @@ function useRefreshOnFocus(refresh: () => void, enabled: boolean) {
 export function NewsTicker() {
   const pathname = usePathname();
   const inApp =
-    pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||

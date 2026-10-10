@@ -14,7 +14,8 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
-import { getExhibitionHub } from "@/lib/services/platform-settings-read";
+import { getExhibitionHub, getTools } from "@/lib/services/platform-settings-read";
+import { MarketingNavbar } from "@/components/layout/marketing-navbar";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -83,23 +84,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // Exhibition Hub nav entries are shown in the member dashboard. Off = hidden,
   // on = visible.
   const exhibitionEnabled = (await getExhibitionHub().catch(() => ({ enabled: false }))).enabled;
+  // Same for the Tools page.
+  const toolsEnabled = (await getTools().catch(() => ({ enabled: false }))).enabled;
 
   return (
     <TourProvider audience={viewer.activeRole}>
       <RoleProvider heldRoles={Array.from(viewer.heldRoles)} activeRole={viewer.activeRole} plans={viewer.plans}>
-        <div className="flex h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
-          <SessionHydrator />
-          <PresenceHeartbeat />
-          <DashboardSidebar exhibitionEnabled={exhibitionEnabled} />
-          <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
-            <div className="pt-14 lg:pt-0 pb-20 md:pb-0 max-w-full">
-              <ImpersonationBanner />
-              <DashTopBar notificationCount={unreadNotifications} />
-              {children}
-            </div>
-          </main>
-          <MessagesFab />
-          <MobileBottomNav exhibitionEnabled={exhibitionEnabled} />
+        <div className="flex flex-col h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
+          <MarketingNavbar exhibitionEnabled={exhibitionEnabled} toolsEnabled={toolsEnabled} />
+          <div className="flex-1 flex overflow-hidden">
+            <SessionHydrator />
+            <PresenceHeartbeat />
+            <DashboardSidebar exhibitionEnabled={exhibitionEnabled} />
+            <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
+              <div className="pt-14 lg:pt-0 pb-20 md:pb-0 max-w-full">
+                <ImpersonationBanner />
+                <DashTopBar notificationCount={unreadNotifications} />
+                {children}
+              </div>
+            </main>
+            <MessagesFab />
+            <MobileBottomNav exhibitionEnabled={exhibitionEnabled} />
+          </div>
         </div>
       </RoleProvider>
     </TourProvider>
