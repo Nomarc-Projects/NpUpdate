@@ -24,7 +24,7 @@ export default async function AddProductPage() {
   // courtesy, but the URL is typeable — so the gate is enforced again on the
   // way in, and createProduct/setProductStatus enforce it independently.
   const trial = await getTrialState().catch(() => null);
-  if (!trial?.subscribed) redirect("/dashboard/plans");
+  if (!trial?.subscribed) redirect("/dashboard/plans/exhibitor");
 
   const [company, limits] = await Promise.all([
     getMyCompany().catch(() => null),
