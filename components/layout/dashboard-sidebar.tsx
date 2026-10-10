@@ -6,7 +6,7 @@ import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
   Upload, FileText, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, ArrowUpRight, type LucideIcon,
+  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
 import { animateThemeChange } from "@/lib/theme-transition";
@@ -67,6 +67,12 @@ const navGroups: Group[] = [
     { label: "View Product",     href: "/exhibition-hub",           icon: Package },
     { label: "Saved Product",    href: "/dashboard/products/saved", icon: Bookmark },
     { label: "Showcase Product", href: "/dashboard/my-products",    icon: Store },
+  ]},
+  { title: "Exhibitor", items: [
+    { label: "Add Product",    href: "/dashboard/add-product",    icon: Plus },
+    { label: "My Products",    href: "/dashboard/my-products",    icon: Package },
+    { label: "Company Profile", href: "/dashboard/company",       icon: Store },
+    { label: "Plans & Billing", href: "/dashboard/plans/exhibitor", icon: CreditCard },
   ]},
   secondary,
 ];
