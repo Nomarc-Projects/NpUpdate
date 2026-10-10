@@ -6,6 +6,8 @@ import { useTheme } from "@/components/theme";
 import { Check, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { naira, planPrice, cycleSaving, PLAN_LABEL, type BillingCycle, type ExhibitorPlan } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
+import { startCheckout } from "@/lib/services/billing";
+import { toast } from "sonner";
 
 const CYCLES: { key: BillingCycle; label: string }[] = [
   { key: "monthly", label: "Monthly" },
@@ -164,7 +166,18 @@ export default function ExhibitorPlansPage() {
                       <span className={`text-xs ${intervalColor}`}>{cycle === "monthly" ? "billed monthly" : cycle === "biannual" ? "billed bi-annually" : "billed annually"}</span>
                     </div>
                     <button
-                      onClick={() => router.push(`/dashboard/plans/checkout?plan=${plan}&billing=${cycle}`)}
+                      onClick={async () => {
+                        try {
+                          const res = await startCheckout(plan, cycle);
+                          if (res.checkoutUrl) {
+                            window.location.href = res.checkoutUrl;
+                          } else if (res.demo) {
+                            router.push("/dashboard/plans/receipt");
+                          }
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
+                        }
+                      }}
                       className={buttonStyles}
                     >
                       Pay Now
