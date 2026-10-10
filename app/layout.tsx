@@ -54,7 +54,7 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "Nomarc Projects",
       title: "Nomarc Projects — Digital home for everything construction",
       description:
-        "Learn how Nomadic Architects is building Nigeria's construction marketplace — connecting verified professionals, exhibitors and buyers through a modern digital platform.",
+        "Digital ecosystem for the construction industry. Connect with construction professionals, clients, material distributors, manufacturers. Build teams, projects and find tools in one trusted network.",
       url: BASE,
       locale: "en_NG",
     },
@@ -62,7 +62,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title: "Nomarc Projects — Digital home for everything construction",
       description:
-        "Nigeria's leading construction marketplace connecting architects, engineers, quantity surveyors, material suppliers and buyers.",
+        "Digital ecosystem for the construction industry. Connect with construction professionals, clients, material distributors, manufacturers. Build teams, projects and find tools in one trusted network.",
     },
     robots: { index: true, follow: true },
   };
