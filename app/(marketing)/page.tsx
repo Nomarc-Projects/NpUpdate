@@ -2,6 +2,7 @@ import { HeroSection } from "./_sections/hero";
 import { TrustedByStrip } from "./_sections/trusted-by";
 import { HowItWorksSection } from "./_sections/how-it-works";
 import { BrowseCategorySection } from "./_sections/browse-categories";
+import { PromotedListings } from "@/components/ui/promoted-listings";
 import { InlineNewsTicker } from "@/components/ui/news-ticker";
 import { getActiveTicker } from "@/lib/services/ticker";
 import { InsightsSection } from "./_sections/insights";
@@ -27,6 +28,7 @@ export default async function HomePage() {
       <HeroSection />
       <TrustedByStrip />
       <HowItWorksSection />
+      <PromotedListings />
       <BrowseCategorySection />
       <InlineNewsTicker initialItems={ticker.items} initialPxPerSecond={ticker.pxPerSecond} />
       <InsightsSection />

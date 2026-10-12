@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowLeft, Check, Quote } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { PromotedListings } from "@/components/ui/promoted-listings";
 import { Button } from "@/components/ui/button";
 import { ScrollArrow, useScroller } from "@/components/ui/scroller";
 import { useAuth } from "@/lib/store/auth";
@@ -94,8 +93,6 @@ export function BrowseCategorySection() {
   return (
     <FadeUp>
       <section className="bg-white dark:bg-[#111] py-20 px-6 md:px-10 lg:px-14">
-        <PromotedListings />
-
         <div className="flex items-end justify-between gap-4 mb-10">
           <div>
             <p className="text-[#ffd716] text-[11px] font-bold uppercase tracking-[0.24em] mb-3">Talent</p>
