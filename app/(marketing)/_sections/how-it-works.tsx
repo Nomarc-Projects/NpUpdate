@@ -83,7 +83,7 @@ export function HowItWorksSection() {
         <FadeUp className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold text-[#1e1e1e] dark:text-white">How Nomarc works</h2>
           <p className="mt-3 text-[#898989] text-sm max-w-[440px] mx-auto leading-relaxed">
-            Whether you&apos;re showcasing your skills or looking to hire top talent, Nomarc Data Gig makes it seamless.
+            Whether you&apos;re showcasing your skills or looking to hire top talent, Nomarc Projects makes it seamless.
           </p>
         </FadeUp>
 
