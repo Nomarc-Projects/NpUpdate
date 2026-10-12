@@ -130,16 +130,18 @@ export default function ExhibitorPlansPage() {
               : "bg-neutral-100 p-5 border-b border-neutral-200";
 
             const titleColor = isKeyPlayer ? "text-[#FFD400]" : isSME ? "text-white" : "text-neutral-900";
-            const subtitleColor = isKeyPlayer ? "text-neutral-400" : isSME ? "text-neutral-300" : isDark ? "text-neutral-500" : "text-neutral-600";
+            const subtitleColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-500" : "text-neutral-600";
             const bodyBg = isSME ? "bg-neutral-100" : "";
             const featureColor = isKeyPlayer ? "text-neutral-300" : isSME ? "text-neutral-700" : isDark ? "text-neutral-400" : "text-neutral-700";
             const checkColor = isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-600" : "text-neutral-800";
-            const priceColor = isKeyPlayer ? "text-white" : "text-neutral-900";
-            const intervalColor = isKeyPlayer ? "text-neutral-400" : "text-neutral-400";
+            const priceColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-white" : "text-neutral-900";
+            const intervalColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-neutral-400" : "text-neutral-400";
             const buttonStyles = isPopular
               ? "w-full bg-[#FFD400] hover:bg-[#ebd000] text-neutral-900 font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer"
               : isKeyPlayer
               ? "w-full border border-neutral-700 bg-transparent hover:bg-neutral-800 text-white font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer"
+              : isSME
+              ? "w-full bg-[#FFD400] hover:bg-[#ebd000] text-neutral-900 font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer"
               : isDark
               ? "w-full border border-neutral-700 hover:bg-neutral-800 text-white font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer"
               : "w-full border border-neutral-200 hover:bg-neutral-50 text-neutral-900 font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer";
