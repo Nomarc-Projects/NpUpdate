@@ -28,6 +28,9 @@ const PLAN_DESC: Record<string, string> = {
   Plus: "More reach and tools for growing professionals.",
   Pro: "Full power for active teams and exhibitors.",
   Premium: "Everything, with priority access and support.",
+  SMEs: "For small suppliers finding their feet — 1 category, 10 uploads.",
+  Exhibitors: "For growing teams and active networkers — 5 categories, 50 uploads, Performance Insight.",
+  "Key players": "For established firms maximizing their reach — 10 categories, 100 uploads, Monthly Industry Report, Performance Insight.",
 };
 const cycleMonths = (c: string) => (c === "annual" ? 12 : c === "biannual" ? 6 : 1);
 
@@ -40,7 +43,7 @@ function exportInvoices(txs: TxRow[], fmt: "csv" | "xls") {
   else { const esc = (v: unknown) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); const b = [cols, ...data].map((r, i) => `<tr>${r.map((v) => `<t${i === 0 ? "h" : "d"}>${esc(v)}</t${i === 0 ? "h" : "d"}>`).join("")}</tr>`).join(""); out("application/vnd.ms-excel", `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head><meta charset="utf-8"></head><body><table border="1">${b}</table></body></html>`); }
 }
 
-export function BillingView({ planLabel, isFree, txs, paymentPlansEnabled = true }: { planLabel: string; isFree: boolean; txs: TxRow[]; paymentPlansEnabled?: boolean }) {
+export function BillingView({ planLabel, isFree, txs, paymentPlansEnabled = true, isExhibitor = false, exhibitorPlan = null }: { planLabel: string; isFree: boolean; txs: TxRow[]; paymentPlansEnabled?: boolean; isExhibitor?: boolean; exhibitorPlan?: string | null }) {
   const [autoRenew, setAutoRenew] = useState(true);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,7 +80,7 @@ export function BillingView({ planLabel, isFree, txs, paymentPlansEnabled = true
             <div className="flex items-center gap-2">
               {!isFree && <button onClick={() => setConfirmCancel(true)} className="px-4 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-medium text-[#6b6b6b] dark:text-white/60 hover:text-[#e5484d] hover:border-[#e5484d]/40 transition-colors">Cancel plan</button>}
               {paymentPlansEnabled && (
-                <Link href="/dashboard/plans" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><Sparkles size={15} /> {isFree ? "Upgrade plan" : "Change plan"}</Link>
+                <Link href={isExhibitor ? "/dashboard/plans/exhibitor" : "/dashboard/plans"} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><Sparkles size={15} /> {isFree ? "Upgrade plan" : "Change plan"}</Link>
               )}
             </div>
           </div>
@@ -112,7 +115,7 @@ export function BillingView({ planLabel, isFree, txs, paymentPlansEnabled = true
               <p className="text-[12px] text-[#9a9a9a]">Gateway-managed & secure</p>
             </div>
           </div>
-          <Link href="/dashboard/plans" className="mt-3 inline-block text-[12.5px] font-medium text-[#caa400] hover:underline">Add or update at checkout →</Link>
+          <Link href={isExhibitor ? "/dashboard/plans/exhibitor" : "/dashboard/plans"} className="mt-3 inline-block text-[12.5px] font-medium text-[#caa400] hover:underline">Add or update at checkout →</Link>
         </div>
       </div>
 
