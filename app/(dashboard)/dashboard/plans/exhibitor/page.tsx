@@ -117,17 +117,22 @@ export default function ExhibitorPlansPage() {
               ? "bg-[#1e1e1e] border border-neutral-800 shadow-xs"
               : "bg-white border border-neutral-200 shadow-xs";
 
+            const isSME = plan === "sme";
+
             const headerStyles = isPopular
               ? "bg-[#FFD400] p-5 border-b border-[#FFD400]"
               : isKeyPlayer
               ? "bg-[#1C1C1C] p-5 border-b border-neutral-800"
+              : isSME
+              ? "bg-black p-5 border-b border-neutral-800"
               : isDark
               ? "bg-neutral-800 p-5 border-b border-neutral-700"
               : "bg-neutral-100 p-5 border-b border-neutral-200";
 
-            const titleColor = isKeyPlayer ? "text-[#FFD400]" : "text-neutral-900";
-            const subtitleColor = isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-500" : "text-neutral-600";
-            const featureColor = isKeyPlayer ? "text-neutral-300" : isDark ? "text-neutral-400" : "text-neutral-700";
+            const titleColor = isKeyPlayer ? "text-[#FFD400]" : isSME ? "text-white" : "text-neutral-900";
+            const subtitleColor = isKeyPlayer ? "text-neutral-400" : isSME ? "text-neutral-300" : isDark ? "text-neutral-500" : "text-neutral-600";
+            const bodyBg = isSME ? "bg-neutral-100" : "";
+            const featureColor = isKeyPlayer ? "text-neutral-300" : isSME ? "text-neutral-700" : isDark ? "text-neutral-400" : "text-neutral-700";
             const checkColor = isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-600" : "text-neutral-800";
             const priceColor = isKeyPlayer ? "text-white" : "text-neutral-900";
             const intervalColor = isKeyPlayer ? "text-neutral-400" : "text-neutral-400";
@@ -149,7 +154,7 @@ export default function ExhibitorPlansPage() {
                   <h3 className={`text-lg font-bold ${titleColor}`}>{PLAN_LABEL[plan]}</h3>
                 </div>
 
-                <div className="p-6 flex-1 flex flex-col justify-between">
+                <div className={`p-6 flex-1 flex flex-col justify-between ${bodyBg}`}>
                   <div>
                     <p className={`text-xs mb-3 font-medium ${subtitleColor}`}>{getTagline(plan)}</p>
 
