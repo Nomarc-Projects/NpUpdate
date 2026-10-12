@@ -20,7 +20,7 @@ export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: b
   // pr-* matches the inter-item gap so two groups concatenate with a uniform
   // rhythm — that makes the -50% loop perfectly seamless (no dead space).
   const plate =
-    "flex-shrink-0 flex items-center justify-center rounded-2xl px-5 sm:px-7 h-16 sm:h-20 opacity-80 transition-opacity bg-transparent ring-0 shadow-none dark:bg-white dark:ring-1 dark:ring-white/10 dark:shadow-sm";
+    "flex-shrink-0 flex items-center justify-center rounded-2xl px-5 sm:px-7 h-20 sm:h-28 opacity-80 transition-opacity bg-transparent ring-0 shadow-none dark:bg-white dark:ring-1 dark:ring-white/10 dark:shadow-sm";
 
   return (
     <div aria-hidden={ariaHidden} className="flex items-center gap-5 sm:gap-7 pr-5 sm:pr-7 shrink-0">
@@ -30,7 +30,7 @@ export function LogoGroup({ logos, ariaHidden }: { logos: Logo[]; ariaHidden?: b
         // inline SVGs at the small marquee sizes. The modal uses <img> and it
         // works; the marquee should match.
         const img = (
-          <img src={p.src} alt={p.name} className="h-7 sm:h-9 w-auto object-contain" draggable={false} />
+          <img src={p.src} alt={p.name} className="h-10 sm:h-14 w-auto object-contain" draggable={false} />
         );
         if (!p.href) {
           return <div key={p.name} title={p.name} className={`${plate} hover:opacity-100`}>{img}</div>;
