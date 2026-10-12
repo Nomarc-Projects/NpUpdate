@@ -130,7 +130,7 @@ export default function ExhibitorPlansPage() {
               : "bg-neutral-100 p-5 border-b border-neutral-200";
 
             const titleColor = isKeyPlayer ? "text-[#FFD400]" : isSME ? "text-white" : "text-neutral-900";
-            const subtitleColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-500" : "text-neutral-600";
+            const subtitleColor = isSME ? "text-black" : isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-500" : "text-neutral-600";
             const bodyBg = isSME ? "bg-neutral-100" : "";
             const featureColor = isKeyPlayer ? "text-neutral-300" : isSME ? "text-neutral-700" : isDark ? "text-neutral-400" : "text-neutral-700";
             const checkColor = isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-600" : "text-neutral-800";
