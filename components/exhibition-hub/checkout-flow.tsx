@@ -13,7 +13,7 @@ import { naira } from "@/lib/sample-catalog";
 import { AddressFields, addressIsComplete, BLANK_ADDRESS, type AddressFormValue } from "@/components/exhibition-hub/address-fields";
 import { PaymentMethodCards } from "@/components/exhibition-hub/payment-method-cards";
 import { saveAddress, type SavedAddress } from "@/lib/services/addresses";
-import { startCartCheckout } from "@/lib/services/checkout";
+import { startCartCheckout, getConfiguredProviders } from "@/lib/services/checkout";
 import type { CartCheckoutGroup } from "@/lib/services/orders";
 import type { ProviderName } from "@/lib/payments";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,18 @@ export function CheckoutFlow({ savedAddresses }: { savedAddresses: SavedAddress[
   const [shipping, setShipping] = useState<AddressFormValue>(billing);
   const [saveBilling, setSaveBilling] = useState(savedAddresses.length === 0);
   const [provider, setProvider] = useState<ProviderName>("paystack");
+  const [availableProviders, setAvailableProviders] = useState<ProviderName[]>([]);
   const [placing, setPlacing] = useState(false);
+
+  useEffect(() => {
+    getConfiguredProviders().then(setAvailableProviders).catch(() => setAvailableProviders([]));
+  }, []);
+
+  useEffect(() => {
+    if (availableProviders.length > 0 && !availableProviders.includes(provider)) {
+      setProvider(availableProviders[0]);
+    }
+  }, [availableProviders, provider]);
 
   const groups = groupByVendor(items);
   const { subtotal, shipping: shippingFee, vat, total } = cartTotals(items);
@@ -200,7 +211,10 @@ export function CheckoutFlow({ savedAddresses }: { savedAddresses: SavedAddress[
               <div className="space-y-6">
                 <div>
                   <h2 className="text-[14px] font-bold text-[#1e1e1e] dark:text-white mb-3">Payment method</h2>
-                  <PaymentMethodCards value={provider} onChange={setProvider} />
+                  <PaymentMethodCards value={provider} onChange={setProvider} available={availableProviders} />
+                  {availableProviders.length === 0 && (
+                    <p className="mt-3 text-[12.5px] text-[#c53434]">No payment providers configured. Please contact support.</p>
+                  )}
                 </div>
 
                 <div>
@@ -214,9 +228,18 @@ export function CheckoutFlow({ savedAddresses }: { savedAddresses: SavedAddress[
 
               <div className="mt-6 lg:mt-0">
                 <SummaryCard subtotal={subtotal} shipping={shippingFee} vat={vat} total={total} />
-                <button onClick={placeOrder} disabled={placing}
-                  className="w-full mt-3 py-3.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[14px] font-bold hover:bg-[#e6c114] disabled:opacity-60 transition-colors inline-flex items-center justify-center gap-2">
-                  {placing ? <><Loader2 size={16} className="animate-spin" /> Placing order…</> : `Place order · ${naira(total)}`}
+                <button
+                  onClick={placeOrder}
+                  disabled={placing || availableProviders.length === 0}
+                  className="w-full mt-3 py-3.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[14px] font-bold hover:bg-[#e6c114] disabled:opacity-60 disabled:cursor-not-allowed transition-colors inline-flex items-center justify-center gap-2"
+                >
+                  {placing
+                    ? <>
+                        <Loader2 size={16} className="animate-spin" /> Placing order…
+                      </>
+                    : availableProviders.length === 0
+                      ? "Checkout unavailable — no payment provider"
+                      : `Place order · ${naira(total)}`}
                 </button>
                 <button onClick={prev} className="w-full mt-2 py-2 text-[12.5px] font-medium text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors">Back</button>
               </div>

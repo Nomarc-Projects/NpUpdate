@@ -8,7 +8,7 @@ import { db } from "@/lib/db/client";
 import { paymentTransaction, salesOrder } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
-import { activeProvider, getProvider, type ProviderName } from "@/lib/payments";
+import { activeProvider, getProvider, configuredProviders, type ProviderName } from "@/lib/payments";
 import { createOrdersFromCart, getOrdersByPaymentRef, type CartCheckoutGroup, type OrderRow } from "@/lib/services/orders";
 import { resolveSiteUrl } from "@/lib/site-url";
 
@@ -156,6 +156,11 @@ export async function verifyCartCheckout(reference: string): Promise<{ status: "
   if (status !== "success") return { status };
   const orders = await getOrdersByPaymentRef(reference);
   return { status, orderIds: orders.map((o) => o.id) };
+}
+
+/** Which gateways can take a payment right now. Exposed as an action for the client checkout flow. */
+export async function getConfiguredProviders(): Promise<ProviderName[]> {
+  return configuredProviders();
 }
 
 /** Orders + payment summary for the thank-you page. Scoped to the current buyer. */

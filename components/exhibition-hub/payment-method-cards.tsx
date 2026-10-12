@@ -15,10 +15,15 @@ const METHODS: { key: ProviderName; label: string; sub: string; icon: string }[]
   { key: "seerbit", label: "Seerbit", sub: "Card, bank transfer", icon: "/payment-icons/seerbit.png" },
 ];
 
-export function PaymentMethodCards({ value, onChange }: { value: ProviderName; onChange: (v: ProviderName) => void }) {
+export function PaymentMethodCards({
+  value,
+  onChange,
+  available = ["paystack", "flutterwave", "seerbit"] as ProviderName[],
+}: { value: ProviderName; onChange: (v: ProviderName) => void; available?: ProviderName[] }) {
+  const filteredMethods = METHODS.filter((m) => available.includes(m.key));
   return (
     <div className="space-y-2.5">
-      {METHODS.map((m) => {
+      {filteredMethods.map((m) => {
         const active = value === m.key;
         return (
           <motion.button
