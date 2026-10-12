@@ -134,8 +134,8 @@ export default function ExhibitorPlansPage() {
             const bodyBg = isSME ? "bg-neutral-100" : "";
             const featureColor = isKeyPlayer ? "text-neutral-300" : isSME ? "text-neutral-700" : isDark ? "text-neutral-400" : "text-neutral-700";
             const checkColor = isKeyPlayer ? "text-neutral-400" : isDark ? "text-neutral-600" : "text-neutral-800";
-            const priceColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-white" : "text-neutral-900";
-            const intervalColor = isSME ? "text-[#FFD400]" : isKeyPlayer ? "text-neutral-400" : "text-neutral-400";
+            const priceColor = isSME ? "text-black" : isKeyPlayer ? "text-white" : "text-neutral-900";
+            const intervalColor = isSME ? "text-black" : isKeyPlayer ? "text-neutral-400" : "text-neutral-400";
             const buttonStyles = isPopular
               ? "w-full bg-[#FFD400] hover:bg-[#ebd000] text-neutral-900 font-semibold py-2.5 rounded-xl transition-colors text-xs mb-8 cursor-pointer"
               : isKeyPlayer
