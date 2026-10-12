@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/theme";
-import { Check, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
 import { naira, planPrice, cycleSaving, PLAN_LABEL, type BillingCycle, type ExhibitorPlan } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
 import { startCheckout } from "@/lib/services/billing";
@@ -172,7 +172,7 @@ export default function ExhibitorPlansPage() {
                           if (res.checkoutUrl) {
                             window.location.href = res.checkoutUrl;
                           } else if (res.demo) {
-                            router.push(`/dashboard/plans/mock-payment?plan=${plan}&billing=${cycle}`);
+                            router.push("/dashboard/plans/receipt");
                           }
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
