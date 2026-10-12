@@ -15,7 +15,6 @@ import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
 import { getExhibitionHub, getTools } from "@/lib/services/platform-settings-read";
-import { MarketingNavbar } from "@/components/layout/marketing-navbar";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -91,7 +90,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <TourProvider audience={viewer.activeRole}>
       <RoleProvider heldRoles={Array.from(viewer.heldRoles)} activeRole={viewer.activeRole} plans={viewer.plans}>
         <div className="flex flex-col h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
-          <MarketingNavbar exhibitionEnabled={exhibitionEnabled} toolsEnabled={toolsEnabled} />
           <div className="flex-1 flex overflow-hidden">
             <SessionHydrator />
             <PresenceHeartbeat />
