@@ -172,7 +172,7 @@ export default function ExhibitorPlansPage() {
                           if (res.checkoutUrl) {
                             window.location.href = res.checkoutUrl;
                           } else if (res.demo) {
-                            router.push("/dashboard/plans/receipt");
+                            router.push(`/dashboard/plans/mock-payment?plan=${plan}&billing=${cycle}`);
                           }
                         } catch (e) {
                           toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
