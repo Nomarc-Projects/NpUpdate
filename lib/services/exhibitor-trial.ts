@@ -11,6 +11,7 @@ import {
   EXHIBITOR_PRODUCTS_PER_CATEGORY,
   getExhibitorTotalListingCap,
 } from "@/lib/services/exhibitor-plan-rules";
+import { getActiveTrial } from "@/lib/services/trial";
 
 /**
  * Exhibitor publishing requires an active paid plan. Account setup (the
@@ -34,8 +35,14 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * through. `asExhibitorPlan` also absorbs rows still holding a professional
  * slug from before the exhibitor ladder existed; those grant nothing rather
  * than being mistaken for a paid tier.
+ *
+ * Also checks for active 14-day trial (trial_ends_at + trial_plan on user_role).
  */
 async function exhibitorPlan(uid: string): Promise<ExhibitorPlan> {
+  // Check for active trial first
+  const trial = await getActiveTrial(uid, "exhibitor");
+  if (trial) return trial.plan as ExhibitorPlan;
+
   const rows = await db
     .select({ plan: userRole.plan, currentPeriodEnd: userRole.currentPeriodEnd })
     .from(userRole)
@@ -74,15 +81,17 @@ export async function getTrialState(): Promise<TrialState> {
     return { isExhibitor: false, subscribed: false, plan: "free", inTrial: false, daysLeft: 0, publishedCount: 0, listingCap: 0, canPublish: false, reason: "not_exhibitor" };
   }
 
-  const plan = await exhibitorPlan(uid);
-  const subscribed = plan !== "free";
+  // Check for active 14-day plan trial
+  const trial = await getActiveTrial(uid, "exhibitor");
+  const inPlanTrial = !!trial;
+  const plan = inPlanTrial ? (trial.plan as ExhibitorPlan) : await exhibitorPlan(uid);
+  const subscribed = plan !== "free" && !inPlanTrial;
 
-  // Companies created before 0029 ran fall back to createdAt, matching the
-  // migration's own backfill.
+  // Legacy 30-day company trial (for grandfathering old free listings)
   const started = co.trialStartedAt ?? co.createdAt;
   const elapsed = Date.now() - new Date(started).getTime();
-  const daysLeft = Math.max(0, Math.ceil((TRIAL_DAYS * DAY_MS - elapsed) / DAY_MS));
-  const inTrial = daysLeft > 0;
+  const legacyDaysLeft = Math.max(0, Math.ceil((TRIAL_DAYS * DAY_MS - elapsed) / DAY_MS));
+  const inLegacyTrial = legacyDaysLeft > 0;
 
   const [pub] = await db
     .select({ n: count() })
@@ -91,7 +100,8 @@ export async function getTrialState(): Promise<TrialState> {
   let publishedCount = Number(pub?.n ?? 0);
 
   // Lapsed and unpaid: retire the listings rather than leaving them live for free.
-  if (!subscribed && !inTrial && publishedCount > 0) {
+  // But don't retire if user is in an active 14-day plan trial.
+  if (!subscribed && !inPlanTrial && !inLegacyTrial && publishedCount > 0) {
     await db
       .update(product)
       .set({ status: "draft", draft: true, updatedAt: new Date() })
@@ -99,17 +109,25 @@ export async function getTrialState(): Promise<TrialState> {
     publishedCount = 0;
   }
 
-  // Publishing requires an active paid plan. An unsubscribed account — trial
-  // window or not — has no allowance; the window only decides when relics of
-  // the old free listing are retired.
-  const listingCap = subscribed ? getExhibitorTotalListingCap(plan) : 0;
+  // Publishing allowed if: subscribed OR in 14-day plan trial
+  const listingCap = (subscribed || inPlanTrial) ? getExhibitorTotalListingCap(plan) : 0;
   const canPublish = publishedCount < listingCap;
   const reason: TrialState["reason"] = canPublish
     ? "ok"
-    : subscribed ? "plan_limit_reached"
+    : subscribed || inPlanTrial ? "plan_limit_reached"
     : "plan_required";
 
-  return { isExhibitor: true, subscribed, plan, inTrial, daysLeft, publishedCount, listingCap, canPublish, reason };
+  return {
+    isExhibitor: true,
+    subscribed,
+    plan,
+    inTrial: inPlanTrial,
+    daysLeft: inPlanTrial ? Math.max(0, Math.ceil((trial!.endsAt.getTime() - Date.now()) / DAY_MS)) : 0,
+    publishedCount,
+    listingCap,
+    canPublish,
+    reason
+  };
 }
 
 /**

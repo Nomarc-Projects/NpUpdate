@@ -6,22 +6,14 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { auth } from "@/lib/auth";
 import { userRole } from "@/lib/db/schema";
+import { getHeldRoles as getHeldRolesInternal, type HeldRole, type StackableRole, type RoleGrantSource } from "@/lib/roles-internal";
+import { clearTrial } from "@/lib/services/trial";
 
-export type StackableRole = "professional" | "exhibitor" | "employer";
-export type RoleGrantSource = "signup_legacy" | "self_serve_tier1" | "kyc_approved" | "admin_grant";
-
-export interface HeldRole {
-  role: StackableRole;
-  plan: string;
-}
+export { type HeldRole, type StackableRole, type RoleGrantSource };
 
 /** Every role currently held (active, not revoked) by a user. */
 export async function getHeldRoles(userId: string): Promise<HeldRole[]> {
-  const rows = await db
-    .select({ role: userRole.role, plan: userRole.plan })
-    .from(userRole)
-    .where(and(eq(userRole.userId, userId), eq(userRole.status, "active")));
-  return rows as HeldRole[];
+  return getHeldRolesInternal(userId);
 }
 
 /**
@@ -156,6 +148,10 @@ export async function setRolePlan(userId: string, plan: string, target?: Stackab
   const activeRole = target ?? (await getActiveRole(userId));
   const role = (["professional", "exhibitor", "employer"] as const).find((r) => r === activeRole);
   if (!role) return;
+
+  // Clear any active trial for this role — paid subscription replaces trial
+  await clearTrial(userId, role);
+
   await db
     .insert(userRole)
     .values({ userId, role, status: "active", source: "self_serve_tier1", plan, currentPeriodEnd: periodEnd ?? null })
@@ -163,7 +159,7 @@ export async function setRolePlan(userId: string, plan: string, target?: Stackab
       target: [userRole.userId, userRole.role],
       // Paying clears any queued downgrade — buying a tier cancels a scheduled
       // drop rather than letting it fire over the top of the new purchase.
-      set: { plan, currentPeriodEnd: periodEnd ?? null, pendingPlan: null },
+      set: { plan, currentPeriodEnd: periodEnd ?? null, pendingPlan: null, trialEndsAt: null, trialPlan: null },
     });
 }
 

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { userRole } from "@/lib/db/schema";
+import { getActiveTrial } from "@/lib/services/trial";
 
 /**
  * Role primitives — server-internal.
@@ -39,10 +40,19 @@ export function isStackableRole(value: unknown): value is StackableRole {
 /** Every role currently held (active, not revoked) by a user. */
 export async function getHeldRoles(userId: string): Promise<HeldRole[]> {
   const rows = await db
-    .select({ role: userRole.role, plan: userRole.plan })
+    .select({ role: userRole.role, plan: userRole.plan, trialEndsAt: userRole.trialEndsAt, trialPlan: userRole.trialPlan })
     .from(userRole)
     .where(and(eq(userRole.userId, userId), eq(userRole.status, "active")));
-  return rows as HeldRole[];
+
+  const results: HeldRole[] = [];
+  for (const row of rows) {
+    // Check for active trial
+    const role = row.role as StackableRole;
+    const trial = await getActiveTrial(userId, role);
+    const effectivePlan = trial ? trial.plan : row.plan;
+    results.push({ role, plan: effectivePlan });
+  }
+  return results;
 }
 
 /**

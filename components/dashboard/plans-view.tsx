@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Check, Sparkles, Crown, Star, Lock } from "lucide-react";
+import { Check, Sparkles, Crown, Star, Lock, Clock } from "lucide-react";
 import { useViewer } from "@/lib/use-viewer";
 import { planPrice, cycleSaving, PLAN_LABEL, naira, type Plan, type BillingCycle } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
 import { cancelPlan } from "@/lib/services/plans";
+import { startTrial } from "@/lib/services/trial";
 
 const CYCLES: { key: BillingCycle; label: string }[] = [
   { key: "monthly", label: "Monthly" },
@@ -40,6 +41,7 @@ export function PlansView({ demoMode = false, unavailable = false }: { demoMode?
   const current = viewer.plan;
   const isExhibitor = viewer.role === "exhibitor";
   const tiers = isExhibitor ? EXHIBITOR_TIERS : PROFESSIONAL_TIERS;
+  const isOnFree = current === "free";
 
   async function choose(plan: Plan) {
     if (plan === current) return;
@@ -59,6 +61,23 @@ export function PlansView({ demoMode = false, unavailable = false }: { demoMode?
       return;
     }
     router.push(`/dashboard/plans/checkout?plan=${plan}&billing=${cycle}`);
+  }
+
+  async function startTrialForPlan(plan: Plan) {
+    setBusy(plan);
+    try {
+      const res = await startTrial(plan);
+      if ("error" in res) {
+        toast.error(res.error);
+        setBusy(null);
+        return;
+      }
+      toast.success(`14-day trial started! Enjoy ${PLAN_LABEL[plan]} features until ${new Date(res.trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't start trial");
+      setBusy(null);
+    }
   }
 
   const priceFor = (plan: Plan) => naira(planPrice(plan, cycle));
@@ -107,16 +126,28 @@ export function PlansView({ demoMode = false, unavailable = false }: { demoMode?
                 ))}
               </ul>
 
-              <button
-                disabled={isCurrent || !!t.comingSoon || busy === t.plan}
-                onClick={() => choose(t.plan)}
-                className={`mt-5 w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-                  isCurrent ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
-                  : t.comingSoon ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
-                  : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"
-                }`}>
-                {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : t.plan === "free" ? "Switch to Free" : `Choose ${PLAN_LABEL[t.plan]}`}
-              </button>
+              <div className="mt-5 space-y-2">
+                {isOnFree && t.plan !== "free" && !t.comingSoon && (
+                  <button
+                    disabled={busy === t.plan}
+                    onClick={() => startTrialForPlan(t.plan)}
+                    className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed bg-[#16a34a] text-white hover:bg-[#15803d]"
+                  >
+                    {busy === t.plan ? "Starting…" : <span className="inline-flex items-center justify-center gap-1.5"><Clock size={13} /> Start 14-day trial</span>}
+                  </button>
+                )}
+                <button
+                  disabled={isCurrent || !!t.comingSoon || busy === t.plan || (isOnFree && t.plan !== "free")}
+                  onClick={() => choose(t.plan)}
+                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                    isCurrent ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
+                    : t.comingSoon ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
+                    : isOnFree && t.plan !== "free" ? "bg-[#e3e3e3] dark:bg-white/10 text-[#9a9a9a]"
+                    : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"
+                  }`}>
+                  {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : t.plan === "free" ? "Switch to Free" : `Choose ${PLAN_LABEL[t.plan]}`}
+                </button>
+              </div>
             </div>
           );
         })}

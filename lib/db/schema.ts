@@ -1089,12 +1089,16 @@ export const userRole = pgTable(
     userId: text("user_id").notNull(),
     role: text("role").notNull(), // professional | exhibitor
     status: text("status").default("active").notNull(), // active | revoked
-    source: text("source").notNull(), // signup_legacy | self_serve_tier1 | kyc_approved | admin_grant
+    source: text("source").notNull(), // signup_legacy | self_serve_tier1 | kyc_approved | admin_grant | trial
     plan: text("plan").default("free").notNull(), // per-role plan
     /** End of the paid term. Null on free rows and pre-0038 subscriptions. */
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
     /** Tier to drop to at period end; null when no change is scheduled. */
     pendingPlan: text("pending_plan"),
+    /** 14-day trial end date. Null when no trial active. */
+    trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
+    /** Plan being trialed. Null when no trial active. */
+    trialPlan: text("trial_plan"),
     grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow().notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     grantedBy: text("granted_by"), // admin userId when source = admin_grant

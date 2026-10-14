@@ -3,11 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/theme";
-import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { naira, planPrice, cycleSaving, PLAN_LABEL, type BillingCycle, type ExhibitorPlan } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
 import { startCheckout } from "@/lib/services/billing";
+import { startTrial } from "@/lib/services/trial";
 import { toast } from "sonner";
+import { useViewer } from "@/lib/use-viewer";
 
 const CYCLES: { key: BillingCycle; label: string }[] = [
   { key: "monthly", label: "Monthly" },
@@ -47,8 +49,12 @@ export default function ExhibitorPlansPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme, resolvedTheme, setTheme } = useTheme();
+  const viewer = useViewer();
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [mounted, setMounted] = useState(false);
+  const [busy, setBusy] = useState<ExhibitorPlan | null>(null);
+  const current = viewer.plan;
+  const isOnFree = current === "free";
 
   useEffect(() => {
     setMounted(true);
@@ -64,6 +70,23 @@ export default function ExhibitorPlansPage() {
   };
 
   const isDark = resolvedTheme === "dark";
+
+  async function startTrialForPlan(plan: ExhibitorPlan) {
+    setBusy(plan);
+    try {
+      const res = await startTrial(plan);
+      if ("error" in res) {
+        toast.error(res.error);
+        setBusy(null);
+        return;
+      }
+      toast.success(`14-day trial started! Enjoy ${PLAN_LABEL[plan]} features until ${new Date(res.trialEndsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`);
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't start trial");
+      setBusy(null);
+    }
+  }
 
   if (!mounted) return <div className="min-h-screen flex items-center justify-center" aria-hidden="true" />;
 
@@ -172,23 +195,35 @@ export default function ExhibitorPlansPage() {
                       <span className={`text-3xl font-extrabold ${priceColor}`}>{naira(price)}</span>
                       <span className={`text-xs ${intervalColor}`}>{cycle === "monthly" ? "billed monthly" : cycle === "biannual" ? "billed bi-annually" : "billed annually"}</span>
                     </div>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const res = await startCheckout(plan, cycle);
-                          if (res.checkoutUrl) {
-                            window.location.href = res.checkoutUrl;
-                          } else if (res.demo) {
-                            router.push("/dashboard/plans/receipt");
+                    <div className="space-y-2">
+                      {isOnFree && (
+                        <button
+                          disabled={busy === plan}
+                          onClick={() => startTrialForPlan(plan)}
+                          className="w-full py-2.5 rounded-xl text-xs font-semibold transition-colors disabled:cursor-not-allowed bg-[#16a34a] text-white hover:bg-[#15803d]"
+                        >
+                          {busy === plan ? "Starting…" : <span className="inline-flex items-center justify-center gap-1.5"><Clock size={12} /> Start 14-day trial</span>}
+                        </button>
+                      )}
+                      <button
+                        disabled={busy === plan || isOnFree}
+                        onClick={async () => {
+                          try {
+                            const res = await startCheckout(plan, cycle);
+                            if (res.checkoutUrl) {
+                              window.location.href = res.checkoutUrl;
+                            } else if (res.demo) {
+                              router.push("/dashboard/plans/receipt");
+                            }
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
                           }
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
-                        }
-                      }}
-                      className={buttonStyles}
-                    >
-                      Pay Now
-                    </button>
+                        }}
+                        className={buttonStyles}
+                      >
+                        {isOnFree ? "Subscribe" : "Pay Now"}
+                      </button>
+                    </div>
                   </div>
 
                   <div className={`border-t pt-6 ${isKeyPlayer ? "border-neutral-800" : isDark ? "border-neutral-800" : "border-neutral-100"}`}>
