@@ -50,3 +50,10 @@ export async function requireSuperAdmin(): Promise<string> {
 export async function isAdmin(): Promise<boolean> {
   return isAdminRole(await sessionRole());
 }
+
+/** Super-admin check that answers rather than throws — for gating controls that
+ *  only `super_admin` may use (billing repair), so the console can hide them
+ *  from a plain admin instead of surfacing a "Forbidden" on click. */
+export async function isSuperAdmin(): Promise<boolean> {
+  return (await sessionRole()) === "super_admin";
+}

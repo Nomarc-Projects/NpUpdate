@@ -9,7 +9,8 @@ import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin, isAdminRole } from "@/lib/authz";
 import { escapeHtml, siteUrl } from "@/lib/email/mailer";
-import { PLAN_LABEL, type Plan } from "@/lib/entitlements";
+import { PLAN_LABEL, type Plan, type BillingCycle } from "@/lib/entitlements";
+import { applyPurchaseForUser, verifyPurchaseReference } from "@/lib/services/billing";
 
 export type AdminStats = {
   totalUsers: number; professionals: number; exhibitors: number; buyers: number; admins: number;
@@ -522,62 +523,226 @@ export async function getUserTransactions(userId: string): Promise<AdminTxRow[]>
 }
 
 /** "Current plan" summary card on User Management's Billing tab (image 126/131). */
-export type UserBillingSummary = { plan: string; planLabel: string; active: boolean; nextRenewal: string | null; amount: number | null; cycle: string | null; provider: string | null };
+export type UserBillingSummary = {
+  plan: string; planLabel: string; role: string | null; active: boolean;
+  periodEnd: string | null; trialEndsAt: string | null;
+  amount: number | null; cycle: string | null; provider: string | null; lastPaid: string | null;
+};
 export async function getUserBillingSummary(userId: string): Promise<UserBillingSummary | null> {
   await requireAdmin();
   const [u] = (await db.execute(sql`SELECT COALESCE(plan,'free') AS plan FROM "user" WHERE id = ${userId} LIMIT 1`)).rows as { plan: string }[];
   if (!u) return null;
+
+  // The entitlement lives on `user_role` for every stackable role, and the
+  // legacy `user.plan` scalar stays 'free' for a paid exhibitor (applyPlan
+  // deliberately never writes it for exhibitor plans). Reading only the
+  // scalar — as this card used to — showed "Free" on accounts that were
+  // actively paying for the Exhibitors/Key players tier.
+  const roleRows = (await db.execute(sql`
+    SELECT role, plan, current_period_end, trial_ends_at
+      FROM user_role
+     WHERE user_id = ${userId} AND status = 'active'
+  `)).rows as { role: string; plan: string | null; current_period_end: string | null; trial_ends_at: string | null }[];
+
+  const paid = roleRows
+    .filter((r) => r.plan && r.plan !== "free")
+    .sort((a, b) => new Date(b.current_period_end ?? 0).getTime() - new Date(a.current_period_end ?? 0).getTime());
+  const chosen = paid[0] ?? roleRows.find((r) => r.trial_ends_at) ?? null;
+  const plan = chosen?.plan ?? u.plan;
+  const periodEnd = chosen?.current_period_end ?? null;
+  const trialEndsAt = chosen?.trial_ends_at ?? null;
+  const future = (v: string | null) => !!v && new Date(v) > new Date();
+  const fmt = (v: string | null) => (v ? new Date(v).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : null);
+
   const [latest] = await db.select().from(paymentTransaction).where(and(eq(paymentTransaction.userId, userId), eq(paymentTransaction.status, "success"))).orderBy(desc(paymentTransaction.createdAt)).limit(1);
-  let nextRenewal: string | null = null;
-  if (latest) {
-    const months = latest.cycle === "annual" ? 12 : latest.cycle === "bi_annual" || latest.cycle === "biannual" ? 6 : 1;
-    const d = new Date(latest.createdAt);
-    d.setMonth(d.getMonth() + months);
-    nextRenewal = d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
-  }
+
   return {
-    plan: u.plan, planLabel: PLAN_LABEL[u.plan as Plan] ?? u.plan, active: u.plan !== "free",
-    nextRenewal, amount: latest?.amount ?? null, cycle: latest?.cycle ?? null, provider: latest?.provider ?? null,
+    plan,
+    planLabel: PLAN_LABEL[plan as Plan] ?? plan,
+    role: chosen?.role ?? null,
+    active: (plan !== "free" && (!periodEnd || future(periodEnd))) || future(trialEndsAt),
+    periodEnd: fmt(periodEnd),
+    trialEndsAt: fmt(trialEndsAt),
+    amount: latest?.amount ?? null,
+    cycle: latest?.cycle ?? null,
+    provider: latest?.provider ?? null,
+    lastPaid: latest ? fmt(new Date(latest.createdAt).toISOString()) : null,
   };
 }
 
-/* ── Billing actions (User Management → Billing History kebab, image 126) ──── */
-export async function markTransactionPaid(txId: string) {
-  const admin = await requireAdmin();
+/* ── Billing repair kit (User Management → Billing History) ─────────────────
+ *
+ * The customer's version of a broken payment is always the same: the provider
+ * took the money, our webhook never recorded it, and they hold a receipt but
+ * have no plan. Until now the console could only flip `payment_transaction`'s
+ * status column — `markTransactionPaid` wrote `success` and stopped, so the
+ * row looked paid while the user still had nothing, and `extendUserPlanExpiry`
+ * logged an audit line without touching a single date.
+ *
+ * Every path below ends in billing's own `applyPurchaseForUser` → `applyPlan`,
+ * the same code the webhook runs, so a manual repair produces exactly the
+ * entitlement a real purchase would (including landing an exhibitor tier on
+ * `user_role`, never the legacy scalar).
+ *
+ * These move paid entitlement, so they are `requireSuperAdmin` — a plain admin
+ * (support, moderation) must not be able to hand out tiers. Relax to
+ * `requireAdmin` if day-to-day support staff need it.
+ */
+
+const VALID_PLANS: readonly string[] = ["plus", "pro", "premium", "sme", "exhibitor", "key_player"];
+const VALID_CYCLES: readonly BillingCycle[] = ["monthly", "biannual", "annual"];
+
+/** Uniform result for the billing repair actions, so the console can toast it. */
+export type AdminBillingResult = { ok: boolean; status: "success" | "failed" | "pending" | "none" | "noop"; message: string };
+
+const fmtDay = (d: Date | string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" });
+
+/**
+ * Record a payment the provider already took as paid and grant its plan — the
+ * "user has a receipt, mark it done" button. The grant runs first so a failure
+ * leaves no "paid but no plan" row behind, which is the state this exists to
+ * undo.
+ */
+export async function markTransactionPaid(txId: string): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
+  const [tx] = await db.select().from(paymentTransaction).where(eq(paymentTransaction.id, txId)).limit(1);
+  if (!tx) throw new Error("Transaction not found");
+  if (tx.status === "success") return { ok: true, status: "noop", message: "Already recorded as paid." };
+
+  await applyPurchaseForUser(tx.userId, tx.plan, tx.cycle);
   await db.update(paymentTransaction).set({ status: "success", verifiedAt: new Date() }).where(eq(paymentTransaction.id, txId));
-  await logAudit(admin, "billing_mark_paid", "payment_transaction", txId);
+  await logAudit(admin, "billing_mark_paid", "payment_transaction", txId, `${tx.plan}/${tx.cycle} ${tx.provider}:${tx.reference}`);
   revalidatePath("/admin/user-management");
+  revalidatePath("/dashboard");
+  return { ok: true, status: "success", message: `${PLAN_LABEL[tx.plan as Plan] ?? tx.plan} plan granted.` };
 }
-export async function markTransactionFailed(txId: string) {
-  const admin = await requireAdmin();
-  await db.update(paymentTransaction).set({ status: "failed" }).where(eq(paymentTransaction.id, txId));
-  await logAudit(admin, "billing_mark_failed", "payment_transaction", txId);
+
+/**
+ * Ask the provider whether a pending reference actually settled, and apply the
+ * plan if it did. Preferred over `markTransactionPaid` when the gateway can
+ * still be reached, because it re-verifies the amount that was charged.
+ */
+export async function verifyTransactionWithProvider(txId: string): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
+  const [tx] = await db.select().from(paymentTransaction).where(eq(paymentTransaction.id, txId)).limit(1);
+  if (!tx) throw new Error("Transaction not found");
+  if (tx.status === "success") return { ok: true, status: "noop", message: "Already verified." };
+
+  const status = await verifyPurchaseReference(tx.reference);
+  if (status === "success") {
+    await logAudit(admin, "billing_verify_provider", "payment_transaction", txId, `${tx.provider}:${tx.reference}`);
+    revalidatePath("/admin/user-management");
+    revalidatePath("/dashboard");
+    return { ok: true, status: "success", message: `Verified with ${tx.provider} — plan granted.` };
+  }
+  return {
+    ok: false,
+    status,
+    message: status === "failed"
+      ? `${tx.provider} reports this reference as failed.`
+      : `${tx.provider} could not confirm it (not configured, or not settled yet). If you hold the receipt, use “Mark paid”.`,
+  };
+}
+
+/** Fields for recording a payment that never reached us in the first place. */
+export type ManualPaymentInput = {
+  userId: string;
+  plan: string;
+  cycle: string;
+  amount: number;
+  provider: string;
+  reference: string;
+  bonusDays?: number;
+};
+
+/**
+ * Record a payment taken off-system (bank transfer, provider we can't reach)
+ * and grant its plan. The reference is unique across `payment_transaction`, so
+ * a duplicate is refused rather than silently double-granting.
+ */
+export async function recordManualPayment(input: ManualPaymentInput): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
+  const plan = String(input.plan ?? "").trim();
+  const cycle = String(input.cycle ?? "").trim();
+  const provider = String(input.provider ?? "").trim();
+  const reference = String(input.reference ?? "").trim();
+  const amount = Number(input.amount);
+  const bonusDays = Math.min(Math.max(Math.trunc(Number(input.bonusDays) || 0), 0), 365);
+
+  if (!input.userId) throw new Error("A user is required.");
+  if (!VALID_PLANS.includes(plan)) throw new Error("Pick a paid plan.");
+  if (!VALID_CYCLES.includes(cycle as BillingCycle)) throw new Error("Pick a billing cycle.");
+  if (!provider) throw new Error("Provider is required — use the one on the receipt.");
+  if (!reference) throw new Error("A payment reference is required.");
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Amount must be a positive number.");
+
+  const dupe = await db.select({ id: paymentTransaction.id }).from(paymentTransaction).where(eq(paymentTransaction.reference, reference)).limit(1);
+  if (dupe.length) throw new Error(`Reference ${reference} is already recorded.`);
+
+  await applyPurchaseForUser(input.userId, plan, cycle, bonusDays);
+  await db.insert(paymentTransaction).values({
+    userId: input.userId, plan, cycle, amount, provider, reference, status: "success", verifiedAt: new Date(), kind: "billing",
+  });
+  await logAudit(admin, "billing_record_manual", "user", input.userId, `${plan}/${cycle} ${provider}:${reference} ₦${amount}${bonusDays ? ` +${bonusDays}d` : ""}`);
   revalidatePath("/admin/user-management");
+  revalidatePath("/dashboard");
+  return { ok: true, status: "success", message: `${PLAN_LABEL[plan as Plan] ?? plan} recorded and granted${bonusDays ? ` (+${bonusDays} days)` : ""}.` };
 }
-export async function refundTransaction(txId: string) {
-  const admin = await requireAdmin();
-  await db.update(paymentTransaction).set({ status: "refunded" }).where(eq(paymentTransaction.id, txId));
-  await logAudit(admin, "billing_refund", "payment_transaction", txId);
+
+/** Push out an active plan's period end — goodwill/comp days, dispute fixes. */
+export async function extendUserPlanExpiry(userId: string, days: number): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
+  const d = Math.trunc(Number(days));
+  if (!Number.isFinite(d) || d < 1 || d > 365) throw new Error("Enter between 1 and 365 days.");
+
+  const res = await db.execute(sql`
+    UPDATE user_role
+       SET current_period_end = COALESCE(current_period_end, now()) + (${d}::int * interval '1 day')
+     WHERE user_id = ${userId} AND status = 'active' AND plan <> 'free'
+     RETURNING role, plan, current_period_end
+  `);
+  const row = res.rows[0] as { role: string; plan: string; current_period_end: string } | undefined;
+  if (!row) return { ok: false, status: "none", message: "No active paid plan on this account — grant one first." };
+
+  await logAudit(admin, "billing_extend_expiry", "user", userId, `${d} days → ${row.role}/${row.plan}`);
   revalidatePath("/admin/user-management");
+  revalidatePath("/dashboard");
+  return { ok: true, status: "success", message: `Extended ${row.plan} to ${fmtDay(row.current_period_end)}.` };
 }
-/** No email infra wired for this yet — logs the action so it's auditable and the UI can confirm. */
-export async function resendPaymentLink(txId: string) {
-  const admin = await requireAdmin();
-  await logAudit(admin, "billing_resend_link", "payment_transaction", txId);
-  return { ok: true };
-}
-export async function extendUserPlanExpiry(userId: string, days: number) {
-  const admin = await requireAdmin();
-  await logAudit(admin, "billing_extend_expiry", "user", userId, `${days} days`);
-  revalidatePath("/admin/user-management");
-  return { ok: true };
-}
-export async function cancelUserSubscription(userId: string) {
-  const admin = await requireAdmin();
+
+/** Downgrade to Free — clears the paid plan on the role row and the legacy scalar. */
+export async function cancelUserSubscription(userId: string): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
   await db.execute(sql`UPDATE "user" SET plan = 'free' WHERE id = ${userId}`);
-  await logAudit(admin, "billing_cancel_subscription", "user", userId);
+  const res = await db.execute(sql`
+    UPDATE user_role
+       SET plan = 'free', current_period_end = NULL, pending_plan = NULL
+     WHERE user_id = ${userId} AND status = 'active' AND plan <> 'free'
+     RETURNING role
+  `);
+  await logAudit(admin, "billing_cancel_subscription", "user", userId, `${res.rows.length} role(s) downgraded`);
   revalidatePath("/admin/user-management");
+  revalidatePath("/dashboard");
+  return { ok: true, status: "success", message: res.rows.length ? "Cancelled — plan set to Free." : "Already on Free." };
 }
+
+/**
+ * Void a stuck/abandoned attempt so `reconcilePending` can't later settle it
+ * over the top of a plan already granted by hand. Never touches entitlement.
+ */
+export async function markTransactionFailed(txId: string): Promise<AdminBillingResult> {
+  const admin = await requireSuperAdmin();
+  const [tx] = await db.select().from(paymentTransaction).where(eq(paymentTransaction.id, txId)).limit(1);
+  if (!tx) throw new Error("Transaction not found");
+  if (tx.status !== "pending") return { ok: true, status: "noop", message: `Already ${tx.status}.` };
+
+  await db.update(paymentTransaction).set({ status: "failed" }).where(eq(paymentTransaction.id, txId));
+  await logAudit(admin, "billing_mark_failed", "payment_transaction", txId, `${tx.provider}:${tx.reference}`);
+  revalidatePath("/admin/user-management");
+  return { ok: true, status: "success", message: "Marked failed." };
+}
+
+
 
 /** A single user's support tickets — User Management's Support Logs tab (image 127/132). */
 export async function getUserSupportTicketsAdmin(userId: string) {

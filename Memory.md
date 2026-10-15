@@ -94,6 +94,9 @@ require resolving a `Dockerfile` collision — escalate before attempting.
 | T-008 | **P2** | `/app/uploads` local fallback coexists with S3 | `STORAGE_BACKEND=local` is a supported fallback; make sure prod never silently falls back (it degrades URL shape). |
 | T-009 | **P3** | `.env.vps` is a local-storage template | Easy to mistake for production config. Consider renaming to `.env.local.example`. |
 | T-010 | **P2** | `.env.example` is incomplete | Omits `DATABASE_URL`, all `R2_*`, `SMTP_*`, `INTERNAL_API_KEY`, `MAIL_DRAIN_SECRET`, `JWT_SECRET`, etc. `ENV.md` is the complete list until this is fixed. |
+| T-011 | **P1** | Local dev cannot reach the DB | `.env` `DATABASE_URL` = stale Cockroach Cloud (`nomarc-production-32243…cloud`) → `password authentication failed for user nomarc` (all pages 500). Live DB is self-hosted Cockroach `root@mydb.nomarcprojects.com:26257/nomarcdb?sslmode=disable`, **firewalled** (26257 refused from outside). Run SQL on the VPS; fix local `.env` or tunnel to make `npm run dev` usable. |
+| T-012 | **P2** | Migrations applied by hand, no ledger | `drizzle/0063_plan_trial.sql` had to be applied manually on 2026-10-15 because prod was missing it while the deployed build already selected `trial_ends_at`. Nothing records which migrations a cluster has applied, so drift recurs. |
+| T-013 | **P1** | Provider webhooks are not landing; paid orders stay `pending` | GBG SALES LTD had 4 `exhibitor/monthly/₦205,000/seerbit` rows all `pending` while the customer held a receipt. Root cause is unverified — check the Seerbit/Paystack callback URL and webhook signature handling; `configuredProviders()` / `PAYMENT_PROVIDER` may be unset in prod. Until fixed, payments rely on `reconcilePending` or the admin repair tool (`logupdate.md` 2026-10-15). |
 
 ---
 

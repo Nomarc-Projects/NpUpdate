@@ -18,6 +18,102 @@ Format:
 
 ---
 
+## 2026-10-15 — Super-admin billing repair kit + granted GBG SALES LTD the Exhibitor plan
+
+**Changed** — Two parts.
+
+1. **Data (live `nomarcdb` on the VPS).** GBG SALES LTD
+   (`4Wfi18q0Dv8GKAxfOA6ivlXuoEipmnYH`, `gbgsalesltd@gmail.com`) had **four**
+   `exhibitor / monthly / ₦205,000 / seerbit` transactions all stuck `pending`
+   (2026-10-14) and `user_role.plan='free'`. Settled the newest
+   (`nm_5473d026c547491873dd65b5`) → `success` + `verified_at`, and set its
+   exhibitor `user_role` to `plan='exhibitor'`,
+   `current_period_end = now() + 1 month 14 days` = **2026-11-29 16:13 UTC**
+   (`active_role` was already `exhibitor`). Identical end-state to 14eter.
+   The other three attempts were left `pending` (see Follow-ups).
+
+2. **Code.** New super-admin repair surface in
+   `components/admin/user-detail-view.tsx` (Billing History tab) backed by
+   `lib/services/admin.ts`:
+   - `verifyTransactionWithProvider` — re-verifies a pending reference at the
+     gateway and grants on success.
+   - `markTransactionPaid` — **now actually grants the plan** (calls
+     `applyPurchaseForUser`); previously it only set `status='success'`.
+   - `recordManualPayment` — records a payment never seen by us (transfer,
+     missed webhook) and grants the plan, with unique-reference guard and an
+     optional `bonusDays` comp.
+   - `extendUserPlanExpiry` — **now actually moves `current_period_end`**;
+     previously it wrote an audit line and changed nothing.
+   - `cancelUserSubscription` — now clears the paid plan on `user_role` too,
+     not just the legacy `user.plan` scalar.
+   - `markTransactionFailed` — voids a stuck attempt so `reconcilePending`
+     can't settle it over a hand-granted plan.
+   - `getUserBillingSummary` — reads the **role row** (and trial), not the
+     legacy `user.plan`; the card used to show "Free" for a paying exhibitor.
+   `lib/services/billing.ts` gained the guarded remediation entry points
+   (`verifyPurchaseReference`, `applyPurchaseForUser`) so manual fixes run the
+   **same** `settle`/`applyPlan` as the webhook; `applyPlan` took an optional
+   `bonusDays`. `lib/authz.ts` gained `isSuperAdmin()` to gate the UI.
+
+**Why** — Users were paying and getting nothing. `markTransactionPaid` flipped
+the status column without granting entitlement, and `extendUserPlanExpiry` was
+a no-op — the two tools support had were both wrong. This makes a manual
+"the provider took the money" fix produce exactly what a real purchase would.
+
+**Verified** — `npm run type-check` clean; `npm run build` completed with the
+full route table. New SQL statements (`+ (N::int * interval '1 day')`,
+role-row downgrade) exercised against live Cockroach with no-match predicates
+(0 rows, no writes). `getUserBillingSummary`'s query returns
+`exhibitor / exhibitor / 2026-11-29` for GBG. GBG's grant confirmed by SELECT.
+
+**Follow-ups** — (a) All actions are `requireSuperAdmin`; relax to
+`requireAdmin` if support staff need them. (b) The 3 stray `pending` seerbit
+attempts on GBG should be voided to stop `reconcilePending` re-settling them.
+(c) Deployed app predates this change — needs a rebuild to expose the UI.
+
+---
+
+## 2026-10-15 — Applied migration 0063 to prod; gave 14eter the Exhibitor plan
+
+**Changed** — Against live `nomarcdb` (VPS, `root@mydb.nomarcprojects.com:26257`):
+1. Applied `drizzle/0063_plan_trial.sql` — added `user_role.trial_ends_at`,
+   `user_role.trial_plan` and `user_role_trial_ends_idx` (all `IF NOT EXISTS`).
+2. Settled an existing **pending** transaction:
+   `nm_ea0b8842ed0cb7fa04d9f218` (`exhibitor / monthly / ₦205,000 / paystack`)
+   → `status='success'`, `verified_at=now()`.
+3. `user_role` exhibitor row for `QaYzANEr5FTVWgjlV4dlJzcqFtB0A3sI`
+   (14eter@gmail.com): `plan` `key_player` → **`exhibitor`**,
+   `current_period_end` = `now() + 1 month 14 days` = **2026-11-29 15:50 UTC**
+   (44 days), `pending_plan`/`trial_*` = NULL.
+
+**Why** — (a) The account must be an active Exhibitor for 1 month + 14 days with
+a payment recorded as if it had gone through the web flow; the cleanest match to
+`settle()` was to flip the already web-initiated pending transaction rather than
+fabricate a second reference. (b) Production was **missing migration 0063** while
+the deployed build (image built 2026-10-14 17:25, after the `3068e56` trial
+commit) selects `trial_ends_at`/`trial_plan` — so `getActiveTrial()` would throw
+and break exhibitor read paths. Applying it was a prerequisite.
+
+**Verified** — Replayed the app's own SQL against prod:
+`select trial_ends_at, trial_plan from user_role where … role='exhibitor'`
+runs (was `ERROR: column trial_ends_at does not exist` before) and returns NULL
+trial; `exhibitorPlan()` yields `plan=exhibitor`, `current_period_end=2026-11-29`
+(not expired); `getMyTransactions()` shows the new
+`exhibitor / monthly / 205000 / paystack / success` row.
+
+**Follow-ups** —
+- **Local dev cannot connect**: `.env`'s `DATABASE_URL` points at a stale
+  Cockroach Cloud cluster (`nomarc-production-32243…cloud`) whose password is
+  rejected (`password authentication failed for user nomarc`) — that alone makes
+  `npm run dev` 500 every data-backed page. The real DB is a self-hosted
+  Cockroach at `mydb.nomarcprojects.com:26257` (`sslmode=disable`), whose port is
+  firewalled from outside the VPS, so local dev can't reach it without a tunnel.
+  See `Memory.md` T-011.
+- Migrations are applied by hand and there is no applied-migrations ledger, so
+  drift like 0063 can recur (existing T-003-style operational risk).
+
+---
+
 ## 2026-10-15 — Agent governance doc set added to repo root
 
 **Changed** — Added `.cursorrules`, `PRD.md`, `Agent.md`, `Memory.md`,

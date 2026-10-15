@@ -9,6 +9,7 @@ import { db } from "@/lib/db/client";
 import { paymentTransaction, paymentRetry } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
+import { requireSuperAdmin } from "@/lib/authz";
 import { planPrice, isExhibitorPlan, PLAN_LABEL, type Plan, type BillingCycle } from "@/lib/entitlements";
 import { setRolePlan } from "@/lib/services/roles";
 import { activeProvider, getProvider, type ProviderName } from "@/lib/payments";
@@ -22,12 +23,16 @@ const APP_URL = resolveSiteUrl();
  * legacy `user.plan` scalar would leak it into professional plan gates for
  * anyone holding both roles.
  */
-async function applyPlan(userId: string, plan: string, cycle?: string): Promise<void> {
+async function applyPlan(userId: string, plan: string, cycle?: string, bonusDays = 0): Promise<void> {
   // The paid term the purchase buys. Renewal is manual today, so this doubles
   // as when access lapses — and it is what a deferred downgrade waits for.
   const months = cycle === "annual" ? 12 : cycle === "biannual" ? 6 : 1;
   const periodEnd = new Date();
   periodEnd.setMonth(periodEnd.getMonth() + months);
+  // `bonusDays` only the super-admin remediation passes: a goodwill extension
+  // on top of a bought term (failed webhook, dispute, manual comp). Webhook
+  // callers leave it at 0 so a normal purchase keeps its exact length.
+  if (bonusDays > 0) periodEnd.setDate(periodEnd.getDate() + bonusDays);
 
   if (isExhibitorPlan(plan)) {
     await setRolePlan(userId, plan, "exhibitor", periodEnd);
@@ -127,6 +132,35 @@ async function settle(reference: string): Promise<"success" | "failed" | "pendin
 /** Internal — called by the webhook route after signature verification. */
 export async function settleByWebhook(reference: string) {
   return settle(reference);
+}
+
+/**
+ * Super-admin remediation — the console's "verify with provider" button.
+ *
+ * A provider can take the money and never reach our webhook (signature
+ * mismatch, wrong callback URL, provider outage), leaving the row `pending`
+ * and the buyer with no plan while they hold the receipt. This runs the same
+ * `settle` the webhook does — gateway verification, amount guard, CAS flip
+ * and `applyPlan` — against any reference, so a manual fix can never diverge
+ * from a genuine purchase. Guarded here (not in the caller) because this is a
+ * `"use server"` module: every export of one is a public endpoint.
+ */
+export async function verifyPurchaseReference(reference: string): Promise<"success" | "failed" | "pending"> {
+  await requireSuperAdmin();
+  return settle(reference);
+}
+
+/**
+ * Super-admin remediation — grant a plan we have already accepted as paid,
+ * with no gateway round-trip (offline/bank transfer, or a provider that can no
+ * longer be reached). Shares `applyPlan` with the webhook so the role row,
+ * period end and trial-clearing always match a normal purchase; `bonusDays`
+ * adds a goodwill extension on top.
+ */
+export async function applyPurchaseForUser(userId: string, plan: string, cycle: string, bonusDays = 0): Promise<void> {
+  await requireSuperAdmin();
+  if (!userId) throw new Error("A user is required to apply a purchase");
+  await applyPlan(userId, plan, cycle, bonusDays);
 }
 
 /** Handle transfer.success / transfer.failed webhooks (vendor payouts). */

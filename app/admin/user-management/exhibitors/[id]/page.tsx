@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { UserDetailView } from "@/components/admin/user-detail-view";
 import { getUserDetail } from "@/lib/services/admin";
+import { isSuperAdmin } from "@/lib/authz";
 
 export default async function ExhibitorDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,7 +10,7 @@ export default async function ExhibitorDetailPage({ params }: { params: Promise<
   if (!user) notFound();
   return (
     <Suspense>
-      <UserDetailView user={user} backHref="/admin/user-management/exhibitors" />
+      <UserDetailView user={user} backHref="/admin/user-management/exhibitors" canManageBilling={await isSuperAdmin()} />
     </Suspense>
   );
 }
