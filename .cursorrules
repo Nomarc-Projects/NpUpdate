@@ -1,0 +1,99 @@
+# .cursorrules — Nomarc agent execution constraints
+
+These rules are non-negotiable. They override any general habit you have as an
+assistant. Read this before generating a single line of code.
+
+## 1. Never run against production casually
+
+- `frontend/.env` points at the **same CockroachDB cluster as production**.
+- `npm run dev` **writes to live rows**. Do not "just try it" to see what a
+  mutation does — read the service function instead.
+- Never run `scripts/seed-*` or any `rm`/`UPDATE`/`DELETE` script without
+  explicit approval — read `ls scripts/` first and assume every script there
+  writes to live data.
+- `lib/services/dev-reset.ts` → `resetMyAccountForTesting()` deletes the
+  caller's own rows across ~20 tables. Never invoke it in dev (dev = prod DB).
+  `components/dashboard/reset-account-button.tsx` is currently unimported
+  dead code.
+- Prefer a scratch database if you must experiment.
+
+## 2. Verification gate — both commands, always
+
+```bash
+npm run type-check   # tsc --noEmit; necessary but NOT sufficient
+npm run build        # the real verification step
+```
+
+`type-check` staying silent does **not** mean the change is safe. Three failure
+classes pass `tsc` and only fail `build`:
+
+1. A `"use server"` file exporting anything that is not an async function →
+   the bundler drops **every** export in that file; callers get `undefined`.
+2. Passing a component reference across the Server/Client boundary → runtime
+   crash.
+3. Static-vs-dynamic rendering mistakes (cookies/headers) → build error or
+   stale page.
+
+Never declare a task done on `type-check` alone. Run `npm run build`.
+
+## 3. Architecture boundaries (do not cross)
+
+- Data access goes through `lib/services/*` only. **Components never import
+  `db` directly.**
+- `"use server"` modules may export **async functions only** — no `const`, no
+  types-as-values, no re-exports of non-functions.
+- Shared UI lives in `components/ui/`. Anything used twice belongs there.
+- Private bucket objects (`R2_PRIVATE_BUCKET`) must never be given a public
+  URL. Reads only via short-lived presigned GET after an ownership check.
+- Payment webhooks must be signature-verified. Never trust the request body.
+
+## 4. Migrations are hand-applied
+
+- `drizzle-kit generate` to write SQL; **never** `drizzle-kit push`.
+- Apply one file at a time, **in order**, via
+  `scripts/apply-migration.cjs`. `drizzle.config.ts` deliberately has no
+  `dbCredentials` so generate cannot touch a live DB.
+- Changing `lib/db/schema.ts` without adding a migration leaves the DB and the
+  schema file inconsistent in ways type-checking cannot see.
+
+## 5. Environment variable discipline
+
+- Never commit secrets. Gitignored: `.env`, `.env.local`, `.env.production`,
+  `.env.local.*`, `.env.vercel*`, `.env.bak`, `.env.*.bak`. Tracked templates:
+  `.env.example`, `.env.vps` — **never put a real secret in either**, because
+  other suffixes (e.g. `.env.vps.local`) are *not* ignored.
+- `NEXT_PUBLIC_*` is **baked at build time** and exposed to the browser —
+  never a secret.
+- `R2_ENDPOINT` must be the **publicly reachable** S3 endpoint. A host that
+  only resolves inside Docker (`host.docker.internal`, `localhost`, `minio`)
+  breaks browser uploads silently.
+- Adding a required env var means updating `.env.example` and `ENV.md` in the
+  same change.
+
+## 6. No drive-by refactors
+
+- Match the surrounding style exactly. Do not reformat untouched code.
+- Do not add comments that narrate what the code already says; comment the
+  *why* when it is non-obvious.
+- Do not introduce a new library/dependency without stating the reason. Check
+  what the repo already uses first.
+- Do not delete or "clean up" features, migration files, or legacy scripts
+  unless explicitly asked.
+
+## 7. Dark mode and a11y are mandatory
+
+- Every surface ships `dark:` variants.
+- Respect `prefers-reduced-motion` for animations.
+- Interactive elements keep `:focus-visible` rings; don't remove outlines.
+- Inputs must be ≥16px on mobile (prevents iOS zoom).
+
+## 8. Skeletons are co-located
+
+- A page component and its `XxxSkeleton` export live in the same file so
+  loading states cannot drift from the real layout. `loading.tsx` imports it.
+
+## 9. Pushing
+
+- Do not commit, push, or touch `main` unless explicitly instructed.
+- Inspect `git status` / `git diff` / `git log --oneline -10` before staging.
+- Stage only intended files; never stage secrets or scratch files.
