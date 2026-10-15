@@ -36,7 +36,14 @@ files, **18** API handlers — README says 87/66/47/15). `npm run type-check` an
 `npm run build` unchanged (docs only).
 
 **Follow-ups** — README stats still stale (T-005). `.env.example` still
-incomplete (T-010). Decide whether docs live on `main` too (see "unresolved").
+incomplete (T-010). Doc set landed on `VPS_Nomarc` (`2e29654`) and was
+cherry-picked onto `main` (`0cdbe1e`) — docs only, no app code crossed (D-010).
+
+**Corrections found while writing these** — `.cursorrules` claimed
+`scripts/dev-reset` existed (it doesn't) and that `.env.vps.local` was
+gitignored (it isn't); `Agent.md` claimed an `umami` container on the VPS
+(verified live: no such container — Umami is a `main`-branch commit); service
+count was 72, actually 76 files. All fixed in this commit.
 
 ---
 
@@ -170,5 +177,7 @@ Cross-reference `Memory.md` (T-001…). The ones most likely to bite next:
 - **T-010** `.env.example` incomplete (this repo's `ENV.md` is the full list).
 - **T-005** README stats stale.
 - **T-001** `npm run lint` broken — no ESLint config.
-- **main-branch policy**: does the `main` branch on `origin` receive this
-  doc set, or only `VPS_Nomarc`? Unresolved.
+
+*(Resolved 2026-10-15: `main` receives docs by cherry-pick only — see
+`Memory.md` D-010. A full `VPS_Nomarc` → `main` merge needs operator approval
+and a `Dockerfile` conflict resolution.)*

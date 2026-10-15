@@ -6,13 +6,13 @@ non-trivial work.
 
 ---
 
-## A. Current state (as of 2026-10-14)
+## A. Current state (as of 2026-10-15)
 
 | Fact | Value |
 | --- | --- |
 | Working branch | `VPS_Nomarc` |
 | Remotes | `origin` → `Nomarc-Projects/NpUpdate`, `fullbuild` → `Nomarc-Projects/fullbuild` |
-| Also present | `main` (both remotes) |
+| `main` | **Diverged lineage** — 17 unique commits configure Postgres + Umami; live stack is CockroachDB (see D-010) |
 | Build | `npm run type-check` ✅, `npm run build` ✅ |
 | Lint | ❌ `npm run lint` crashes — no ESLint config file |
 | Deploy | VPS + Dokploy (Traefik, `nomarcapp` Swarm service) |
@@ -68,6 +68,15 @@ locked out of paying entirely.
 **D-009 · Quota enforcement lives in `lib/services/exhibitor-plan-rules.ts` +
 `exhibitor-trial.ts`.** Limits are read from there everywhere; do not
 re-implement caps in UI code.
+
+**D-010 · `main` is a diverged lineage — never merge it wholesale without
+asking.** `main` has 17 commits `VPS_Nomarc` lacks (Postgres host config,
+Cockroach→Postgres data copy, MinIO compose, Umami tracker, its own
+`Dockerfile`) while `VPS_Nomarc` is 39 ahead of it; the live VPS runs the
+`VPS_Nomarc` lineage (CockroachDB container, no Umami). Governance docs were
+delivered to `main` by **cherry-picking the docs-only commit** (`0cdbe1e` on
+`main`, `2e29654` on `VPS_Nomarc`) rather than merging code. A full merge would
+require resolving a `Dockerfile` collision — escalate before attempting.
 
 ---
 
