@@ -126,6 +126,7 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
     try {
       await saveCompany({ categories: [...allowedCategories, cat] });
       toast.success(`“${cat}” added to your showroom`);
+      setCategory(cat);
       setNewCategory("");
       setAddCatOpen(false);
       // Re-runs the server page so `allowedCategories` (and the datalist) picks
@@ -227,23 +228,22 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
             </Field>
             <Field
               label="Product Category (Shop)"
-              hint={allowedCategories.length ? `Your plan allows: ${allowedCategories.join(", ")}` : "Enter the product category"}
+              hint={allowedCategories.length ? `Your plan allows: ${allowedCategories.join(", ")}` : "Add a category below to select it here"}
               required
             >
-              <div className="relative">
-                <input
-                  list="allowed-categories"
-                  className={inputClass}
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  placeholder="e.g. Structural Steel"
-                />
-                <datalist id="allowed-categories">
-                  {allowedCategories.map((c) => (
-                    <option key={c} value={c} />
-                  ))}
-                </datalist>
-              </div>
+              <select
+                className={inputClass}
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                aria-label="Product category"
+              >
+                <option value="" disabled>
+                  {allowedCategories.length ? "Select a category" : "No categories yet — add one below"}
+                </option>
+                {allowedCategories.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
               <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 {!addCatOpen ? (
                   <button

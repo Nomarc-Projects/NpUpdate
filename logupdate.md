@@ -40,11 +40,14 @@ Format:
    so a paid exhibitor (e.g. `14eter@gmail.com`, 5-category plan) was stuck with
    the single shop collected at signup.
    - `app/(dashboard)/dashboard/add-product/add-product-form.tsx` gained an
-     inline **"Add a new category"** control next to the category field. It
+     inline **"Add a new category"** control next to the category field, which
+     is now a **`<select>` dropdown** listing the exhibitor's registered shops
+     (hint: "Your plan allows: …") rather than a free-text input. Adding a shop
+     auto-selects it. The control
      checks the plan cap (`limits.categoryCap` from `getExhibitorLimitSummary`),
      saves through `saveCompany({ categories })` (which already enforces the cap
      server-side), and `router.refresh()`es so the new shop appears in the
-     datalist. At the cap it pops an upgrade toast linking to
+     dropdown. At the cap it pops an upgrade toast linking to
      `/dashboard/plans/exhibitor`.
    - `app/(marketing)/company/company-profile-form.tsx` category `MultiSelect`
      now has `allowCreate` (previously fixed 6 options) and its over-cap branch
@@ -62,7 +65,9 @@ is stale — T-011).
 
 **Follow-ups** — Category **removal/rename** isn't exposed (products reference
 the string). Consider surfacing the manager as its own tab rather than burying
-it in the profile form.
+it in the profile form. The product **edit drawer**
+(`components/dashboard/exhibitor/product-edit-drawer.tsx`) still uses a
+free-text category input — switch it to the same dropdown.
 
 ---
 
