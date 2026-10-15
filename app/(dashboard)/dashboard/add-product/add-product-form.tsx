@@ -8,6 +8,7 @@ import { Field, inputClass } from "@/components/ui/modal";
 import { FileUpload } from "@/components/ui/file-upload";
 import { PlanLimitBanner } from "@/components/dashboard/exhibitor/plan-limit-banner";
 import { createProduct } from "@/lib/services/products";
+import { saveCompany } from "@/lib/services/company";
 import type { ExhibitorLimitSummary } from "@/lib/services/exhibitor-trial-rules";
 import { uploadFile } from "@/lib/upload-client";
 import { PRODUCT_UNITS, UNIT_CUSTOM } from "@/lib/constants/product-units";
@@ -96,6 +97,47 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
   const [features, setFeatures] = useState<string[]>([""]);
   const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [addCatOpen, setAddCatOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+
+  // Plan-gated shop/category creation. The dropdown is fed by the company's
+  // registered shops, so a seller with an empty (or full) plan had no way to
+  // open a new one from the upload screen. This is that missing control.
+  const categoryCap = limits?.categoryCap ?? 0;
+  const categoryUsed = allowedCategories.length;
+  const nextPlanLabel = limits?.nextPlanLabel ?? null;
+
+  async function addCategory() {
+    const cat = newCategory.trim();
+    if (!cat) return;
+    if (allowedCategories.some((c) => c.trim().toLowerCase() === cat.toLowerCase())) {
+      toast.error("That category is already on your showroom.");
+      return;
+    }
+    if (limits && categoryUsed >= categoryCap) {
+      toast.error(
+        `Your ${limits.planLabel ?? "current"} plan allows up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"}.${nextPlanLabel ? ` Upgrade to ${nextPlanLabel} to add more.` : ""}`,
+        { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } },
+      );
+      return;
+    }
+    setAddingCat(true);
+    try {
+      await saveCompany({ categories: [...allowedCategories, cat] });
+      toast.success(`“${cat}” added to your showroom`);
+      setNewCategory("");
+      setAddCatOpen(false);
+      // Re-runs the server page so `allowedCategories` (and the datalist) picks
+      // up the new shop without a manual reload.
+      router.refresh();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't add category";
+      toast.error(msg, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } });
+    } finally {
+      setAddingCat(false);
+    }
+  }
 
   const setFeature = (i: number, v: string) => setFeatures((f) => f.map((x, j) => (j === i ? v : x)));
   const removeFeature = (i: number) => setFeatures((f) => (f.length === 1 ? [""] : f.filter((_, j) => j !== i)));
@@ -201,6 +243,46 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
                     <option key={c} value={c} />
                   ))}
                 </datalist>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                {!addCatOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setAddCatOpen(true)}
+                    className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#caa400] hover:underline"
+                  >
+                    <Plus size={14} /> Add a new category
+                  </button>
+                ) : (
+                  <div className="flex w-full items-center gap-2">
+                    <input
+                      autoFocus
+                      className={inputClass}
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCategory(); } }}
+                      placeholder="e.g. Roofing & Waterproofing"
+                    />
+                    <button
+                      type="button"
+                      disabled={addingCat || !newCategory.trim()}
+                      onClick={addCategory}
+                      className="flex-shrink-0 rounded-lg bg-[#1e1e1e] px-3.5 py-2.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#333] disabled:opacity-50 dark:bg-[#ffd716] dark:text-[#1e1e1e] dark:hover:bg-[#e6c114]"
+                    >
+                      {addingCat ? "Adding…" : "Add"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddCatOpen(false); setNewCategory(""); }}
+                      className="flex-shrink-0 rounded-lg border border-[#e3e3e3] px-3 py-2.5 text-[12.5px] font-medium text-[#6b6b6b] transition-colors hover:bg-[#f7f7f7] dark:border-white/15 dark:text-white/70 dark:hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {limits && (
+                  <span className="text-[11.5px] text-[#9a9a9a]">{categoryUsed}/{categoryCap} categories used</span>
+                )}
               </div>
             </Field>
             <Field label="Material / Grade (Optional)">

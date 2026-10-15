@@ -9,7 +9,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { saveCompany, type CompanyData, getExhibitorPlanForCurrentUser } from "@/lib/services/company";
 import { uploadFile } from "@/lib/upload-client";
 import { EXHIBITOR_CATEGORY_CAP } from "@/lib/services/exhibitor-plan-rules";
-import { PLAN_LABEL } from "@/lib/entitlements";
+import { PLAN_LABEL, getNextPlan } from "@/lib/entitlements";
 
 const INDUSTRIES = [
   "Core Building Materials", "Heavy Machinery & Plant", "Interior Finishes & Fit-outs",
@@ -127,26 +127,32 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
       </div>
 
       <Field
-        label="Product Category"
-        hint={`Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} (shop${categoryCap === 1 ? "" : "s"}) that represent your inventory. Current plan: ${PLAN_LABEL[exhibitorPlan]}.`}
+        label="Product Categories (Shops)"
+        hint={`These appear as options when you upload a product. Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} — current plan: ${PLAN_LABEL[exhibitorPlan]}.`}
       >
         <div className="space-y-2">
           <MultiSelect
-            placeholder="Select product category"
+            placeholder="Select or create product categories…"
             value={categories}
             onChange={(selected) => {
-              if (selected.length <= categoryCap) setCategories(selected);
-              else {
-                toast.error(`Your ${PLAN_LABEL[exhibitorPlan]} plan covers ${categoryCap} product categor${categoryCap === 1 ? "y" : "ies"}.`, {
-                  action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans") },
-                });
-                setCategories(selected.slice(0, categoryCap));
+              if (selected.length <= categoryCap) {
+                setCategories(selected);
+                return;
               }
+              // Over the plan cap — keep what fits and prompt an upgrade rather
+              // than silently dropping the extra selection.
+              const next = getNextPlan(exhibitorPlan, "exhibitor");
+              toast.error(
+                `Your ${PLAN_LABEL[exhibitorPlan]} plan covers ${categoryCap} product categor${categoryCap === 1 ? "y" : "ies"}.${next ? ` Upgrade to ${PLAN_LABEL[next]} to add more.` : ""}`,
+                { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } },
+              );
+              setCategories(selected.slice(0, categoryCap));
             }}
             options={PRODUCT_CATEGORIES}
+            allowCreate
           />
           <p className="text-[12px] text-[#9a9a9a]">
-            {categories.length} / {categoryCap} categor${categoryCap === 1 ? "y" : "ies"} selected
+            {categories.length} / {categoryCap} categor${categoryCap === 1 ? "y" : "ies"} selected · type a name to add a new one
           </p>
         </div>
       </Field>

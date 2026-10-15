@@ -18,6 +18,54 @@ Format:
 
 ---
 
+## 2026-10-15 — Role-aware plans page + exhibitor category (shop) creation
+
+**Changed** — Two fixes.
+
+1. **Plans page no longer dead-ends exhibitors.** `app/(dashboard)/dashboard/plans/page.tsx`
+   dropped the `activeRole === "exhibitor"` redirect and the full-page
+   "unavailable" screen. It now always renders `PlansView`, passing the
+   super-admin `professionalEnabled` flag. `components/dashboard/plans-view.tsx`
+   renders **one section per ladder the viewer holds**: the professional ladder
+   when the viewer holds `professional` (or holds no exhibitor role, so a bare
+   client keeps the normal upgrade path), and the exhibitor ladder when they
+   hold `exhibitor`. Each section marks its own current plan and targets the
+   right role for checkout/downgrade (`choose(plan, role)`, `cancelPlan(role)`).
+   When professional plans are toggled off, that section renders disabled with a
+   note while the exhibitor section stays usable. The standalone
+   `/dashboard/plans/exhibitor` page is untouched.
+
+2. **Exhibitors can create product categories (shops).** The upload dropdown is
+   fed by `company.categories`, but nothing let a seller add one post-onboarding,
+   so a paid exhibitor (e.g. `14eter@gmail.com`, 5-category plan) was stuck with
+   the single shop collected at signup.
+   - `app/(dashboard)/dashboard/add-product/add-product-form.tsx` gained an
+     inline **"Add a new category"** control next to the category field. It
+     checks the plan cap (`limits.categoryCap` from `getExhibitorLimitSummary`),
+     saves through `saveCompany({ categories })` (which already enforces the cap
+     server-side), and `router.refresh()`es so the new shop appears in the
+     datalist. At the cap it pops an upgrade toast linking to
+     `/dashboard/plans/exhibitor`.
+   - `app/(marketing)/company/company-profile-form.tsx` category `MultiSelect`
+     now has `allowCreate` (previously fixed 6 options) and its over-cap branch
+     names the next plan in the upgrade prompt.
+
+**Why** — An exhibitor whose active role was `professional` (held both roles)
+hit the disabled professional page from the dashboard "Upgrade" button; and
+exhibitors had no way to open the shops their plan pays for, so uploads were
+limited to the onboarding category.
+
+**Verified** — `npm run type-check` ✅ and `npm run build` ✅. Prod data checked:
+`14eter@gmail.com` has exhibitor plan `exhibitor`, `company.categories =
+{"Building Materials"}` (1 of 5). Not yet exercised in a browser (local dev DB
+is stale — T-011).
+
+**Follow-ups** — Category **removal/rename** isn't exposed (products reference
+the string). Consider surfacing the manager as its own tab rather than burying
+it in the profile form.
+
+---
+
 ## 2026-10-15 — Super-admin billing repair kit + granted GBG SALES LTD the Exhibitor plan
 
 **Changed** — Two parts.
@@ -274,6 +322,5 @@ Cross-reference `Memory.md` (T-001…). The ones most likely to bite next:
 - **T-005** README stats stale.
 - **T-001** `npm run lint` broken — no ESLint config.
 
-*(Resolved 2026-10-15: `main` receives docs by cherry-pick only — see
-`Memory.md` D-010. A full `VPS_Nomarc` → `main` merge needs operator approval
-and a `Dockerfile` conflict resolution.)*
+*(Resolved 2026-10-15: `main` was force-reset to equal `VPS_Nomarc` (`2dbf6fe`)
+at the operator's request — see `Memory.md` D-010. Keep the two in lockstep.)*

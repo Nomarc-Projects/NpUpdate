@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Check, Sparkles, Crown, Star, Lock, Clock } from "lucide-react";
 import { useViewer } from "@/lib/use-viewer";
-import { planPrice, cycleSaving, PLAN_LABEL, naira, type Plan, type BillingCycle } from "@/lib/entitlements";
+import { planPrice, cycleSaving, PLAN_LABEL, naira, type Plan, type BillingCycle, type StackableRole } from "@/lib/entitlements";
 import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
 import { cancelPlan } from "@/lib/services/plans";
 import { startTrial } from "@/lib/services/trial";
@@ -33,23 +33,68 @@ const EXHIBITOR_TIERS: Tier[] = [
   { plan: "key_player", icon: Crown, tagline: "For market leaders", features: ["Everything in Exhibitors", ...exhibitorPlanFeatures("key_player"), "Priority placement in buyer searches"] },
 ];
 
-export function PlansView({ demoMode = false, unavailable = false }: { demoMode?: boolean; unavailable?: boolean }) {
+type Ladder = {
+  role: StackableRole;
+  title: string;
+  blurb: string;
+  tiers: Tier[];
+  current: Plan;
+  cols: string;
+  /** Set when the super-admin has paused this ladder's checkout. */
+  disabled?: boolean;
+  note?: string;
+};
+
+export function PlansView({ demoMode = false, unavailable = false, professionalEnabled = true }: { demoMode?: boolean; unavailable?: boolean; professionalEnabled?: boolean }) {
   const viewer = useViewer();
   const router = useRouter();
   const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [busy, setBusy] = useState<Plan | null>(null);
-  const current = viewer.plan;
-  const isExhibitor = viewer.role === "exhibitor";
-  const tiers = isExhibitor ? EXHIBITOR_TIERS : PROFESSIONAL_TIERS;
-  const isOnFree = current === "free";
 
-  async function choose(plan: Plan) {
+  const holdsProfessional = viewer.heldRoles.has("professional");
+  const holdsExhibitor = viewer.heldRoles.has("exhibitor");
+  // A pure exhibitor (a seller who never became a professional) doesn't see the
+  // professional ladder. Clients and professionals still do, so the standard
+  // upgrade path keeps working for accounts that hold neither role yet.
+  const showProfessional = holdsProfessional || !holdsExhibitor;
+
+  const professionalCurrent = viewer.plans.professional ?? "free";
+  const exhibitorCurrent = viewer.plans.exhibitor ?? "free";
+
+  const ladders: Ladder[] = [];
+  if (showProfessional) {
+    ladders.push({
+      role: "professional",
+      title: "Professional",
+      blurb: "Unlock professional tools as you grow.",
+      tiers: PROFESSIONAL_TIERS,
+      current: professionalCurrent,
+      cols: "lg:grid-cols-4",
+      disabled: !professionalEnabled,
+      note: !professionalEnabled ? "Professional plan upgrades are temporarily unavailable — please check back later." : undefined,
+    });
+  }
+  if (holdsExhibitor) {
+    ladders.push({
+      role: "exhibitor",
+      title: "Exhibitor",
+      blurb: "Grow your showroom as you scale.",
+      tiers: EXHIBITOR_TIERS,
+      current: exhibitorCurrent,
+      cols: "lg:grid-cols-3",
+    });
+  }
+
+  const showHeaders = ladders.length > 1;
+  const summary = ladders.map((l) => `${l.title}: ${PLAN_LABEL[l.current]}`).join(" · ");
+
+  async function choose(plan: Plan, role: StackableRole, current: Plan) {
     if (plan === current) return;
     // Free = downgrade inline; paid = go to the checkout flow (Plans → Checkout → Receipt).
     if (plan === "free") {
       setBusy("free");
       try {
-        const res = await cancelPlan(isExhibitor ? "exhibitor" : "professional");
+        const res = await cancelPlan(role);
         toast.success(
           res.effective === "immediately"
             ? "Switched to Free"
@@ -87,7 +132,8 @@ export function PlansView({ demoMode = false, unavailable = false }: { demoMode?
     <div className="px-6 md:px-8 py-8 max-w-[1100px]">
       <h1 className="text-2xl font-bold text-[#1e1e1e] dark:text-white">Plans & upgrades</h1>
       <p className="text-sm text-[#9a9a9a] mt-1">
-        {isExhibitor ? "Grow your showroom as you scale." : "Unlock professional tools as you grow."} You&apos;re on the <span className="font-semibold text-[#1e1e1e] dark:text-white">{PLAN_LABEL[current]}</span> plan.
+        {ladders.length > 1 ? "Manage the plans on your account." : ladders[0]?.blurb}{" "}
+        You&apos;re on {summary}.
       </p>
 
       <div className="mt-6 inline-flex items-center rounded-full bg-[#f0f0f0] dark:bg-white/5 p-1">
@@ -101,57 +147,76 @@ export function PlansView({ demoMode = false, unavailable = false }: { demoMode?
         })}
       </div>
 
-      <div className={`mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 ${isExhibitor ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
-        {tiers.map((t) => {
-          const isCurrent = t.plan === current;
-          const Icon = t.icon;
-          const saving = cycleSaving(t.plan, cycle);
-          return (
-            <div key={t.plan} className={`rounded-2xl border p-5 flex flex-col ${isCurrent ? "border-[#ffd716] ring-2 ring-[#ffd716]/30" : "border-[#ececec] dark:border-white/10"} bg-white dark:bg-[#1e1e1e]`}>
-              <div className="flex items-center justify-between">
-                <div className="w-9 h-9 rounded-lg bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400]"><Icon size={18} /></div>
-                {isCurrent && <span className="text-[11px] font-bold text-[#16803c] bg-[#dcfce7] px-2 py-0.5 rounded-full">Current</span>}
-                {t.comingSoon && !isCurrent && <span className="text-[11px] font-bold text-[#8a7400] bg-[#ffd716]/20 px-2 py-0.5 rounded-full">Coming soon</span>}
-                {t.popular && !isCurrent && !t.comingSoon && <span className="text-[11px] font-bold text-[#8a7400] bg-[#ffd716]/20 px-2 py-0.5 rounded-full">Most Popular</span>}
+      {ladders.map((ladder) => {
+        const isOnFree = ladder.current === "free";
+        return (
+          <section key={ladder.role} className="mt-8">
+            {showHeaders && (
+              <div className="mb-4">
+                <h2 className="text-lg font-bold text-[#1e1e1e] dark:text-white">{ladder.title}</h2>
+                <p className="text-[13px] text-[#9a9a9a]">{ladder.blurb}</p>
               </div>
-              <h3 className="mt-3 text-lg font-bold text-[#1e1e1e] dark:text-white">{PLAN_LABEL[t.plan]}</h3>
-              <p className="text-[12px] text-[#9a9a9a]">{t.tagline}</p>
-              <p className="mt-3 text-2xl font-extrabold text-[#1e1e1e] dark:text-white">{priceFor(t.plan)}<span className="text-[13px] font-medium text-[#9a9a9a]">{t.plan === "free" ? "" : period}</span></p>
-              {/* Saving is per-tier: the exhibitor ladder discounts unevenly (17–28%), so a single header chip would misprice most cards. */}
-              {saving > 0 && <p className="mt-1 text-[11.5px] font-semibold text-[#16803c]">Save {saving}% vs monthly</p>}
-
-              <ul className="mt-4 space-y-2 flex-1">
-                {t.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-[13px] text-[#4b4b4b] dark:text-white/70"><Check size={15} className="text-[#16803c] mt-0.5 flex-shrink-0" /> {f}</li>
-                ))}
-              </ul>
-
-              <div className="mt-5 space-y-2">
-                {isOnFree && t.plan !== "free" && !t.comingSoon && (
-                  <button
-                    disabled={busy === t.plan}
-                    onClick={() => startTrialForPlan(t.plan)}
-                    className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed bg-[#16a34a] text-white hover:bg-[#15803d]"
-                  >
-                    {busy === t.plan ? "Starting…" : <span className="inline-flex items-center justify-center gap-1.5"><Clock size={13} /> Start 14-day trial</span>}
-                  </button>
-                )}
-                <button
-                  disabled={isCurrent || !!t.comingSoon || busy === t.plan || (isOnFree && t.plan !== "free")}
-                  onClick={() => choose(t.plan)}
-                  className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
-                    isCurrent ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
-                    : t.comingSoon ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
-                    : isOnFree && t.plan !== "free" ? "bg-[#e3e3e3] dark:bg-white/10 text-[#9a9a9a]"
-                    : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"
-                  }`}>
-                  {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : t.plan === "free" ? "Switch to Free" : `Choose ${PLAN_LABEL[t.plan]}`}
-                </button>
+            )}
+            {ladder.note && (
+              <div className="mb-4 rounded-xl border border-[#ffd716]/40 bg-[#fff9db] dark:bg-[#ffd716]/10 px-4 py-3 text-[13px] text-[#8a7400] dark:text-[#ffd716]">
+                {ladder.note}
               </div>
+            )}
+
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${ladder.cols}`}>
+              {ladder.tiers.map((t) => {
+                const isCurrent = t.plan === ladder.current;
+                const Icon = t.icon;
+                const saving = cycleSaving(t.plan, cycle);
+                return (
+                  <div key={t.plan} className={`rounded-2xl border p-5 flex flex-col ${isCurrent ? "border-[#ffd716] ring-2 ring-[#ffd716]/30" : "border-[#ececec] dark:border-white/10"} bg-white dark:bg-[#1e1e1e]`}>
+                    <div className="flex items-center justify-between">
+                      <div className="w-9 h-9 rounded-lg bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400]"><Icon size={18} /></div>
+                      {isCurrent && <span className="text-[11px] font-bold text-[#16803c] bg-[#dcfce7] px-2 py-0.5 rounded-full">Current</span>}
+                      {t.comingSoon && !isCurrent && <span className="text-[11px] font-bold text-[#8a7400] bg-[#ffd716]/20 px-2 py-0.5 rounded-full">Coming soon</span>}
+                      {t.popular && !isCurrent && !t.comingSoon && <span className="text-[11px] font-bold text-[#8a7400] bg-[#ffd716]/20 px-2 py-0.5 rounded-full">Most Popular</span>}
+                    </div>
+                    <h3 className="mt-3 text-lg font-bold text-[#1e1e1e] dark:text-white">{PLAN_LABEL[t.plan]}</h3>
+                    <p className="text-[12px] text-[#9a9a9a]">{t.tagline}</p>
+                    <p className="mt-3 text-2xl font-extrabold text-[#1e1e1e] dark:text-white">{priceFor(t.plan)}<span className="text-[13px] font-medium text-[#9a9a9a]">{t.plan === "free" ? "" : period}</span></p>
+                    {/* Saving is per-tier: the exhibitor ladder discounts unevenly (17–28%), so a single header chip would misprice most cards. */}
+                    {saving > 0 && <p className="mt-1 text-[11.5px] font-semibold text-[#16803c]">Save {saving}% vs monthly</p>}
+
+                    <ul className="mt-4 space-y-2 flex-1">
+                      {t.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-[13px] text-[#4b4b4b] dark:text-white/70"><Check size={15} className="text-[#16803c] mt-0.5 flex-shrink-0" /> {f}</li>
+                      ))}
+                    </ul>
+
+                    <div className="mt-5 space-y-2">
+                      {isOnFree && t.plan !== "free" && !t.comingSoon && !ladder.disabled && (
+                        <button
+                          disabled={busy === t.plan}
+                          onClick={() => startTrialForPlan(t.plan)}
+                          className="w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed bg-[#16a34a] text-white hover:bg-[#15803d]"
+                        >
+                          {busy === t.plan ? "Starting…" : <span className="inline-flex items-center justify-center gap-1.5"><Clock size={13} /> Start 14-day trial</span>}
+                        </button>
+                      )}
+                      <button
+                        disabled={isCurrent || !!t.comingSoon || busy === t.plan || (isOnFree && t.plan !== "free") || ladder.disabled}
+                        onClick={() => choose(t.plan, ladder.role, ladder.current)}
+                        className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
+                          isCurrent ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
+                          : t.comingSoon || ladder.disabled ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
+                          : isOnFree && t.plan !== "free" ? "bg-[#e3e3e3] dark:bg-white/10 text-[#9a9a9a]"
+                          : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"
+                        }`}>
+                        {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : ladder.disabled ? "Unavailable" : t.plan === "free" ? "Switch to Free" : `Choose ${PLAN_LABEL[t.plan]}`}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
-      </div>
+          </section>
+        );
+      })}
 
       <p className="mt-5 text-[12px] text-[#b3b3b3]">
         {demoMode

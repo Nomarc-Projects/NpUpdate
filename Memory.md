@@ -12,7 +12,7 @@ non-trivial work.
 | --- | --- |
 | Working branch | `VPS_Nomarc` |
 | Remotes | `origin` → `Nomarc-Projects/NpUpdate`, `fullbuild` → `Nomarc-Projects/fullbuild` |
-| `main` | **Diverged lineage** — 17 unique commits configure Postgres + Umami; live stack is CockroachDB (see D-010) |
+| `main` | **== `VPS_Nomarc`** — force-reset to `2dbf6fe` on 2026-10-15 (see D-010); the old diverged lineage is recoverable from GitHub reflog ~90 days |
 | Build | `npm run type-check` ✅, `npm run build` ✅ |
 | Lint | ❌ `npm run lint` crashes — no ESLint config file |
 | Deploy | VPS + Dokploy (Traefik, `nomarcapp` Swarm service) |
@@ -24,6 +24,14 @@ non-trivial work.
 
 - **Exhibitor plan enforcement** — per-plan category caps (SME 1 / Exhibitor 5 /
   Key Player 10), 10 listings per category, upgrade messaging, plan banner.
+- **Exhibitor category (shop) creation** — "Add a new category" on the product
+  upload form and `allowCreate` in the company profile category picker; both are
+  plan-capped and pop an upgrade prompt at the limit. The upload dropdown reads
+  `company.categories`. (2026-10-15)
+- **Role-aware plans page** — `/dashboard/plans` shows a Professional section
+  only when the viewer holds `professional` (or holds no exhibitor role) and an
+  Exhibitor section when they hold `exhibitor`; the disabled-professional-page
+  dead-end for exhibitors is gone. (2026-10-15)
 - **Exhibitor checkout decoupled** from the global `payment-plans` toggle so
   exhibitors can always subscribe; `/dashboard/plans/exhibitor`.
 - **Dashboard marketing header** — news ticker + main nav on dashboard pages.
@@ -69,14 +77,14 @@ locked out of paying entirely.
 `exhibitor-trial.ts`.** Limits are read from there everywhere; do not
 re-implement caps in UI code.
 
-**D-010 · `main` is a diverged lineage — never merge it wholesale without
-asking.** `main` has 17 commits `VPS_Nomarc` lacks (Postgres host config,
-Cockroach→Postgres data copy, MinIO compose, Umami tracker, its own
-`Dockerfile`) while `VPS_Nomarc` is 39 ahead of it; the live VPS runs the
-`VPS_Nomarc` lineage (CockroachDB container, no Umami). Governance docs were
-delivered to `main` by **cherry-picking the docs-only commit** (`0cdbe1e` on
-`main`, `2e29654` on `VPS_Nomarc`) rather than merging code. A full merge would
-require resolving a `Dockerfile` collision — escalate before attempting.
+**D-010 · `main` == `VPS_Nomarc` (force-reset 2026-10-15).** At the operator's
+explicit request, `main` was deleted and recreated from `VPS_Nomarc`
+(`2dbf6fe`) so the two branches are identical. `main`'s previous diverged
+lineage (17 commits: Postgres host config, Cockroach→Postgres data copy, MinIO
+compose, Umami tracker, its own `Dockerfile`) was overwritten; it survived on
+GitHub's reflog for ~90 days. The earlier rule (deliver docs to `main` by
+cherry-picking, never merge wholesale) is superseded — keep the two branches in
+lockstep by pushing `VPS_Nomarc` to both.
 
 ---
 
