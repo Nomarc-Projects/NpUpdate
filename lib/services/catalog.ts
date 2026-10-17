@@ -35,6 +35,8 @@ export type ProductCard = {
   category?: string;
   /** For cart attribution (multi-vendor checkout split) — the exhibitor's company id + unit of sale. */
   vendorCompanyId?: string; unit?: string;
+  /** The selling company's uploaded logo (company.avatarUrl), shown on supplier cards. */
+  vendorLogo?: string;
   /** True when the product has at least one variant — quick-view is bypassed for
    *  these (variant selection needs the full PDP). Undefined = unknown. */
   hasVariants?: boolean;
@@ -109,7 +111,7 @@ export async function getJobById(id: string): Promise<JobCard | null> {
 /** Published products joined with their company (supplier + location). */
 export async function getProductsForBrowse(): Promise<ProductCard[]> {
   const rows = await db
-    .select({ p: product, coName: company.name, coLoc: company.headquarters, coVerified: company.verified })
+    .select({ p: product, coName: company.name, coLoc: company.headquarters, coVerified: company.verified, coLogo: company.avatarUrl })
     .from(product)
     .innerJoin(company, eq(product.companyId, company.id))
     .where(eq(product.draft, false))
@@ -126,7 +128,7 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
     variantOf = new Set(vRows.map((v) => v.productId));
   } catch { variantOf = new Set(); }
 
-  return rows.map(({ p, coName, coLoc, coVerified }) => {
+  return rows.map(({ p, coName, coLoc, coVerified, coLogo }) => {
     const availabilityKey = AVAIL_KEY(p.availability);
     return {
       id: p.id,
@@ -142,6 +144,7 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
       category: p.category ?? undefined,
       vendorCompanyId: p.companyId,
       unit: p.unit ?? "unit",
+      vendorLogo: coLogo ?? undefined,
       hasVariants: variantOf.has(p.id),
       createdAt: new Date(p.createdAt).toISOString(),
     };

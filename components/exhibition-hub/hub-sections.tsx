@@ -157,6 +157,9 @@ export type SupplierSummary = {
   verified: boolean;
   count: number;
   companyId?: string;
+  /** The company's uploaded logo, when present — otherwise the card falls back
+   *  to initials. All fields come off real products. */
+  logo?: string;
 };
 
 /** Group the browse list into the distinct suppliers behind it — verified
@@ -170,11 +173,12 @@ export function deriveSuppliers(products: ProductCard[], limit = 8): SupplierSum
     if (existing) {
       existing.count += 1;
       if (!existing.location && p.location) existing.location = p.location;
+      if (!existing.logo && p.vendorLogo) existing.logo = p.vendorLogo;
       existing.verified = existing.verified || p.verified;
     } else {
       map.set(key, {
         key, name: p.supplier, location: p.location, verified: p.verified,
-        count: 1, companyId: p.vendorCompanyId,
+        count: 1, companyId: p.vendorCompanyId, logo: p.vendorLogo,
       });
     }
   }
@@ -185,6 +189,28 @@ export function deriveSuppliers(products: ProductCard[], limit = 8): SupplierSum
 
 function initialsOf(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "N";
+}
+
+/** A supplier's logo, falling back to initials. Also catches broken URLs (dead
+ *  R2 links, or the throwaway `blob:` values older onboarding wrote). */
+function SupplierAvatar({ name, logo }: { name: string; logo?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (logo && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logo}
+        alt={`${name} logo`}
+        onError={() => setFailed(true)}
+        className="w-11 h-11 flex-shrink-0 rounded-full object-cover border border-[#ececec] dark:border-white/10 bg-white"
+      />
+    );
+  }
+  return (
+    <span className="w-11 h-11 flex-shrink-0 rounded-full bg-[#1e1e1e] dark:bg-[#ffd716] text-white dark:text-[#1e1e1e] text-[13px] font-black flex items-center justify-center">
+      {initialsOf(name)}
+    </span>
+  );
 }
 
 export function SupplierGrid({
@@ -217,9 +243,7 @@ export function SupplierGrid({
               href={hrefFor(s)}
               className="group flex items-center gap-3 rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-3.5 hover:border-[#ffd716] hover:shadow-[0_10px_30px_rgba(0,0,0,0.07)] transition-all duration-300"
             >
-              <span className="w-11 h-11 flex-shrink-0 rounded-full bg-[#1e1e1e] dark:bg-[#ffd716] text-white dark:text-[#1e1e1e] text-[13px] font-black flex items-center justify-center">
-                {initialsOf(s.name)}
-              </span>
+              <SupplierAvatar name={s.name} logo={s.logo} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1 min-w-0">
                   <span className="text-[13.5px] font-bold text-[#1e1e1e] dark:text-white truncate group-hover:text-[#caa400] dark:group-hover:text-[#ffd716] transition-colors">

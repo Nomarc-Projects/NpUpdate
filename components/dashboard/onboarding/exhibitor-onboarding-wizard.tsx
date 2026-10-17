@@ -11,6 +11,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { Logo } from "@/components/ui/logo";
 import { saveCompany } from "@/lib/services/company";
 import { submitKycDoc } from "@/lib/services/kyc";
+import { uploadFile } from "@/lib/upload-client";
 import { useMultiStep } from "@/components/ui/stepper";
 import { cn } from "@/lib/utils";
 import { EXHIBITOR_CATEGORY_CAP, DEFAULT_EXHIBITOR_PLAN } from "@/lib/services/exhibitor-plan-rules";
@@ -57,6 +58,10 @@ export function ExhibitorOnboardingWizard() {
   const [about, setAbout] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  // The uploaded logo's public URL — set once the file lands in R2. Kept apart
+  // from `logoPreview` (which shows instantly from a local object URL).
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const [regNumber, setRegNumber] = useState("");
   const [cacFileName, setCacFileName] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -68,6 +73,25 @@ export function ExhibitorOnboardingWizard() {
   const logoInput = useRef<HTMLInputElement>(null);
   const cacInput = useRef<HTMLInputElement>(null);
 
+  /** Show the picked file immediately, then persist it so the logo survives —
+   *  the preview object URL died with the page, which is why supplier cards
+   *  only ever had initials to fall back to. */
+  async function pickLogo(file: File | undefined) {
+    if (!file) return;
+    setLogoPreview(URL.createObjectURL(file));
+    setLogoUploading(true);
+    try {
+      const url = await uploadFile(file, "logo");
+      setLogoUrl(url);
+    } catch (e) {
+      setLogoPreview(null);
+      setLogoUrl(null);
+      toast.error(e instanceof Error ? e.message : "Logo upload failed. Please try again.");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   function goToDocuments() {
     if (!name.trim()) { toast.error("Enter your company name."); return; }
     if (!companyType) { toast.error("Select a company type."); return; }
@@ -77,15 +101,16 @@ export function ExhibitorOnboardingWizard() {
   }
 
   async function createProfile() {
+    if (logoUploading) { toast.error("Please wait for the logo upload to finish."); return; }
     setPending(true);
     try {
       await saveCompany({
         name, headquarters, about, companySize, companyType, categories,
         industry: categories[0], // legacy field, mirrors the primary category so existing industry-keyed surfaces keep working
+        avatarUrl: logoUrl ?? undefined,
       });
       // Registration number is a lightweight Tier-2 corporate doc; the CAC
-      // certificate file upload isn't wired to storage yet (same as the logo
-      // preview above — local-only until a file-upload service exists).
+      // certificate file upload isn't wired to storage yet.
       if (regNumber.trim()) {
         await submitKycDoc({ tier: 2, docType: "cac_number", textValue: regNumber.trim() }).catch(() => {});
       }
@@ -249,8 +274,8 @@ export function ExhibitorOnboardingWizard() {
                         <Camera size={22} />
                       )}
                     </button>
-                    <button type="button" onClick={() => logoInput.current?.click()} className={cn(ghostBtn, "px-4 py-2 text-[13px]")}>Upload profile picture</button>
-                    <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setLogoPreview(URL.createObjectURL(f)); }} />
+                    <button type="button" onClick={() => logoInput.current?.click()} disabled={logoUploading} className={cn(ghostBtn, "px-4 py-2 text-[13px]")}>{logoUploading ? "Uploading…" : "Upload profile picture"}</button>
+                    <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ""; }} />
                   </div>
 
                   <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
@@ -274,8 +299,8 @@ export function ExhibitorOnboardingWizard() {
                   </p>
                   <div className="mt-5 flex items-center gap-2.5">
                     <button onClick={prev} className={cn(ghostBtn, "flex-1")}>Back</button>
-                    <button onClick={createProfile} disabled={pending} className={cn(yellowBtn, "flex-1")}>
-                      {pending ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />} Create Profile
+                    <button onClick={createProfile} disabled={pending || logoUploading} className={cn(yellowBtn, "flex-1")}>
+                      {pending || logoUploading ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />} Create Profile
                     </button>
                   </div>
                 </div>

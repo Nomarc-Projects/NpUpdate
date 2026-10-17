@@ -15,6 +15,7 @@ import {
   chooseEmployerCompany,
   saveEmployerProfile,
 } from "@/lib/services/employer";
+import { uploadFile } from "@/lib/upload-client";
 import {
   WizardFooter,
   SegmentBar,
@@ -74,6 +75,10 @@ export function EmployerOnboardingWizard() {
   const [yearFounded, setYearFounded] = useState("");
   const [about, setAbout] = useState("");
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  // Public URL of the uploaded logo — set once the file lands in storage.
+  // `logoPreview` alone was a throwaway object URL, so the saved avatar broke.
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
   const logoInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -161,11 +166,29 @@ export function EmployerOnboardingWizard() {
     go("profile");
   }
 
+  /** Show the picked file immediately, then persist the real URL. */
+  async function pickLogo(file: File | undefined) {
+    if (!file) return;
+    setLogoPreview(URL.createObjectURL(file));
+    setLogoUploading(true);
+    try {
+      const url = await uploadFile(file, "logo");
+      setLogoUrl(url);
+    } catch (e) {
+      setLogoPreview(null);
+      setLogoUrl(null);
+      toast.error(e instanceof Error ? e.message : "Logo upload failed. Please try again.");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   async function submitProfile() {
+    if (logoUploading) { toast.error("Please wait for the logo upload to finish."); return; }
     if (!employerType) { toast.error("Select your employer type."); return; }
     setPending(true);
     try {
-      await saveEmployerProfile({ hiringAs, name, email, employerType, headquarters, companySize, yearFounded, about, avatarUrl: logoPreview ?? undefined });
+      await saveEmployerProfile({ hiringAs, name, email, employerType, headquarters, companySize, yearFounded, about, avatarUrl: logoUrl ?? undefined });
       go("summary");
     } catch {
       toast.error("Something went wrong. Please try again.");
@@ -346,8 +369,8 @@ export function EmployerOnboardingWizard() {
                         <Camera size={22} />
                       )}
                     </button>
-                    <button type="button" onClick={() => logoInput.current?.click()} className={cn(ghostBtn, "px-4 py-2 text-[13px]")}>Upload profile picture</button>
-                    <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) setLogoPreview(URL.createObjectURL(f)); }} />
+                    <button type="button" onClick={() => logoInput.current?.click()} disabled={logoUploading} className={cn(ghostBtn, "px-4 py-2 text-[13px]")}>{logoUploading ? "Uploading…" : "Upload profile picture"}</button>
+                    <input ref={logoInput} type="file" accept="image/*" hidden onChange={(e) => { pickLogo(e.target.files?.[0]); e.target.value = ""; }} />
                   </div>
                   <div className="grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
                     <Field label="Primary Address">
@@ -373,8 +396,8 @@ export function EmployerOnboardingWizard() {
                   </div>
                   <div className="mt-5 flex items-center gap-2.5">
                     <button onClick={back} className={cn(ghostBtn, "flex-1")}>Back</button>
-                    <button onClick={submitProfile} disabled={pending} className={cn(yellowBtn, "flex-1")}>
-                      {pending ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />} Create Profile
+                    <button onClick={submitProfile} disabled={pending || logoUploading} className={cn(yellowBtn, "flex-1")}>
+                      {pending || logoUploading ? <Loader2 size={15} className="animate-spin" /> : <ArrowRight size={15} />} Create Profile
                     </button>
                   </div>
                 </div>
