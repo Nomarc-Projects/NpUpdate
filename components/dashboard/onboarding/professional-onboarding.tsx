@@ -111,6 +111,21 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
   const [bio, setBio] = useState("");
   const [pending, setPending] = useState(false);
 
+  // Field-level validation. On submit we flag every missing required field at
+  // once (red border + summary banner) instead of stopping at the first toast.
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  function clearError(key: string) {
+    setErrors((p) => {
+      if (!(key in p)) return p;
+      const next = { ...p };
+      delete next[key];
+      return next;
+    });
+  }
+  /** inputClass, with an error border once submit has flagged this field. */
+  const fieldClass = (key: string) =>
+    cn(inputClass, errors[key] && "border-[#e5484d] focus:border-[#e5484d]");
+
   // Location is already collected on the basic profile ("Country / State / LGA /
   // Address" on the profile update form) — reuse it here instead of asking for
   // it again. Only show the Location section when nothing has been saved yet.
@@ -127,6 +142,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
     if (skills.includes(s)) { setSkill(""); return; }
     setSkills((p) => [...p, s]);
     setSkill("");
+    clearError("skills");
   }
 
   function addCert() {
@@ -135,48 +151,118 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
     if (!cert.year) { toast.error("Select the certification year."); return; }
     setCerts((p) => [...p, { name: cert.name.trim(), issuer: cert.issuer.trim(), year: cert.year }]);
     setCert({ name: "", issuer: "", year: "" });
+    clearError("certs");
+  }
+
+  /** True when the Work Experience draft has any user input (so submit can
+   *  auto-register it instead of silently discarding it). */
+  function expDraftStarted() {
+    return Boolean(exp.title.trim() || exp.company.trim() || exp.startDate || exp.endDate || exp.current);
+  }
+
+  /** Validate the draft and return the cleaned entry, or null. `silent` skips
+   *  the toast so submit can collect it into the all-at-once error summary. */
+  function prepareExp(silent = false) {
+    const fail = (msg: string) => { if (!silent) toast.error(msg); return null; };
+    if (!exp.title.trim()) return fail("Role is required.");
+    if (!exp.startDate) return fail("Select the start year.");
+    if (!exp.current && !exp.endDate) return fail("Select the end year (or tick 'Currently work here').");
+    return { ...exp, title: exp.title.trim(), company: exp.company.trim() };
   }
 
   function addExp() {
-    if (!exp.title.trim()) { toast.error("Role is required."); return; }
-    if (!exp.startDate) { toast.error("Select the start year."); return; }
-    if (!exp.current && !exp.endDate) { toast.error("Select the end year (or tick 'Currently work here')."); return; }
-    setExperience((p) => [...p, { ...exp, title: exp.title.trim(), company: exp.company.trim() }]);
+    const entry = prepareExp();
+    if (!entry) return;
+    setExperience((p) => [...p, entry]);
     setExp({ title: "", company: "", startDate: "", endDate: "", current: false });
   }
 
+  /** See expDraftStarted / prepareExp — same idea for Education. */
+  function eduDraftStarted() {
+    return Boolean(edu.school.trim() || edu.degree.trim() || edu.field.trim() || edu.startYear || edu.endYear || edu.current);
+  }
+
+  function prepareEdu(silent = false) {
+    const fail = (msg: string) => { if (!silent) toast.error(msg); return null; };
+    if (!edu.school.trim()) return fail("School is required.");
+    if (!edu.degree.trim()) return fail("Enter a degree / qualification.");
+    if (!edu.field.trim()) return fail("Enter a field of study.");
+    if (!edu.startYear) return fail("Select the start year.");
+    if (!edu.current && !edu.endYear) return fail("Select the end year (or tick 'Currently study here').");
+    return { ...edu, school: edu.school.trim(), degree: edu.degree.trim(), field: edu.field.trim() };
+  }
+
   function addEdu() {
-    if (!edu.school.trim()) { toast.error("School is required."); return; }
-    if (!edu.degree.trim()) { toast.error("Enter a degree / qualification."); return; }
-    if (!edu.field.trim()) { toast.error("Enter a field of study."); return; }
-    if (!edu.startYear) { toast.error("Select the start year."); return; }
-    if (!edu.current && !edu.endYear) { toast.error("Select the end year (or tick 'Currently study here')."); return; }
-    setEducation((p) => [...p, { ...edu, school: edu.school.trim(), degree: edu.degree.trim(), field: edu.field.trim() }]);
+    const entry = prepareEdu();
+    if (!entry) return;
+    setEducation((p) => [...p, entry]);
     setEdu({ school: "", degree: "", field: "", startYear: "", endYear: "", current: false });
   }
 
   async function submit() {
-    if (!finalHeadline) { toast.error("Enter your job title."); return; }
-    if (!availability) { toast.error("Let us know if you're open to work."); return; }
-    if (!practiceLicenceStatus) { toast.error("Select your professional practice status."); return; }
+    // Auto-register a filled-in Work Experience / Education draft so users who
+    // type into the fields (without clicking "+ Add") don't lose the entry.
+    let allExperience = experience;
+    if (expDraftStarted()) {
+      const entry = prepareExp(true);
+      if (entry) {
+        allExperience = [...experience, entry];
+        setExperience(allExperience);
+        setExp({ title: "", company: "", startDate: "", endDate: "", current: false });
+      }
+    }
+    let allEducation = education;
+    if (eduDraftStarted()) {
+      const entry = prepareEdu(true);
+      if (entry) {
+        allEducation = [...education, entry];
+        setEducation(allEducation);
+        setEdu({ school: "", degree: "", field: "", startYear: "", endYear: "", current: false });
+      }
+    }
+
+    // Fold a half-typed skill into the list too.
+    let allSkills = skills;
+    const pendingSkill = skill.trim();
+    if (pendingSkill && !skills.includes(pendingSkill)) {
+      allSkills = [...skills, pendingSkill];
+      setSkills(allSkills);
+      setSkill("");
+    }
+
+    // Collect every missing required field in one pass so the user sees the
+    // full list at once rather than fixing them one toast at a time.
     const dbStatus = PRACTICE_STATUS_TO_DB[practiceLicenceStatus] ?? practiceLicenceStatus;
-    if (dbStatus === "licensed" && !licenseNumber.trim()) { toast.error("Enter your licence number."); return; }
-    if (dbStatus === "registered" && !registrationNumber.trim()) { toast.error("Enter your registration number."); return; }
+    const found: Record<string, string> = {};
+    if (!finalHeadline) found.headline = "Job title";
+    if (!availability) found.availability = "Open to work";
+    if (!practiceLicenceStatus) found.practiceStatus = "Professional practice status";
+    if (dbStatus === "licensed" && !licenseNumber.trim()) found.licenseNumber = "Licence number";
+    if (dbStatus === "registered" && !registrationNumber.trim()) found.registrationNumber = "Registration number";
     if (dbStatus === "company") {
-      if (!practiceCompanyName.trim()) { toast.error("Enter the company name."); return; }
-      if (!practiceRegNumber.trim()) { toast.error("Enter the company registration number."); return; }
-      if (!practiceCompanyAddress.trim()) { toast.error("Enter the company address."); return; }
+      if (!practiceCompanyName.trim()) found.practiceCompanyName = "Company name";
+      if (!practiceRegNumber.trim()) found.practiceRegNumber = "Company registration number";
+      if (!practiceCompanyAddress.trim()) found.practiceCompanyAddress = "Company address";
     }
-    if (skills.length === 0) { toast.error("Add at least one skill."); return; }
-    if (isLicensedOrRegistered && certs.length === 0) { toast.error("Add at least one certification."); return; }
-    if (!isPracticeCompany && experience.length === 0) { toast.error("Add at least one work experience."); return; }
-    if (isPracticeCompany && education.length === 0) { toast.error("Add at least one education entry."); return; }
-    if (!isPracticeCompany && !bio.trim()) { toast.error("Write a short bio about yourself."); return; }
+    if (allSkills.length === 0) found.skills = "Skills";
+    if (isLicensedOrRegistered && certs.length === 0) found.certs = "Certifications";
+    if (!isPracticeCompany && allExperience.length === 0) found.exp = "Work experience";
+    if (isPracticeCompany && allEducation.length === 0) found.edu = "Education";
+    if (!isPracticeCompany && !bio.trim()) found.bio = "Short bio";
     if (!hasLocation) {
-      if (!country) { toast.error("Select your country."); return; }
-      if (!stateName) { toast.error("Select your state / region."); return; }
-      if (!address.trim()) { toast.error("Enter your address."); return; }
+      if (!country) found.country = "Country";
+      if (!stateName) found.state = "State / Region";
+      if (!address.trim()) found.address = "Address";
     }
+
+    if (Object.keys(found).length > 0) {
+      setErrors(found);
+      const n = Object.keys(found).length;
+      toast.error(`Please complete ${n} highlighted field${n > 1 ? "s" : ""}.`);
+      return;
+    }
+    setErrors({});
+
     setPending(true);
     try {
       await completeProfessionalOnboarding({
@@ -190,10 +276,10 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
         practiceCompanyName,
         practiceRegNumber,
         practiceCompanyAddress,
-        skills,
+        skills: allSkills,
         certifications: certs.map((c) => ({ name: c.name, issuer: c.issuer, year: c.year ? Number(c.year) : undefined })),
-        experience: experience.map((x) => ({ title: x.title, company: x.company, startDate: x.startDate, endDate: x.current ? undefined : x.endDate, current: x.current })),
-        education: education.map((e) => ({ school: e.school, degree: e.degree || undefined, field: e.field || undefined, startYear: e.startYear ? Number(e.startYear) : undefined, endYear: e.current ? undefined : e.endYear ? Number(e.endYear) : undefined, current: e.current })),
+        experience: allExperience.map((x) => ({ title: x.title, company: x.company, startDate: x.startDate, endDate: x.current ? undefined : x.endDate, current: x.current })),
+        education: allEducation.map((e) => ({ school: e.school, degree: e.degree || undefined, field: e.field || undefined, startYear: e.startYear ? Number(e.startYear) : undefined, endYear: e.current ? undefined : e.endYear ? Number(e.endYear) : undefined, current: e.current })),
       });
       toast.success("You're all set — welcome to the professional track!");
       router.push("/dashboard/jobs");
@@ -220,12 +306,22 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
           </div>
 
           <form onSubmit={(e) => { e.preventDefault(); submit(); }} className="space-y-5 py-6">
+            {Object.keys(errors).length > 0 && (
+              <div className="rounded-xl border border-[#e5484d]/40 bg-[#fdecec] px-4 py-3 dark:border-[#e5484d]/30 dark:bg-[#e5484d]/10">
+                <p className="text-[13px] font-semibold text-[#c0272d] dark:text-[#ff8a8f]">
+                  Please complete {Object.keys(errors).length} required field{Object.keys(errors).length > 1 ? "s" : ""}:
+                </p>
+                <p className="mt-1 text-[12.5px] text-[#c0272d]/90 dark:text-[#ff8a8f]/80">
+                  {Object.values(errors).join(" · ")}
+                </p>
+              </div>
+            )}
             {/* ── Intro ───────────────────────────────────────────── */}
             <section className={SECTION_CARD}>
               <h2 className={SECTION_TITLE}>Intro</h2>
               <div className="mt-4 space-y-4">
-                <Field label="Are you open to work?" hint="Employers and clients can then find out you're available — you can change this later on your profile.">
-                  <SelectMenu placeholder="Select an option" value={availability} onChange={setAvailability} options={AVAIL_OPTIONS.map((o) => o.label)} />
+                <Field label="Are you open to work?" required hint="Employers and clients can then find out you're available — you can change this later on your profile.">
+                  <SelectMenu placeholder="Select an option" value={availability} onChange={(v) => { setAvailability(v); clearError("availability"); }} options={AVAIL_OPTIONS.map((o) => o.label)} invalid={!!errors.availability} />
                 </Field>
               </div>
             </section>
@@ -238,18 +334,19 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
               <div className="mt-4 border-b border-[#f0f0f0] pb-5 dark:border-white/10">
                 <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Briefcase size={15} className="text-[#9a9a9a]" /> Profession</h3>
                 <div className="mt-3">
-                  <Field label="Job title / headline">
+                  <Field label="Job title / headline" required>
                     <SelectMenu
                       placeholder="Select your profession"
                       value={headline}
-                      onChange={setHeadline}
+                      onChange={(v) => { setHeadline(v); clearError("headline"); }}
                       options={PROFESSIONS}
+                      invalid={!!errors.headline}
                     />
                   </Field>
                   {headline === OTHER_PROFESSION && (
                     <div className="mt-3">
-                      <Field label="Enter your job title">
-                        <input className={inputClass} value={customHeadline} onChange={(e) => setCustomHeadline(e.target.value)} placeholder="e.g. Project Architect" required />
+                      <Field label="Enter your job title" required>
+                        <input className={fieldClass("headline")} value={customHeadline} onChange={(e) => { setCustomHeadline(e.target.value); clearError("headline"); }} placeholder="e.g. Project Architect" />
                       </Field>
                     </div>
                   )}
@@ -261,39 +358,39 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                 <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[#1e1e1e] dark:text-white"><Award size={15} className="text-[#9a9a9a]" /> Qualification</h3>
 
                 <div className="mt-3 max-w-sm">
-                  <Field label="Professional practice status">
-                    <SelectMenu placeholder="Select status" value={practiceLicenceStatus} onChange={setPracticeLicenceStatus} options={PRACTICE_STATUS_OPTIONS.map((o) => o.label)} />
+                  <Field label="Professional practice status" required>
+                    <SelectMenu placeholder="Select status" value={practiceLicenceStatus} onChange={(v) => { setPracticeLicenceStatus(v); clearError("practiceStatus"); }} options={PRACTICE_STATUS_OPTIONS.map((o) => o.label)} invalid={!!errors.practiceStatus} />
                   </Field>
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "licensed" && (
                     <div className="mt-3">
-                      <Field label="Licence number">
-                        <input className={inputClass} value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} placeholder="e.g. COREN/XXXXX/12345" required />
+                      <Field label="Licence number" required>
+                        <input className={fieldClass("licenseNumber")} value={licenseNumber} onChange={(e) => { setLicenseNumber(e.target.value); clearError("licenseNumber"); }} placeholder="e.g. COREN/XXXXX/12345" />
                       </Field>
                     </div>
                   )}
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "registered" && (
                     <div className="mt-3">
-                      <Field label="Registration number">
-                        <input className={inputClass} value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value)} placeholder="e.g. ARCON/REG/004512" required />
+                      <Field label="Registration number" required>
+                        <input className={fieldClass("registrationNumber")} value={registrationNumber} onChange={(e) => { setRegistrationNumber(e.target.value); clearError("registrationNumber"); }} placeholder="e.g. ARCON/REG/004512" />
                       </Field>
                     </div>
                   )}
                   {PRACTICE_STATUS_TO_DB[practiceLicenceStatus] === "company" && (
                     <div className="mt-3 grid grid-cols-1 gap-3">
-                      <Field label="Company name">
-                        <input className={inputClass} value={practiceCompanyName} onChange={(e) => setPracticeCompanyName(e.target.value)} placeholder="e.g. Arcade Builds Ltd" required />
+                      <Field label="Company name" required>
+                        <input className={fieldClass("practiceCompanyName")} value={practiceCompanyName} onChange={(e) => { setPracticeCompanyName(e.target.value); clearError("practiceCompanyName"); }} placeholder="e.g. Arcade Builds Ltd" />
                       </Field>
-                      <Field label="Registration number">
-                        <input className={inputClass} value={practiceRegNumber} onChange={(e) => setPracticeRegNumber(e.target.value)} placeholder="e.g. RAC/004512" required />
+                      <Field label="Registration number" required>
+                        <input className={fieldClass("practiceRegNumber")} value={practiceRegNumber} onChange={(e) => { setPracticeRegNumber(e.target.value); clearError("practiceRegNumber"); }} placeholder="e.g. RAC/004512" />
                       </Field>
-                      <Field label="Company address">
-                        <input className={inputClass} value={practiceCompanyAddress} onChange={(e) => setPracticeCompanyAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja" required />
+                      <Field label="Company address" required>
+                        <input className={fieldClass("practiceCompanyAddress")} value={practiceCompanyAddress} onChange={(e) => { setPracticeCompanyAddress(e.target.value); clearError("practiceCompanyAddress"); }} placeholder="e.g. 12 Allen Avenue, Ikeja" />
                       </Field>
                     </div>
                   )}
                 </div>
 
-                <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Skills</p>
+                <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Skills <span className="text-[#e5484d]">*</span></p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   {skills.map((s) => (
                     <span key={s} className="inline-flex items-center gap-1.5 rounded-full border border-[#f3d34d] bg-[#fffae6] px-3 py-1 text-[12.5px] text-[#1e1e1e] dark:border-[#ffd716]/40 dark:bg-[#ffd716]/10 dark:text-white/90">
@@ -303,7 +400,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   ))}
                   <div className="flex items-center gap-1.5">
                     <input
-                      className={cn(inputClass, "w-44")}
+                      className={cn(fieldClass("skills"), "w-44")}
                       placeholder="Add a skill + Enter"
                       value={skill}
                       onChange={(e) => setSkill(e.target.value)}
@@ -314,7 +411,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                 </div>
 
                 {isLicensedOrRegistered && (
-                  <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Certifications / Licenses</p>
+                  <p className="mt-4 text-[12.5px] font-medium text-[#1e1e1e] dark:text-white">Certifications / Licenses <span className="text-[#e5484d]">*</span></p>
                 )}
                 {isLicensedOrRegistered && certs.length > 0 && (
                   <ul className="mt-2 space-y-2">
@@ -355,17 +452,17 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   </ul>
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input className={inputClass} placeholder={isPracticeCompany ? "Role / title" : "Role / title *"} value={exp.title} onChange={(e) => setExp((p) => ({ ...p, title: e.target.value }))} />
+                  <input className={fieldClass("exp")} placeholder={isPracticeCompany ? "Role / title" : "Role / title *"} value={exp.title} onChange={(e) => { setExp((p) => ({ ...p, title: e.target.value })); clearError("exp"); }} />
                   <input className={inputClass} placeholder="Company (optional)" value={exp.company} onChange={(e) => setExp((p) => ({ ...p, company: e.target.value }))} />
-                  <SelectMenu placeholder="Start" value={exp.startDate} onChange={(v) => setExp((p) => ({ ...p, startDate: v }))} options={YEAR_OPTIONS} />
+                  <SelectMenu placeholder="Start" value={exp.startDate} onChange={(v) => { setExp((p) => ({ ...p, startDate: v })); clearError("exp"); }} options={YEAR_OPTIONS} invalid={!!errors.exp} />
                   {!exp.current ? (
-                    <SelectMenu placeholder="End" value={exp.endDate} onChange={(v) => setExp((p) => ({ ...p, endDate: v }))} options={YEAR_OPTIONS} />
+                    <SelectMenu placeholder="End" value={exp.endDate} onChange={(v) => { setExp((p) => ({ ...p, endDate: v })); clearError("exp"); }} options={YEAR_OPTIONS} invalid={!!errors.exp} />
                   ) : (
                     <div className="flex items-center justify-center rounded-lg border border-[#e7efea] bg-[#f2faf4] px-3 text-[12.5px] font-medium text-[#1a7f43] dark:border-[#1a7f43]/20 dark:bg-[#1a7f43]/10 dark:text-[#4ade80]">Present</div>
                   )}
                 </div>
                 <label className="mt-2 flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60">
-                  <input type="checkbox" checked={exp.current} onChange={(e) => setExp((p) => ({ ...p, current: e.target.checked, endDate: "" }))} className="h-4 w-4 accent-[#ffd716]" />
+                  <input type="checkbox" checked={exp.current} onChange={(e) => { setExp((p) => ({ ...p, current: e.target.checked, endDate: "" })); clearError("exp"); }} className="h-4 w-4 accent-[#ffd716]" />
                   I currently work here
                 </label>
                 <button type="button" onClick={addExp} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
@@ -389,20 +486,20 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                   </ul>
                 )}
                 <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <input className={inputClass} placeholder={isPracticeCompany ? "School *" : "School"} value={edu.school} onChange={(e) => setEdu((p) => ({ ...p, school: e.target.value }))} />
-                  <input className={inputClass} placeholder="Degree / qualification" value={edu.degree} onChange={(e) => setEdu((p) => ({ ...p, degree: e.target.value }))} />
-                  <input className={inputClass} placeholder="Field of study" value={edu.field} onChange={(e) => setEdu((p) => ({ ...p, field: e.target.value }))} />
+                  <input className={fieldClass("edu")} placeholder={isPracticeCompany ? "School *" : "School"} value={edu.school} onChange={(e) => { setEdu((p) => ({ ...p, school: e.target.value })); clearError("edu"); }} />
+                  <input className={fieldClass("edu")} placeholder="Degree / qualification" value={edu.degree} onChange={(e) => { setEdu((p) => ({ ...p, degree: e.target.value })); clearError("edu"); }} />
+                  <input className={fieldClass("edu")} placeholder="Field of study" value={edu.field} onChange={(e) => { setEdu((p) => ({ ...p, field: e.target.value })); clearError("edu"); }} />
                   <div className="grid grid-cols-2 gap-3">
-                    <SelectMenu placeholder="Start year" value={edu.startYear} onChange={(v) => setEdu((p) => ({ ...p, startYear: v }))} options={YEAR_OPTIONS} />
+                    <SelectMenu placeholder="Start year" value={edu.startYear} onChange={(v) => { setEdu((p) => ({ ...p, startYear: v })); clearError("edu"); }} options={YEAR_OPTIONS} invalid={!!errors.edu} />
                     {!edu.current ? (
-                      <SelectMenu placeholder="End year" value={edu.endYear} onChange={(v) => setEdu((p) => ({ ...p, endYear: v }))} options={YEAR_OPTIONS} />
+                      <SelectMenu placeholder="End year" value={edu.endYear} onChange={(v) => { setEdu((p) => ({ ...p, endYear: v })); clearError("edu"); }} options={YEAR_OPTIONS} invalid={!!errors.edu} />
                     ) : (
                       <div className="flex items-center justify-center rounded-lg border border-[#e7efea] bg-[#f2faf4] px-3 text-[12.5px] font-medium text-[#1a7f43] dark:border-[#1a7f43]/20 dark:bg-[#1a7f43]/10 dark:text-[#4ade80]"><Check size={13} className="mr-1" /> Present</div>
                     )}
                   </div>
                 </div>
                 <label className="mt-2 flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60">
-                  <input type="checkbox" checked={edu.current} onChange={(e) => setEdu((p) => ({ ...p, current: e.target.checked, endYear: "" }))} className="h-4 w-4 accent-[#ffd716]" />
+                  <input type="checkbox" checked={edu.current} onChange={(e) => { setEdu((p) => ({ ...p, current: e.target.checked, endYear: "" })); clearError("edu"); }} className="h-4 w-4 accent-[#ffd716]" />
                   I currently study here
                 </label>
                 <button type="button" onClick={addEdu} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
@@ -414,7 +511,7 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
               <h2 className={SECTION_TITLE}>About</h2>
               <div className="mt-4">
                 <Field label="Short bio" hint={isPracticeCompany ? "Optional" : undefined} required={!isPracticeCompany}>
-                  <textarea rows={4} maxLength={280} className={inputClass} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="A couple of lines about your experience…" />
+                  <textarea rows={4} maxLength={280} className={fieldClass("bio")} value={bio} onChange={(e) => { setBio(e.target.value); clearError("bio"); }} placeholder="A couple of lines about your experience…" />
                 </Field>
               </div>
             </section>
@@ -424,20 +521,22 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
               <section className={SECTION_CARD}>
                 <h2 className={SECTION_TITLE}>Location</h2>
                 <div className="mt-4 grid grid-cols-1 gap-x-5 gap-y-4 sm:grid-cols-2">
-                  <Field label="Country">
+                  <Field label="Country" required>
                     <SelectMenu
                       placeholder="Select country"
                       value={country}
-                      onChange={(v) => { setCountry(v); setStateName(""); setLga(""); }}
+                      onChange={(v) => { setCountry(v); setStateName(""); setLga(""); clearError("country"); }}
                       options={COUNTRIES}
+                      invalid={!!errors.country}
                     />
                   </Field>
-                  <Field label="State / Region">
+                  <Field label="State / Region" required>
                     <SelectMenu
                       placeholder={country ? "Select state" : "Select country first"}
                       value={stateName}
-                      onChange={(v) => { setStateName(v); setLga((cur) => (lgasFor(v).includes(cur) ? cur : "")); }}
+                      onChange={(v) => { setStateName(v); setLga((cur) => (lgasFor(v).includes(cur) ? cur : "")); clearError("state"); }}
                       options={country ? statesFor(country) : []}
+                      invalid={!!errors.state}
                     />
                   </Field>
                   {country && country.toLowerCase() === "nigeria" ? (
@@ -450,8 +549,8 @@ export function ProfessionalOnboarding({ title, description, savedLocation = "" 
                       />
                     </Field>
                   ) : null}
-                  <Field label="Address">
-                    <input className={inputClass} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="e.g. 12 Allen Avenue" />
+                  <Field label="Address" required>
+                    <input className={fieldClass("address")} value={address} onChange={(e) => { setAddress(e.target.value); clearError("address"); }} placeholder="e.g. 12 Allen Avenue" />
                   </Field>
                 </div>
               </section>

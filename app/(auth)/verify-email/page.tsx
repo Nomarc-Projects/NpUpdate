@@ -69,13 +69,24 @@ function VerifyForm() {
     if (code.length !== LEN) { toast.error("Enter the 6-digit code."); return; }
     setLoading(true);
     const { error } = await authClient.emailOtp.verifyEmail({ email, otp: code });
+    if (error) { setLoading(false); toast.error(error.message || "That code is invalid or has expired."); setOtp(""); return; }
+    // Verification also signs the user in (autoSignInAfterVerification), so we
+    // can go straight to their destination — the remembered redirect (e.g. the
+    // WhatsApp community handoff) or the dashboard. Only fall back to the login
+    // screen if, for some reason, no session was established.
+    const { data: session } = await authClient.getSession();
     setLoading(false);
-    if (error) { toast.error(error.message || "That code is invalid or has expired."); setOtp(""); return; }
-    toast.success("Email verified — you can sign in now.");
+    toast.success("Email verified.");
+    if (session?.user) {
+      const dest = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard";
+      // replace (not push) so the "back" button never re-opens this one-time screen.
+      window.location.replace(dest);
+      return;
+    }
     const loginParams = new URLSearchParams();
     if (redirect) loginParams.append("redirect", redirect);
     if (plan) loginParams.append("plan", plan);
-    router.push(`/login${loginParams.size > 0 ? "?" + loginParams.toString() : ""}`);
+    router.replace(`/login${loginParams.size > 0 ? "?" + loginParams.toString() : ""}`);
   }
 
   async function resend() {

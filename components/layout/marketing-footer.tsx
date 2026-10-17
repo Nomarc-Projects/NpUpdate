@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
+import { JoinCommunityLink } from "@/components/layout/join-community-link";
 import { Linkedin, Instagram, Facebook } from "lucide-react";
 
 const quickLinks = [
   { label: "Home",           href: "/" },
-  { label: "Join Community", href: "/signup" },
   { label: "FAQs",           href: "/#faq" },
   { label: "News Feed",    href: "/newsfeed" },
 ];
@@ -80,7 +80,22 @@ export function MarketingFooter() {
             </div>
           </div>
 
-          <FooterColumn title="Quick Links"   links={quickLinks} />
+          <div>
+            <h4 className="text-white font-semibold text-base mb-5">Quick Links</h4>
+            <ul className="space-y-3.5">
+              <li>
+                <Link href="/" className="text-sm text-[#9a9a9a] hover:text-white transition-colors">Home</Link>
+              </li>
+              <li>
+                <JoinCommunityLink className="text-sm text-[#9a9a9a] hover:text-white transition-colors" />
+              </li>
+              {quickLinks.slice(1).map((l) => (
+                <li key={l.label}>
+                  <Link href={l.href} className="text-sm text-[#9a9a9a] hover:text-white transition-colors">{l.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
           <FooterColumn title="Professionals" links={professionalLinks} />
           <FooterColumn title="Employers"     links={employerLinks} />
         </div>

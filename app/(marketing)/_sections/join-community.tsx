@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/store/auth";
+import { COMMUNITY_WHATSAPP_URL, communitySignupHref } from "@/lib/community";
 import { FadeUp } from "./fade-up";
 
 export function JoinCommunitySection() {
@@ -22,11 +23,11 @@ export function JoinCommunitySection() {
                 link straight into the WhatsApp group. Opens in a new tab so visitors
                 don't lose the site. */}
             {isSignedIn ? (
-              <Button href="https://chat.whatsapp.com/GQ9JFeCxzjf5qrMiZ9lCIc?s=cl&p=a&mlu=4&ilr=4" target="_blank" rel="noreferrer" variant="primary">
+              <Button href={COMMUNITY_WHATSAPP_URL} target="_blank" rel="noreferrer" variant="primary">
                 Join community
               </Button>
             ) : (
-              <Button href="/signup" variant="primary">
+              <Button href={communitySignupHref()} variant="primary">
                 Join Community
               </Button>
             )}

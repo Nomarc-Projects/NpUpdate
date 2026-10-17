@@ -246,7 +246,7 @@ export default function SupportPage() {
         >
           {tab === "ticket" && <TicketForm />}
           {tab === "history" && <TicketHistory />}
-          {tab === "faq" && <FaqSection />}
+          {tab === "faq" && <FaqSection onOpenTicket={() => setTab("ticket")} />}
         </motion.div>
       </AnimatePresence>
 
@@ -683,7 +683,7 @@ function TicketHistory() {
 
 /* ─── FAQ accordion ──────────────────────────────────────────────────────── */
 
-function FaqSection() {
+function FaqSection({ onOpenTicket }: { onOpenTicket: () => void }) {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -788,10 +788,7 @@ function FaqSection() {
           <p className="text-[12.5px] text-[#6b6b6b] dark:text-white/50 mt-0.5">Our support team is ready to help — create a ticket and we&apos;ll reply shortly.</p>
         </div>
         <button
-          onClick={() => {
-            const el = document.querySelector("[data-support-tab='ticket']");
-            if (el) (el as HTMLButtonElement).click();
-          }}
+          onClick={onOpenTicket}
           className="flex-shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#1e1e1e] dark:bg-[#ffd716] text-white dark:text-[#1e1e1e] text-[13px] font-bold hover:bg-[#333] dark:hover:bg-[#e6c114] transition-colors"
         >
           <Ticket size={14} />

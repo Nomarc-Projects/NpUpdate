@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SelectMenuProps {
   options: string[];
@@ -14,6 +15,8 @@ interface SelectMenuProps {
   searchable?: boolean;
   searchThreshold?: number;
   searchPlaceholder?: string;
+  /** Render in an error state (red border), e.g. a required field left blank. */
+  invalid?: boolean;
 }
 
 export function SelectMenu({
@@ -24,6 +27,7 @@ export function SelectMenu({
   searchable,
   searchThreshold = 8,
   searchPlaceholder = "Search…",
+  invalid = false,
 }: SelectMenuProps) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string | undefined>(value);
@@ -64,7 +68,12 @@ export function SelectMenu({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 bg-white dark:bg-transparent px-3.5 py-2.5 text-sm focus:outline-none focus:border-[#ffd716] transition-colors"
+        className={cn(
+          "w-full flex items-center justify-between gap-2 rounded-lg border bg-white dark:bg-transparent px-3.5 py-2.5 text-sm focus:outline-none transition-colors",
+          invalid
+            ? "border-[#e5484d] focus:border-[#e5484d]"
+            : "border-[#e3e3e3] dark:border-white/15 focus:border-[#ffd716]"
+        )}
       >
         <span className={selected ? "text-[#1e1e1e] dark:text-white" : "text-[#b3b3b3]"}>
           {selected ?? placeholder}

@@ -9,6 +9,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { signUp, signIn, authClient } from "@/lib/auth-client";
 import { Logo } from "@/components/ui/logo";
 import { BrandPanel, type Step } from "@/components/auth/brand-panel";
+import { RedirectIfAuthenticated } from "@/components/auth/redirect-if-authenticated";
 import { Field, inputClass } from "@/components/ui/modal";
 import { ArrowLabel } from "@/components/ui/arrow-label";
 import { PasswordConfirmInput } from "@/components/auth/password-confirm-input";
@@ -66,11 +67,11 @@ function PrimaryWide({ children, ...props }: React.ButtonHTMLAttributes<HTMLButt
     </button>
   );
 }
-function GoogleButton() {
+function GoogleButton({ callbackURL = "/dashboard" }: { callbackURL?: string }) {
   const [loading, setLoading] = useState(false);
   async function handle() {
     setLoading(true);
-    const { error } = await signIn.social({ provider: "google", callbackURL: "/dashboard" });
+    const { error } = await signIn.social({ provider: "google", callbackURL });
     if (error) {
       setLoading(false);
       toast.error(error.message || "Google sign-up is not available yet.");
@@ -117,6 +118,7 @@ function PasswordInput({
 export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-[#111]">
+      <RedirectIfAuthenticated />
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }} className="flex min-h-screen">
         <BrandPanel images={BRAND_IMAGES} heading="Explore Nomarc Projects" steps={steps} />
         <div className="flex-1 flex items-center justify-center px-6 py-10">
@@ -150,6 +152,8 @@ function SignupFields() {
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
   const plan = searchParams.get("plan");
+  // Only internal paths may be used as a post-auth destination (open-redirect guard).
+  const safeRedirect = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard";
   const [firstName, setFirstName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
@@ -210,7 +214,7 @@ function SignupFields() {
       </Field>
       <PrimaryWide type="submit" disabled={loading}>{loading ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <ArrowLabel>Create Account</ArrowLabel>}</PrimaryWide>
       <div className="text-center text-xs text-[#b3b3b3]">Or</div>
-      <GoogleButton />
+      <GoogleButton callbackURL={safeRedirect} />
       <p className="text-center text-[11px] text-[#b3b3b3]">By creating an account you agree to our <Link href="/terms" className="font-medium text-[#6b6b6b] dark:text-white/60 underline hover:text-[#1e1e1e] dark:hover:text-white">Terms</Link> and <Link href="/privacy" className="font-medium text-[#6b6b6b] dark:text-white/60 underline hover:text-[#1e1e1e] dark:hover:text-white">Privacy Policy</Link>.</p>
     </form>
   );

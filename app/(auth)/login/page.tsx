@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Eye, EyeOff, Loader2, ArrowLeft } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { BrandPanel, type Testimonial } from "@/components/auth/brand-panel";
+import { RedirectIfAuthenticated } from "@/components/auth/redirect-if-authenticated";
 import { Field, inputClass } from "@/components/ui/modal";
 import { ArrowLabel } from "@/components/ui/arrow-label";
 import { signIn } from "@/lib/auth-client";
@@ -118,6 +119,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-white dark:bg-[#111]">
+      <RedirectIfAuthenticated />
       <BrandPanel images={IMAGES} heading="" testimonials={testimonials} />
       <div className="flex-1 flex items-center justify-center px-6 py-10">
         <Suspense fallback={<div className="w-full max-w-[400px] animate-pulse"><div className="h-8 bg-[#f0f0f0] dark:bg-white/5 rounded mb-4 w-48" /><div className="h-4 bg-[#f0f0f0] dark:bg-white/5 rounded w-64" /></div>}>
