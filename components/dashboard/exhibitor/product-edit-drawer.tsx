@@ -58,6 +58,13 @@ export function ProductEditDrawer({ open, onClose, productId }: { open: boolean;
 
   const canSave = useMemo(() => name.trim().length > 0, [name]);
 
+  // Products published before images were required can still be edited; we nudge
+  // the seller to add one rather than blocking them.
+  const hasImage = useMemo(
+    () => Boolean(coverUrl.trim()) || gallery.split(",").some((s) => s.trim()),
+    [coverUrl, gallery],
+  );
+
   const specsParsed = useMemo(() => {
     return specs.split("\n").map((line) => {
       const i = line.indexOf(":");
@@ -98,6 +105,12 @@ export function ProductEditDrawer({ open, onClose, productId }: { open: boolean;
   return (
     <SlideOverDrawer open={open} onClose={onClose} title="Edit Product" subtitle="Update your catalog entry" widthClassName="w-full sm:max-w-[560px]">
       <form className="space-y-1" onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        {loaded && !hasImage && (
+          <div className="mb-4 rounded-xl border border-[#f3d34d] bg-[#fffae6] px-3.5 py-3 text-[12.5px] leading-relaxed text-[#7a6400] dark:border-[#ffd716]/40 dark:bg-[#ffd716]/10 dark:text-[#ffd716]">
+            <span className="font-semibold">This product has no image.</span> Add a cover image below — listings with photos
+            get far more buyer trust and enquiries.
+          </div>
+        )}
         <div className={fieldCls}>
           <label className={labelCls}>Product Name *</label>
           <input value={name} onChange={(e) => setName(e.target.value)} className={inputCls} placeholder="e.g. 12mm High-Tensile Reinforcement Bar" />
@@ -171,7 +184,7 @@ export function ProductEditDrawer({ open, onClose, productId }: { open: boolean;
             <input value={unit} onChange={(e) => setUnit(e.target.value)} className={inputCls} placeholder="per tonne, per unit" />
           </div>
           <div className={fieldCls}>
-            <label className={labelCls}>Cover Image URL</label>
+            <label className={labelCls}>Cover Image URL *</label>
             <input value={coverUrl} onChange={(e) => setCoverUrl(e.target.value)} className={inputCls} placeholder="https://…" />
           </div>
         </div>

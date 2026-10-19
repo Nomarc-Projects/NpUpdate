@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Plus, X, ArrowRight } from "lucide-react";
@@ -28,16 +28,21 @@ function FormSection({ title, subtitle, children }: { title: string; subtitle: s
 
 /* dropzone card matching the mockup's cover/gallery tiles */
 function UploadTile({
-  title, hint, multiple, onUrls, accept = "image/*", maxSizeMB = 5, videoMaxSizeMB, maxItems,
+  title, hint, multiple, onUrls, accept = "image/*", maxSizeMB = 5, videoMaxSizeMB, maxItems, required, error,
 }: {
-  title: string; hint: string; multiple?: boolean;
+  title: string; hint: string; multiple?: boolean; required?: boolean; error?: boolean;
   /** Receives the R2 URLs of everything that finished uploading. */
   onUrls: (urls: string[]) => void;
   accept?: string; maxSizeMB?: number; videoMaxSizeMB?: number; maxItems?: number;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[#e0e0e0] bg-[#fafafa] p-5 text-center dark:border-white/15 dark:bg-white/[0.02]">
-      <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">{title}</p>
+    <div className={cn(
+      "rounded-2xl border border-dashed bg-[#fafafa] p-5 text-center dark:bg-white/[0.02]",
+      error
+        ? "border-[#e5484d] dark:border-[#e5484d]"
+        : "border-[#e0e0e0] dark:border-white/15",
+    )}>
+      <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">{title}{required && <span className="text-[#e5484d]"> *</span>}</p>
       <p className="mt-0.5 text-[11.5px] text-[#9a9a9a]">{hint}</p>
       <div className="mt-3">
         <FileUpload
@@ -97,6 +102,10 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
   const [features, setFeatures] = useState<string[]>([""]);
   const [confirmed, setConfirmed] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Publish requires at least one image; the flag drives the inline error and
+  // the scroll target so the seller is taken straight to the media section.
+  const [mediaError, setMediaError] = useState(false);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const [addCatOpen, setAddCatOpen] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [addingCat, setAddingCat] = useState(false);
@@ -143,6 +152,45 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
   const setFeature = (i: number, v: string) => setFeatures((f) => f.map((x, j) => (j === i ? v : x)));
   const removeFeature = (i: number) => setFeatures((f) => (f.length === 1 ? [""] : f.filter((_, j) => j !== i)));
 
+  // Spec rows behave like a list editor: Enter adds the next row and drops the
+  // cursor into it, and a multi-line paste splits into one row per line. Refs
+  // let us move focus to the freshly-created row after React re-renders.
+  const specRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const focusSpec = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusSpec.current == null) return;
+    specRefs.current[focusSpec.current]?.focus();
+    focusSpec.current = null;
+  }, [features]);
+
+  /** Insert a blank spec row after row `i` and focus it. */
+  function addFeatureAfter(i: number) {
+    setFeatures((f) => [...f.slice(0, i + 1), "", ...f.slice(i + 1)]);
+    focusSpec.current = i + 1;
+  }
+
+  function onSpecKeyDown(e: React.KeyboardEvent<HTMLInputElement>, i: number) {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+    e.preventDefault();
+    addFeatureAfter(i);
+  }
+
+  /** Multi-line paste ("A\nB\nC") becomes three rows instead of one long line. */
+  function onSpecPaste(e: React.ClipboardEvent<HTMLInputElement>, i: number) {
+    const text = e.clipboardData.getData("text");
+    if (!/[\r\n]/.test(text)) return;
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    e.preventDefault();
+    // A field that already holds text keeps it as its own row, and the pasted
+    // lines slot in after it; an empty field takes the first line.
+    const hasCurrent = Boolean((features[i] ?? "").trim());
+    setFeatures((f) => hasCurrent
+      ? [...f.slice(0, i + 1), ...lines, ...f.slice(i + 1)]
+      : [...f.slice(0, i), lines[0], ...lines.slice(1), ...f.slice(i + 1)]);
+    focusSpec.current = hasCurrent ? i + lines.length : i + lines.length - 1;
+  }
+
   /** The unit actually saved: the typed one when "Something else" is chosen. */
   const resolvedUnit = unit === UNIT_CUSTOM ? customUnit.trim() : unit;
 
@@ -154,6 +202,13 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
       return;
     }
     if (!draft && !confirmed) { toast.error("Please confirm your product details comply with platform guidelines."); return; }
+    // Publish needs a cover image; a draft may be saved without one.
+    if (!draft && coverUrls.length === 0) {
+      setMediaError(true);
+      toast.error("Please add at least one product image to publish");
+      mediaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
     setSaving(true);
 
     const specs = features.map((f) => f.trim()).filter(Boolean).map((f) => ({ label: f, value: "" }));
@@ -338,23 +393,39 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
             <textarea rows={4} maxLength={DESC_MAX} className={inputClass} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Explain the applications and key benefits of this product…" />
           </Field>
           <div className="mt-4">
-            <p className="mb-2 text-[13px] font-semibold text-[#1e1e1e] dark:text-white">Technical Specs &amp; Features</p>
+            <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">Technical Specs &amp; Features</p>
+            <p className="mb-2 mt-0.5 text-[11.5px] text-[#9a9a9a]">Add one spec per field. Hit &lsquo;Enter&rsquo; for each new spec. Pasting a list fills one field per line.</p>
             <div className="space-y-2">
               {features.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <input className={inputClass} value={f} onChange={(e) => setFeature(i, e.target.value)} placeholder="e.g. Tensile strength of 500 MPa" />
+                  <input
+                    ref={(el) => { specRefs.current[i] = el; }}
+                    className={inputClass}
+                    value={f}
+                    onChange={(e) => setFeature(i, e.target.value)}
+                    onKeyDown={(e) => onSpecKeyDown(e, i)}
+                    onPaste={(e) => onSpecPaste(e, i)}
+                    placeholder="e.g. Tensile strength of 500 MPa"
+                  />
                   <button type="button" onClick={() => removeFeature(i)} className="flex-shrink-0 text-[#b3b3b3] transition-colors hover:text-[#e5484d]" aria-label="Remove feature"><X size={16} /></button>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={() => setFeatures((f) => [...f, ""])} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
+            <button type="button" onClick={() => { const next = features.length; setFeatures((f) => [...f, ""]); focusSpec.current = next; }} className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#caa400] hover:underline"><Plus size={14} /> Add</button>
           </div>
         </FormSection>
 
         {/* Media & documentation */}
         <FormSection title="Media & Documentation" subtitle="Select a primary cover image, add gallery photos and clips, and attach any optional files.">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <UploadTile title="Cover Image" hint={`Main thumbnail for your product · up to ${GALLERY_IMAGE_MB}MB`} maxSizeMB={GALLERY_IMAGE_MB} onUrls={setCoverUrls} />
+          <div ref={mediaRef} className="scroll-mt-24 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <UploadTile
+              title="Cover Image"
+              hint={`Main thumbnail for your product · up to ${GALLERY_IMAGE_MB}MB`}
+              maxSizeMB={GALLERY_IMAGE_MB}
+              required
+              error={mediaError}
+              onUrls={(urls) => { setCoverUrls(urls); if (urls.length) setMediaError(false); }}
+            />
             <UploadTile
               title="Product Gallery"
               hint={`Photos and video · up to ${GALLERY_MAX_ITEMS} items, select several at once`}
@@ -363,9 +434,12 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
               videoMaxSizeMB={GALLERY_VIDEO_MB}
               maxItems={GALLERY_MAX_ITEMS}
               multiple
-              onUrls={setGalleryUrls}
+              onUrls={(urls) => { setGalleryUrls(urls); }}
             />
           </div>
+          {mediaError && (
+            <p className="mt-2 text-[12.5px] font-medium text-[#e5484d]">Please add at least one product image to publish.</p>
+          )}
           <div className="mt-4">
             <p className="text-[13px] font-semibold text-[#1e1e1e] dark:text-white">Supporting Documents (Optional)</p>
             <p className="mb-2 text-[11.5px] text-[#9a9a9a]">Attach brochures, technical spec sheets, or other files as applicable.</p>
