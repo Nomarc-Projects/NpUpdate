@@ -362,7 +362,7 @@ export function HubBrowse({
             <SupplierGrid
               suppliers={suppliers}
               viewAllHref={gated("/dashboard/companies")}
-              hrefFor={(s) => (s.companyId ? gated(`/dashboard/products/exhibitor/${s.companyId}`) : shopHref)}
+              hrefFor={(s) => (s.companyId ? `/company/${s.companyId}` : shopHref)}
             />
 
             <CategoryTiles tiles={tiles} onPick={pickCategory} />

@@ -2,22 +2,24 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, Calendar, Clock } from "lucide-react";
-import { NewsGate } from "@/components/newsfeed/news-gate";
 import { Markdown } from "@/components/newsfeed/markdown";
 import { ShareButton } from "@/components/newsfeed/share-button";
 import { NewsToc } from "@/components/newsfeed/news-toc";
 import { getPostBySlug, getPublishedPosts } from "@/lib/services/newsfeed";
+import { pageMetadata } from "@/lib/og";
 import { NewsCover } from "@/components/newsfeed/news-cover";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
   if (!post) return { title: "Article not found — Nomarc Projects" };
-  return {
-    title: `${post.title} — Nomarc Projects`,
+  return pageMetadata({
+    title: post.title,
     description: post.excerpt,
-    openGraph: { title: post.title, description: post.excerpt, images: post.coverUrl ? [post.coverUrl] : undefined, type: "article" },
-  };
+    path: `/newsfeed/${slug}`,
+    image: post.coverUrl,
+    type: "article",
+  });
 }
 
 function initials(name: string) {
@@ -68,18 +70,17 @@ export default async function NewsPostPage({ params }: { params: Promise<{ slug:
           </aside>
 
           <div className="order-2 min-w-0">
-            {/* WYSIWYG posts are HTML; older posts may be markdown. */}
-            <NewsGate>
-              <div id="article-body" className="pb-10">
-                {!post.body ? (
-                  <p className="text-[#9a9a9a]">{post.excerpt}</p>
-                ) : /<[a-z][\s\S]*>/i.test(post.body) ? (
-                  <div className="news-prose" dangerouslySetInnerHTML={{ __html: post.body }} />
-                ) : (
-                  <Markdown>{post.body}</Markdown>
-                )}
-              </div>
-            </NewsGate>
+            {/* WYSIWYG posts are HTML; older posts may be markdown. Articles are
+                public — shared links should read end to end, no sign-up wall. */}
+            <div id="article-body" className="pb-10">
+              {!post.body ? (
+                <p className="text-[#9a9a9a]">{post.excerpt}</p>
+              ) : /<[a-z][\s\S]*>/i.test(post.body) ? (
+                <div className="news-prose" dangerouslySetInnerHTML={{ __html: post.body }} />
+              ) : (
+                <Markdown>{post.body}</Markdown>
+              )}
+            </div>
 
             {/* Bottom share — aligned right */}
             <div className="flex items-center justify-end gap-3 pt-4 pb-2 border-t border-[#ececec] dark:border-white/10">

@@ -63,11 +63,8 @@ const AVAIL_KEY = (a: string | null): AvailabilityKey | undefined =>
   a === "in_stock" || a === "made_to_order" || a === "rentable" ? a : undefined;
 const UNKNOWN_AVAIL = "Availability on request";
 
-/** Open, published jobs for the browse list (newest first). */
-export async function getJobsForBrowse(): Promise<JobCard[]> {
-  await requireJobBoard();
-  const rows = await db.select().from(job).where(and(eq(job.status, "open"), eq(job.draft, false))).orderBy(desc(job.createdAt));
-  return rows.map((j) => ({
+function toJobCard(j: typeof job.$inferSelect): JobCard {
+  return {
     id: j.id,
     title: j.title,
     company: j.company ?? "",
@@ -78,7 +75,24 @@ export async function getJobsForBrowse(): Promise<JobCard[]> {
     time: ago(j.createdAt),
     ownerUserId: j.ownerUserId,
     recruiterName: j.recruiterName ?? "",
-  }));
+  };
+}
+
+/** Open, published jobs for the browse list (newest first). */
+export async function getJobsForBrowse(): Promise<JobCard[]> {
+  await requireJobBoard();
+  return getPublicJobsForBrowse();
+}
+
+/**
+ * Ungated version of the browse list for the PUBLIC job pages (shared links).
+ * Job listings are public; only the professional-only surfaces (browse inside
+ * the dashboard, apply) require the job-board capability. Keeping the read
+ * ungated lets a shared `/jobs/[id]` render for a logged-out visitor.
+ */
+export async function getPublicJobsForBrowse(): Promise<JobCard[]> {
+  const rows = await db.select().from(job).where(and(eq(job.status, "open"), eq(job.draft, false))).orderBy(desc(job.createdAt));
+  return rows.map(toJobCard);
 }
 
 /** A single job (for the apply page header). */
@@ -93,19 +107,24 @@ export async function getJobById(id: string): Promise<JobCard | null> {
   if (!UUID_RE.test(id.trim())) return null;
   const rows = await db.select().from(job).where(eq(job.id, id)).limit(1);
   const j = rows[0];
-  if (!j) return null;
-  return {
-    id: j.id,
-    title: j.title,
-    company: j.company ?? "",
-    location: j.location ?? "",
-    desc: j.description ?? "",
-    tags: [j.employmentType, j.experienceLevel, j.workModel].filter(Boolean) as string[],
-    salary: j.salaryMin != null && j.salaryMax != null ? `${naira(j.salaryMin)} – ${naira(j.salaryMax)} /m` : "",
-    time: ago(j.createdAt),
-    ownerUserId: j.ownerUserId,
-    recruiterName: j.recruiterName ?? "",
-  };
+  return j ? toJobCard(j) : null;
+}
+
+/**
+ * Ungated single-job read for the PUBLIC job page. Unlike `getJobById` (used by
+ * the professional dashboard, which may open a closed/draft job the viewer
+ * owns), this only resolves jobs that are actually published and open, so a
+ * shared link to a closed job 404s instead of leaking an unpublished listing.
+ */
+export async function getPublicJobById(id: string): Promise<JobCard | null> {
+  if (!UUID_RE.test(id.trim())) return null;
+  const rows = await db
+    .select()
+    .from(job)
+    .where(and(eq(job.id, id), eq(job.status, "open"), eq(job.draft, false)))
+    .limit(1);
+  const j = rows[0];
+  return j ? toJobCard(j) : null;
 }
 
 /** Published products joined with their company (supplier + location). */

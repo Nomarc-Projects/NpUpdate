@@ -1,5 +1,4 @@
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ComingSoon } from "@/components/coming-soon";
 import { getExhibitionHub } from "@/lib/services/platform-settings-read";
@@ -13,8 +12,12 @@ import { getExhibitionHub } from "@/lib/services/platform-settings-read";
  *
  * Gated in a layout rather than per page so the whole subtree is covered by one
  * check — browse, product detail, compare, cart and the three checkout steps.
- * Gating only the index would leave the commerce routes reachable by direct
- * URL, which is the part that actually takes money.
+ *
+ * The hub is browsable by logged-OUT visitors: product pages are shared links
+ * (WhatsApp, etc.) and a sign-up wall there costs the click. Actions that need
+ * an account — request a quote, message the seller, checkout — prompt to sign
+ * up / sign in themselves and return the visitor to the page they came from
+ * (see ProductView). Checkout keeps its own hard gate.
  *
  * Not in middleware, for the same reason the maintenance gate isn't: the Better
  * Auth session cookie is opaque at the edge, so role is unreadable there and
@@ -29,13 +32,7 @@ export default async function ExhibitionHubLayout({ children }: { children: Reac
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
 
-  // Require login — the Exhibition Hub marketplace is for signed-in users only.
-  if (!session?.user) {
-    const pathname = h.get("x-nm-pathname") || "/exhibition-hub";
-    redirect(`/login?redirect=${encodeURIComponent(pathname)}`);
-  }
-
-  const role = (session.user as { role?: string } | undefined)?.role;
+  const role = (session?.user as { role?: string } | undefined)?.role;
   const isAdmin = role === "admin" || role === "super_admin";
 
   // Fail open to CLOSED: if the setting can't be read, the hub stays locked

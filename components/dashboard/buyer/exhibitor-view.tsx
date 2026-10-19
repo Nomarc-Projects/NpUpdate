@@ -21,10 +21,20 @@ import type { CompanyDetail, CompanyRecommendation } from "@/lib/services/compan
  */
 export function ExhibitorView({
   company, recommendations, canRequestQuote = true,
+  signedIn = true,
+  signInHref = "/login",
+  productsBasePath = "/dashboard/products",
+  messagesHref = "/dashboard/messages",
+  backHref = "/dashboard/products",
 }: {
   company: CompanyDetail;
   recommendations: CompanyRecommendation[];
   canRequestQuote?: boolean;
+  signedIn?: boolean;
+  signInHref?: string;
+  productsBasePath?: string;
+  messagesHref?: string;
+  backHref?: string;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"catalog" | "recommendations">("catalog");
@@ -33,11 +43,27 @@ export function ExhibitorView({
 
   const firstProduct = company.products[0];
 
+  // Guests can read the whole exhibitor page; the two account actions prompt
+  // them to sign in and (via signInHref's ?redirect=) return them right here.
+  function guard(): boolean {
+    if (!signedIn) {
+      router.push(signInHref);
+      return false;
+    }
+    return true;
+  }
+
+  function requestQuote() {
+    if (!guard()) return;
+    setQuoteOpen(true);
+  }
+
   async function message() {
+    if (!guard()) return;
     setMessaging(true);
     try {
       await getOrCreateDirectConversation(company.ownerUserId);
-      router.push("/dashboard/messages");
+      router.push(messagesHref);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not start conversation");
     } finally {
@@ -47,7 +73,7 @@ export function ExhibitorView({
 
   return (
     <div className="px-5 sm:px-6 lg:px-8 py-6">
-      <Link href="/dashboard/products" className="inline-flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white mb-4">
+      <Link href={backHref} className="inline-flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white mb-4">
         <ArrowLeft size={15} /> Back
       </Link>
 
@@ -63,7 +89,7 @@ export function ExhibitorView({
 
           <div className="mt-4 flex items-center gap-2">
             <button
-              onClick={() => setQuoteOpen(true)}
+              onClick={requestQuote}
               disabled={!firstProduct}
               title={firstProduct ? undefined : "No products listed yet"}
               className="flex-1 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors disabled:opacity-50 disabled:pointer-events-none"
@@ -136,7 +162,7 @@ export function ExhibitorView({
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                   {company.products.map((p) => (
-                    <Link key={p.id} href={`/dashboard/products/${p.id}`} className="group rounded-xl border border-[#ececec] dark:border-white/10 overflow-hidden hover:border-[#ffd716] transition-colors">
+                    <Link key={p.id} href={`${productsBasePath}/${p.id}`} className="group rounded-xl border border-[#ececec] dark:border-white/10 overflow-hidden hover:border-[#ffd716] transition-colors">
                       <div className="relative aspect-square bg-[#f5f5f5] dark:bg-white/5 overflow-hidden">
                         {p.coverUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element

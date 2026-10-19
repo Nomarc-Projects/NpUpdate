@@ -173,6 +173,14 @@ export function ProductView({
     setQuoteOpen(true);
   }
 
+  // Saving is an account action too — a logged-out visitor who taps the heart
+  // is sent to sign up and returned here rather than toggling a state that
+  // won't persist.
+  function toggleSave() {
+    if (!signedIn) { router.push(signInHref); return; }
+    setSaved((s) => !s);
+  }
+
   function messageSeller() {
     if (!signedIn) { router.push(signInHref); return; }
     if (!product.vendorUserId) { toast.error("Seller messaging isn't available for this listing yet"); return; }
@@ -313,7 +321,7 @@ export function ProductView({
 
           {/* product title + rating (mobile only — appears under gallery) */}
           <div className="lg:hidden px-4 sm:px-0 mt-4 space-y-2">
-            <MobileHeader product={product} saved={saved} setSaved={setSaved} share={share} shared={shared} price={price} rating={reviewStats.rating} ratingCount={reviewStats.count} />
+            <MobileHeader product={product} saved={saved} setSaved={toggleSave} share={share} shared={shared} price={price} rating={reviewStats.rating} ratingCount={reviewStats.count} />
           </div>
 
           {/* ── tabs ── */}
@@ -337,14 +345,16 @@ export function ProductView({
 
                 {tab === "Specifications" && (
                   product.specs.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {product.specs.map((s) => (
-                        <div key={s.label} className="rounded-xl border border-[#ececec] dark:border-white/10 bg-[#fafafa] dark:bg-white/[0.02] px-3.5 py-2.5">
-                          <p className="text-[10.5px] uppercase tracking-wide text-[#9a9a9a] font-semibold">{s.label}</p>
-                          <p className="text-[13.5px] font-semibold text-[#1e1e1e] dark:text-white mt-0.5">{s.value}</p>
-                        </div>
+                    <ul className="space-y-2">
+                      {product.specs.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2.5 rounded-xl border border-[#ececec] dark:border-white/10 bg-[#fafafa] dark:bg-white/[0.02] px-3.5 py-2.5">
+                          <span className="mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-[#caa400]" />
+                          <p className="text-[13.5px] leading-relaxed text-[#1e1e1e] dark:text-white/85">
+                            {s.value ? <><span className="font-semibold">{s.label}:</span> {s.value}</> : s.label}
+                          </p>
+                        </li>
                       ))}
-                    </div>
+                    </ul>
                   ) : (
                     <p className="text-[#9a9a9a]">No specifications listed for this product.</p>
                   )
@@ -466,7 +476,7 @@ export function ProductView({
           <DesktopBuyBox
             product={product} price={price}
             variant={variant} setVariant={setVariant}
-            saved={saved} setSaved={setSaved}
+            saved={saved} setSaved={toggleSave}
             share={share} shared={shared}
             onQuote={openQuote} onMessageSeller={messageSeller}
             sellerHref={sellerHref}

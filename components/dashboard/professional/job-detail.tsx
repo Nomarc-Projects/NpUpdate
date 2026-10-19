@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, MapPin, Briefcase, Layers, Wallet, Clock, Bookmark, FileText, Download, MessageSquare } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, MapPin, Briefcase, Layers, Wallet, Clock, Bookmark, MessageSquare } from "lucide-react";
 import { ShareMenu } from "@/components/ui/share";
 import type { SampleJob } from "@/lib/sample-jobs";
 
@@ -32,9 +33,9 @@ function MetaCell({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function MiniJob({ job }: { job: SampleJob }) {
+function MiniJob({ job, basePath }: { job: SampleJob; basePath: string }) {
   return (
-    <Link href={`/dashboard/jobs/${job.id}`} className="block rounded-xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-4 hover:border-[#ffd716] transition-colors">
+    <Link href={`${basePath}/${job.id}`} className="block rounded-xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] p-4 hover:border-[#ffd716] transition-colors">
       <div className="flex items-start gap-2.5">
         <JobIcon size={32} iconSize={14} />
         <div className="min-w-0">
@@ -49,15 +50,45 @@ function MiniJob({ job }: { job: SampleJob }) {
   );
 }
 
-export function JobDetail({ job, overview, detail, similar, otherFromCompany }: {
+/**
+ * Job detail, shared by the signed-in dashboard and the PUBLIC `/jobs/[id]`
+ * page. A logged-out visitor sees the full listing; the actions that need an
+ * account (Save, Message, Apply) send them to sign in and, thanks to
+ * `signInHref`'s `?redirect=`, straight back here afterwards.
+ */
+export function JobDetail({
+  job, overview, detail, similar, otherFromCompany,
+  signedIn = true,
+  signInHref = "/login",
+  jobsBasePath = "/dashboard/jobs",
+  backHref,
+  shareUrl,
+}: {
   job: SampleJob; overview: Overview; detail: PostingDetail; similar: SampleJob[]; otherFromCompany: SampleJob[];
+  signedIn?: boolean;
+  signInHref?: string;
+  jobsBasePath?: string;
+  backHref?: string | null;
+  /** Absolute public URL to share. Omitted on the dashboard, where sharing the
+   *  current (auth-walled) href would be a dead link for the recipient. */
+  shareUrl?: string;
 }) {
+  const router = useRouter();
   const workModel = job.tags.find((t) => ["On-site", "Hybrid", "Remote"].includes(t)) || "On-site";
   const jobType = job.tags.find((t) => ["Full-time", "Part-time", "Contract", "Internship"].includes(t)) || "Full-time";
 
+  const applyHref = signedIn ? `/dashboard/jobs/apply?job=${job.id}` : signInHref;
+  const messageHref = signedIn
+    ? `/dashboard/messages?to=${encodeURIComponent(job.ownerUserId ?? "")}`
+    : signInHref;
+  const showBack = backHref !== null;
+  const back = backHref ?? jobsBasePath;
+
   return (
     <div className="px-5 sm:px-8 py-6 max-w-[1200px] mx-auto">
-      <Link href="/dashboard/jobs" className="inline-flex items-center gap-2 text-sm text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white mb-5"><ArrowLeft size={16} /> Back to jobs</Link>
+      {showBack && (
+        <Link href={back} className="inline-flex items-center gap-2 text-sm text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white mb-5"><ArrowLeft size={16} /> Back to jobs</Link>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         {/* Main */}
@@ -75,14 +106,18 @@ export function JobDetail({ job, overview, detail, similar, otherFromCompany }: 
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button aria-label="Save" className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#9a9a9a] hover:border-[#ffd716] hover:text-[#ffd716] transition-colors"><Bookmark size={17} /></button>
-                <ShareMenu title={`${job.title} at ${job.company}`} variant="icon" />
+                <button
+                  aria-label="Save"
+                  onClick={() => { if (!signedIn) router.push(signInHref); }}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#9a9a9a] hover:border-[#ffd716] hover:text-[#ffd716] transition-colors"
+                ><Bookmark size={17} /></button>
+                <ShareMenu url={shareUrl} title={`${job.title} at ${job.company}`} variant="icon" />
                 {job.ownerUserId ? (
-                  <Link href={`/dashboard/messages?to=${encodeURIComponent(job.ownerUserId)}`} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#1e1e1e] dark:text-white text-[13px] font-semibold hover:border-[#ffd716] hover:text-[#caa400] transition-colors">
+                  <Link href={messageHref} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[#1e1e1e] dark:text-white text-[13px] font-semibold hover:border-[#ffd716] hover:text-[#caa400] transition-colors">
                     <MessageSquare size={14} /> Message
                   </Link>
                 ) : null}
-                <Link href={`/dashboard/jobs/apply?job=${job.id}`} className="px-5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">Apply Now</Link>
+                <Link href={applyHref} className="px-5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">Apply Now</Link>
               </div>
             </div>
 
@@ -131,7 +166,7 @@ export function JobDetail({ job, overview, detail, similar, otherFromCompany }: 
             )}
 
             <div className="mt-6 flex items-center gap-3">
-              <Link href={`/dashboard/jobs/apply?job=${job.id}`} className="flex-1 sm:flex-none text-center px-7 py-3 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[14px] font-bold hover:bg-[#e6c114] transition-colors">Apply Now</Link>
+              <Link href={applyHref} className="flex-1 sm:flex-none text-center px-7 py-3 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[14px] font-bold hover:bg-[#e6c114] transition-colors">Apply Now</Link>
             </div>
           </div>
         </div>
@@ -141,12 +176,12 @@ export function JobDetail({ job, overview, detail, similar, otherFromCompany }: 
           {otherFromCompany.length > 0 && (
             <div>
               <h3 className="text-[13px] font-bold text-[#1e1e1e] dark:text-white uppercase tracking-wide mb-3">Other jobs from {job.company}</h3>
-              <div className="space-y-3">{otherFromCompany.map((j) => <MiniJob key={j.id} job={j} />)}</div>
+              <div className="space-y-3">{otherFromCompany.map((j) => <MiniJob key={j.id} job={j} basePath={jobsBasePath} />)}</div>
             </div>
           )}
           <div>
             <h3 className="text-[13px] font-bold text-[#1e1e1e] dark:text-white uppercase tracking-wide mb-3">Similar jobs</h3>
-            <div className="space-y-3">{similar.map((j) => <MiniJob key={j.id} job={j} />)}</div>
+            <div className="space-y-3">{similar.map((j) => <MiniJob key={j.id} job={j} basePath={jobsBasePath} />)}</div>
           </div>
         </div>
       </div>
