@@ -286,7 +286,7 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
               <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. High-Yield TMT Rebar" />
             </Field>
             <Field
-              label="Product Category (Shop)"
+              label="Product Categories"
               hint={allowedCategories.length ? `Your plan allows: ${allowedCategories.join(", ")}` : "Add a category below to select it here"}
               required
             >

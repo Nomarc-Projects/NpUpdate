@@ -127,7 +127,7 @@ export function CompanyProfileForm({ initial }: { initial?: CompanyData }) {
       </div>
 
       <Field
-        label="Product Categories (Shops)"
+        label="Product Categories"
         hint={`These appear as options when you upload a product. Choose up to ${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} — current plan: ${PLAN_LABEL[exhibitorPlan]}.`}
       >
         <div className="space-y-2">
