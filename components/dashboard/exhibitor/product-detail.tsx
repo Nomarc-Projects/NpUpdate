@@ -184,7 +184,7 @@ export function ProductEditScreen({ product }: { product: ProductForEdit }) {
       persistedIds.current = new Set(next.filter((v) => v.id).map((v) => v.id as string));
       setSpecs((s) => (s.some((r) => r.label.trim()) ? s : [{ label: "", value: "" }]));
 
-      toast.success("Product updated");
+      toast.success("Changes saved");
       router.refresh();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Couldn't save product";
