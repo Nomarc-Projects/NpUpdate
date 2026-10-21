@@ -151,6 +151,10 @@ export type ProductForEdit = {
   retailMin: number | null; retailMax: number | null; wholesaleMin: number | null; wholesaleMax: number | null;
   costPerItem: number | null; stock: number; unit: string | null;
   seoTitle: string | null; seoDescription: string | null; status: ProductStatus; companyId: string;
+  variants: VariantRow[];
+  /** The company's registered shops, so the editor can constrain the category
+   *  field the same way createProduct does. Empty = unrestricted (legacy). */
+  categories: string[];
 };
 
 export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit | null> {
@@ -162,6 +166,7 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
     .limit(1);
   if (!p) return null;
   const r = p.product;
+  const vs = await db.select().from(productVariant).where(eq(productVariant.productId, id)).orderBy(asc(productVariant.sortOrder));
   return {
     id: r.id, name: r.name, slug: r.slug, sku: r.sku, category: r.category, type: r.type,
     vendorName: r.vendorName, description: r.description, tags: r.tags ?? [],
@@ -171,6 +176,8 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
     costPerItem: r.costPerItem, stock: r.stock ?? 0, unit: r.unit,
     seoTitle: r.seoTitle, seoDescription: r.seoDescription,
     status: (r.status as ProductStatus) ?? "active", companyId: r.companyId,
+    variants: vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true })),
+    categories: p.company.categories ?? [],
   };
 }
 
@@ -200,8 +207,20 @@ export async function deleteProduct(id: string): Promise<void> {
   bump();
 }
 
+/** Every variant mutation is reached from the single product editor, which only
+ *  knows the product id — so verify the product belongs to the caller's company
+ *  before touching its variants. Without this any signed-in user could edit or
+ *  delete another exhibitor's variants by id. */
+async function assertOwnedProduct(productId: string): Promise<void> {
+  const uid = await requireUserId();
+  const companyId = await ensureCompany(uid);
+  const [row] = await db.select({ id: product.id }).from(product)
+    .where(and(eq(product.id, productId), eq(product.companyId, companyId))).limit(1);
+  if (!row) throw new Error("Product not found");
+}
+
 export async function addVariant(productId: string, input: { name: string; spec?: string; price?: string | number; stock?: string | number; sku?: string }): Promise<string> {
-  await requireUserId();
+  await assertOwnedProduct(productId);
   const [row] = await db.insert(productVariant).values({
     productId, name: input.name.trim(), spec: input.spec || null,
     price: num(input.price), stock: num(input.stock) ?? 0, sku: input.sku || null,
@@ -210,8 +229,25 @@ export async function addVariant(productId: string, input: { name: string; spec?
   return row.id;
 }
 
+export async function updateVariant(id: string, input: { name?: string; spec?: string; price?: string | number; stock?: string | number; sku?: string; active?: boolean }): Promise<void> {
+  const [v] = await db.select({ productId: productVariant.productId }).from(productVariant).where(eq(productVariant.id, id)).limit(1);
+  if (!v) throw new Error("Variant not found");
+  await assertOwnedProduct(v.productId);
+  await db.update(productVariant).set({
+    ...(input.name !== undefined ? { name: input.name.trim() } : {}),
+    ...(input.spec !== undefined ? { spec: input.spec || null } : {}),
+    ...(input.price !== undefined ? { price: num(input.price) } : {}),
+    ...(input.stock !== undefined ? { stock: num(input.stock) ?? 0 } : {}),
+    ...(input.sku !== undefined ? { sku: input.sku || null } : {}),
+    ...(input.active !== undefined ? { active: input.active } : {}),
+  }).where(eq(productVariant.id, id));
+  bump();
+}
+
 export async function removeVariant(id: string): Promise<void> {
-  await requireUserId();
+  const [v] = await db.select({ productId: productVariant.productId }).from(productVariant).where(eq(productVariant.id, id)).limit(1);
+  if (!v) return;
+  await assertOwnedProduct(v.productId);
   await db.delete(productVariant).where(eq(productVariant.id, id));
   bump();
 }

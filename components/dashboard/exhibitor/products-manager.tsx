@@ -14,7 +14,6 @@ import { cn } from "@/lib/utils";
 import { DashBanner, BannerContent, bannerBtn } from "@/components/dashboard/dash-banner";
 import { Pagination } from "@/components/ui/pagination";
 import { r2Url } from "@/lib/r2-public";
-import { ProductEditDrawer } from "@/components/dashboard/exhibitor/product-edit-drawer";
 import { PlanLimitBanner } from "@/components/dashboard/exhibitor/plan-limit-banner";
 import type { ExhibitorLimitSummary } from "@/lib/services/exhibitor-trial-rules";
 
@@ -82,7 +81,7 @@ function priceRange(min: number | null, max?: number | null) {
   return max && max !== min ? `${naira(min)} – ${naira(max)}` : naira(min);
 }
 
-function ProductCardGrid({ p, selected, onToggle, onEdit }: { p: MyProduct; selected: boolean; onToggle: () => void; onEdit?: () => void }) {
+function ProductCardGrid({ p, selected, onToggle }: { p: MyProduct; selected: boolean; onToggle: () => void }) {
   const [imgIdx, setImgIdx] = useState(0);
   const imgs = p.images.length > 0 ? p.images : [];
   const hasMultiple = imgs.length > 1;
@@ -99,13 +98,11 @@ function ProductCardGrid({ p, selected, onToggle, onEdit }: { p: MyProduct; sele
         <span className="absolute top-3 left-10"><span className={cn("text-[10px] font-semibold px-2.5 py-1 rounded-full capitalize shadow-sm", STATUS_PILL[p.status])}>{p.status}</span></span>
         {/* Checkbox */}
         <span className="absolute top-3 left-3"><Check checked={selected} onChange={onToggle} /></span>
-        {/* Edit */}
-        {onEdit && (
-          <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} title="Edit product"
-            className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 dark:bg-black/50 text-[#6b6b6b] dark:text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#ffd716] hover:text-[#1e1e1e]">
-            <Pencil size={14} />
-          </button>
-        )}
+        {/* Edit — same destination as clicking the card, to keep one edit screen */}
+        <Link href={`/dashboard/my-products/${p.id}`} title="Edit product"
+          className="absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 dark:bg-black/50 text-[#6b6b6b] dark:text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#ffd716] hover:text-[#1e1e1e]">
+          <Pencil size={14} />
+        </Link>
         {/* Image nav */}
         {hasMultiple && (
           <div className="absolute bottom-0 inset-x-0 flex items-center justify-between px-3 py-2.5">
@@ -148,7 +145,7 @@ function ProductCardGrid({ p, selected, onToggle, onEdit }: { p: MyProduct; sele
   );
 }
 
-function ProductRow({ p, selected, onToggle, onEdit }: { p: MyProduct; selected: boolean; onToggle: () => void; onEdit?: () => void }) {
+function ProductRow({ p, selected, onToggle }: { p: MyProduct; selected: boolean; onToggle: () => void }) {
   return (
     <div className={cn("group flex items-center gap-3 px-4 py-3 transition-colors", selected ? "bg-[#fffdf2] dark:bg-[#ffd716]/[0.05]" : "hover:bg-[#fafafa] dark:hover:bg-white/[0.02]")}>
       <Check checked={selected} onChange={onToggle} />
@@ -166,9 +163,7 @@ function ProductRow({ p, selected, onToggle, onEdit }: { p: MyProduct; selected:
         <span className={cn("text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize flex-shrink-0", STATUS_PILL[p.status])}>{p.status}</span>
         <ChevronRight size={16} className="text-[#c9c9c9] flex-shrink-0" />
       </Link>
-      {onEdit && (
-        <button type="button" onClick={onEdit} title="Edit product" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9a9a9a] hover:bg-[#f0f0f0] hover:text-[#1e1e1e] dark:hover:bg-white/10 dark:hover:text-white transition-colors flex-shrink-0"><Pencil size={15} /></button>
-      )}
+      <Link href={`/dashboard/my-products/${p.id}`} title="Edit product" className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9a9a9a] hover:bg-[#f0f0f0] hover:text-[#1e1e1e] dark:hover:bg-white/10 dark:hover:text-white transition-colors flex-shrink-0"><Pencil size={15} /></Link>
     </div>
   );
 }
@@ -200,7 +195,6 @@ export function ProductsManager({ products, limits = null }: { products: MyProdu
   const [page, setPage] = useState(0);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: list.length };
@@ -322,12 +316,12 @@ export function ProductsManager({ products, limits = null }: { products: MyProdu
       ) : view === "grid" ? (
         <motion.div layout className={cn("mt-4 grid gap-4", COL_CLASS[cols])}>
           <AnimatePresence mode="popLayout">
-            {items.map((p) => <motion.div key={p.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><ProductCardGrid p={p} selected={sel.has(p.id)} onToggle={() => toggleOne(p.id)} onEdit={() => setEditId(p.id)} /></motion.div>)}
+            {items.map((p) => <motion.div key={p.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}><ProductCardGrid p={p} selected={sel.has(p.id)} onToggle={() => toggleOne(p.id)} /></motion.div>)}
           </AnimatePresence>
         </motion.div>
       ) : (
         <div className="mt-4 rounded-2xl border border-[#ececec] dark:border-white/10 bg-white dark:bg-[#1e1e1e] divide-y divide-[#f5f5f5] dark:divide-white/5 overflow-hidden">
-          {items.map((p) => <ProductRow key={p.id} p={p} selected={sel.has(p.id)} onToggle={() => toggleOne(p.id)} onEdit={() => setEditId(p.id)} />)}
+          {items.map((p) => <ProductRow key={p.id} p={p} selected={sel.has(p.id)} onToggle={() => toggleOne(p.id)} />)}
         </div>
       )}
 
@@ -346,7 +340,6 @@ export function ProductsManager({ products, limits = null }: { products: MyProdu
       )}
 
       <AnimatePresence>{importing && <ImportData config={PRODUCT_IMPORT} onClose={() => setImporting(false)} onDone={() => router.refresh()} />}</AnimatePresence>
-      <ProductEditDrawer open={!!editId} onClose={() => setEditId(null)} productId={editId} />
     </div>
   );
 }
