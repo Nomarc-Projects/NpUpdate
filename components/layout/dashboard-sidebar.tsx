@@ -157,6 +157,7 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
   // live unread counts → Messages + Notifications badges (polls)
   const [unread, setUnread] = useState(0);
   const [notif, setNotif] = useState(0);
+  const [query, setQuery] = useState("");
   useEffect(() => {
     let alive = true;
     const tick = () => {
@@ -172,6 +173,26 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
     : href === "/dashboard/notifications" && notif > 0 ? notif
     : undefined;
 
+  // Sidebar search: typing picks out the nav destination(s) that match. The
+  // first match is auto-selected (highlighted) so pressing Enter walks straight
+  // to it; the list narrows to the matches while there's a query.
+  const q = query.trim().toLowerCase();
+  const allNavItems = nav.flatMap((g) => g.items);
+  const matches = q ? allNavItems.filter((it) => it.label.toLowerCase().includes(q)) : [];
+  const selectedHref = matches[0]?.href;
+
+  function goToMatch() {
+    if (!selectedHref) return;
+    onNavigate?.();
+    setQuery("");
+    router.push(selectedHref);
+  }
+
+  function onSearchKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") { e.preventDefault(); goToMatch(); }
+    else if (e.key === "Escape") { setQuery(""); }
+  }
+
   async function handleSignOut() {
     onNavigate?.();
     await authSignOut();
@@ -185,13 +206,30 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
         <div className="px-3 pb-3">
           <div className="relative">
             <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#b3b3b3]" />
-            <input className="w-full rounded-lg bg-[#f4f4f4] dark:bg-white/5 pl-9 pr-3 py-2 text-[13px] text-[#1e1e1e] dark:text-white placeholder:text-[#b3b3b3] focus:outline-none focus:ring-2 focus:ring-[#ffd716]/40" placeholder="Search..." />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onSearchKey}
+              aria-label="Search dashboard navigation"
+              className="w-full rounded-lg bg-[#f4f4f4] dark:bg-white/5 pl-9 pr-3 py-2 text-[13px] text-[#1e1e1e] dark:text-white placeholder:text-[#b3b3b3] focus:outline-none focus:ring-2 focus:ring-[#ffd716]/40"
+              placeholder="Search..."
+            />
           </div>
         </div>
       )}
 
       <nav data-tour="sidebar-nav" className={cn("flex-1 overflow-y-auto overflow-x-hidden px-3 pb-4 space-y-5", collapsed && "[scrollbar-gutter:stable_both-edges]")}>
-        {nav.map((group, gi) => (
+        {q ? (
+          matches.length ? (
+            <div className="space-y-0.5">
+              {matches.map((it) => (
+                <NavLink key={it.href} item={{ ...it, badge: badgeFor(it.href) ?? it.badge }} collapsed={collapsed} active={it.href === selectedHref} onNavigate={() => { onNavigate?.(); setQuery(""); }} />
+              ))}
+            </div>
+          ) : (
+            <p className="px-3 text-[12.5px] text-[#9a9a9a]">No matches for “{query.trim()}”.</p>
+          )
+        ) : nav.map((group, gi) => (
           <div key={gi} className={cn(!collapsed && gi > 0 && group.href && "-mt-5")}>
             {group.title && !collapsed && (
               group.href ? (
