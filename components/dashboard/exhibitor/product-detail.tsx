@@ -154,6 +154,15 @@ export function ProductDetail({ product }: { product: CatalogProduct }) {
   const [showVariants, setShowVariants] = useState(false);
   const [showPerf, setShowPerf] = useState(false);
   const [active, setActive] = useState(0);
+  const [retailPrice, setRetailPrice] = useState(String(product.retailMin ?? ""));
+  const [wholesalePrice, setWholesalePrice] = useState(String(product.wholesaleMin ?? ""));
+  const [cost, setCost] = useState(String(product.costPerItem ?? ""));
+
+  const retailN = Number(retailPrice);
+  const costN = Number(cost);
+  const hasRetail = retailPrice.trim() !== "" && Number.isFinite(retailN) && retailN > 0;
+  const hasCost = cost.trim() !== "" && Number.isFinite(costN) && costN > 0;
+  const profit = retailN - costN;
 
   return (
     <div className="px-5 sm:px-6 lg:px-8 py-6 max-w-[1180px] mx-auto">
@@ -200,14 +209,20 @@ export function ProductDetail({ product }: { product: CatalogProduct }) {
           {/* pricing */}
           <Section title="Pricing">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Retail price</span><input defaultValue={product.retailMin} className={cn(fieldClass, "mt-1")} /></label>
-              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Wholesale price</span><input defaultValue={product.wholesaleMin} className={cn(fieldClass, "mt-1")} /></label>
-              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Cost per item</span><input defaultValue={product.costPerItem} className={cn(fieldClass, "mt-1")} /></label>
+              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Retail price</span><input value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} inputMode="decimal" className={cn(fieldClass, "mt-1")} /></label>
+              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Wholesale price</span><input value={wholesalePrice} onChange={(e) => setWholesalePrice(e.target.value)} inputMode="decimal" className={cn(fieldClass, "mt-1")} /></label>
+              <label className="block"><span className="text-[12px] font-medium text-[#6b6b6b] dark:text-white/60">Cost per item</span><input value={cost} onChange={(e) => setCost(e.target.value)} inputMode="decimal" className={cn(fieldClass, "mt-1")} /></label>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-4 rounded-xl bg-[#fafafa] dark:bg-white/[0.03] p-4">
-              <div><p className="text-[11px] text-[#9a9a9a]">Sales price</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{naira(product.retailMin)}</p></div>
-              <div><p className="text-[11px] text-[#9a9a9a]">Profit</p><p className="text-sm font-bold text-[#16a34a]">{naira(product.retailMin - product.costPerItem)}</p></div>
-              <div><p className="text-[11px] text-[#9a9a9a]">Margin</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{Math.round(((product.retailMin - product.costPerItem) / product.retailMin) * 100)}%</p></div>
+              <div><p className="text-[11px] text-[#9a9a9a]">Sales price</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{hasRetail ? naira(retailN) : "—"}</p></div>
+              {hasCost && hasRetail ? (
+                <>
+                  <div><p className="text-[11px] text-[#9a9a9a]">Profit</p><p className={cn("text-sm font-bold", profit >= 0 ? "text-[#16a34a]" : "text-[#e5484d]")}>{naira(profit)}</p></div>
+                  <div><p className="text-[11px] text-[#9a9a9a]">Margin</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{Math.round((profit / retailN) * 100)}%</p></div>
+                </>
+              ) : (
+                <div className="col-span-2 flex items-center"><p className="text-[12.5px] text-[#9a9a9a]">Add cost to see profit</p></div>
+              )}
             </div>
             <label className="mt-3 flex items-center gap-2 text-[13px] text-[#6b6b6b] dark:text-white/60"><input type="checkbox" className="accent-[#ffd716]" /> Charge tax (VAT 7.5%) on this product</label>
           </Section>

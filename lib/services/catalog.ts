@@ -40,6 +40,8 @@ export type ProductCard = {
   /** True when the product has at least one variant — quick-view is bypassed for
    *  these (variant selection needs the full PDP). Undefined = unknown. */
   hasVariants?: boolean;
+  /** Product blurb — the hub search matches on it alongside name/category/tags. */
+  description?: string;
   /** ISO timestamp — powers the "Recently added" storefront rail. */
   createdAt?: string;
 };
@@ -165,6 +167,7 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
       unit: p.unit ?? "unit",
       vendorLogo: coLogo ?? undefined,
       hasVariants: variantOf.has(p.id),
+      description: p.description ?? "",
       createdAt: new Date(p.createdAt).toISOString(),
     };
   });

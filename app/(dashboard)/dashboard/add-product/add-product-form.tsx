@@ -89,6 +89,9 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
   const [category, setCategory] = useState("");
   const [material, setMaterial] = useState("");
   const [price, setPrice] = useState("");
+  // Sellers' own cost price — never shown to buyers, only used to compute the
+  // profit and margin on the product detail page.
+  const [cost, setCost] = useState("");
   // `unit` holds either a listed unit or the UNIT_CUSTOM sentinel; when it's the
   // sentinel the typed value in `customUnit` is what actually gets saved.
   const [unit, setUnit] = useState<string>(PRODUCT_UNITS[0]);
@@ -244,6 +247,7 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
       // A price without its unit is meaningless (₦8,000 per tile vs per pallet),
       // so the two are only sent together.
       retailMin: price.trim() ? Number(price) : undefined,
+      costPerItem: cost.trim() ? Number(cost) : undefined,
       unit: resolvedUnit || undefined,
       coverUrl: cover,
       gallery: gallery.length ? gallery : undefined,
@@ -376,6 +380,17 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
                   aria-label="Custom pricing unit"
                 />
               )}
+            </Field>
+            <Field label="Cost per item (₦, Optional)" hint="Your cost price, used to work out profit and margin. Buyers never see it.">
+              <input
+                className={inputClass}
+                type="number"
+                min="0"
+                inputMode="decimal"
+                value={cost}
+                onChange={(e) => setCost(e.target.value)}
+                placeholder="e.g. 5000"
+              />
             </Field>
             <Field label="Dimensions / Variations (Optional)">
               <input className={inputClass} value={dimensions} onChange={(e) => setDimensions(e.target.value)} placeholder="e.g. 10mm, 12mm, 16mm…" />

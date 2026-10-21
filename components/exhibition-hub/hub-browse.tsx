@@ -93,6 +93,34 @@ function fromVerifiedSupplier(p: ProductCard) {
   return p.verified && !!p.vendorCompanyId;
 }
 
+/** The bar says "materials, products or suppliers", so search spans the product
+ *  name + blurb, its category, its tags and the exhibitor name. */
+function matchesQuery(p: ProductCard, s: string) {
+  if (!s) return true;
+  return (
+    p.name.toLowerCase().includes(s) ||
+    (p.description ?? "").toLowerCase().includes(s) ||
+    (p.category ?? "").toLowerCase().includes(s) ||
+    p.supplier.toLowerCase().includes(s) ||
+    p.tags.some((t) => t.toLowerCase().includes(s))
+  );
+}
+
+/** One predicate shared by the visible list and the "will this pick return
+ *  anything?" pre-check, so the two can never disagree about a filter. */
+function matchesFilters(
+  p: ProductCard,
+  o: { cat: string; query: string; avail: string; price: string; verifiedOnly: boolean },
+): boolean {
+  return (
+    (o.cat === "All" || matchesCategory(p, o.cat)) &&
+    matchesQuery(p, o.query) &&
+    (o.avail === DEFAULT_AVAIL || p.avail === o.avail) &&
+    (!o.verifiedOnly || fromVerifiedSupplier(p)) &&
+    matchesPrice(p, o.price)
+  );
+}
+
 /**
  * The public Exhibition Hub storefront.
  *
@@ -183,18 +211,23 @@ export function HubBrowse({
   const filtering = q.trim() !== "" || cat !== "All" || avail !== DEFAULT_AVAIL || price !== DEFAULT_PRICE || verifiedOnly;
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    const list = products.filter((p) => {
-      const matchesCat = cat === "All" || matchesCategory(p, cat);
-      const matchesQ = !s || p.name.toLowerCase().includes(s) || p.supplier.toLowerCase().includes(s) || p.tags.some((t) => t.toLowerCase().includes(s));
-      const matchesAvail = avail === DEFAULT_AVAIL || p.avail === avail;
-      const matchesVerified = !verifiedOnly || fromVerifiedSupplier(p);
-      return matchesCat && matchesQ && matchesAvail && matchesPrice(p, price) && matchesVerified;
-    });
+    const list = products.filter((p) =>
+      matchesFilters(p, { cat, query: q.trim().toLowerCase(), avail, price, verifiedOnly }),
+    );
     if (sort === SORT_OPTIONS[1]) return [...list].sort((a, b) => a.price - b.price);
     if (sort === SORT_OPTIONS[2]) return [...list].sort((a, b) => b.price - a.price);
     return list;
   }, [products, q, cat, avail, price, sort, verifiedOnly]);
+
+  /** Whether picking `nextCat` would actually leave any listing on screen, with
+   *  the other filters as they stand. Used to decide if jumping to the results
+   *  grid is worthwhile — on an empty result the page is short, so the scroll
+   *  would drop the buyer at the bottom instead of at their results. */
+  function hasResultsFor(nextCat: string) {
+    return products.some((p) =>
+      matchesFilters(p, { cat: nextCat, query: q.trim().toLowerCase(), avail, price, verifiedOnly }),
+    );
+  }
 
   /* ── Curated rails, all derived from real fields ───────────────────────── */
   const rails = useMemo(() => {
@@ -243,9 +276,21 @@ export function HubBrowse({
     gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  /** Enter / the magnifying-glass button run the search. Results filter live off
+   *  `q`, so this only prevents the browser's default submit (no reload) and
+   *  dismisses the mobile keyboard. It deliberately does NOT scroll to the
+   *  results — searching must not jump the page (Ticket 31). */
+  function submitSearch(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  }
+
   function pickCategory(c: string) {
     setCat(c);
-    if (c !== "All") requestAnimationFrame(scrollToGrid);
+    // Only jump to the grid when the pick actually yields listings. If it
+    // doesn't, the "No products found" message sits right below the filters
+    // where the buyer already is — scrolling there would just lose their place.
+    if (c !== "All" && hasResultsFor(c)) requestAnimationFrame(scrollToGrid);
   }
 
   const card = (p: ProductCard) => (
@@ -297,15 +342,40 @@ export function HubBrowse({
                   <TrendingUp size={12} className="text-[#caa400]" /> Most listed: {topCategory.name}
                 </button>
               )}
-              <div className="relative mt-4 w-full sm:max-w-[520px]">
-                <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9a9a9a]" />
+              <form
+                role="search"
+                onSubmit={submitSearch}
+                className="relative mt-4 w-full sm:max-w-[520px]"
+              >
+                {/* The magnifier is the submit button, so tapping it runs the
+                    same search as Enter — the only way to search on a phone
+                    without a keyboard "go" key. */}
+                <button
+                  type="submit"
+                  aria-label="Search"
+                  className="absolute left-1.5 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-[#6b6b6b] hover:text-[#1e1e1e] hover:bg-black/5 transition-colors"
+                >
+                  <Search size={16} />
+                </button>
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                   placeholder="Search materials, products or suppliers…"
-                  className="w-full pl-11 pr-4 h-11 md:h-12 rounded-xl border-none bg-white text-[14px] text-[#1e1e1e] placeholder:text-[#9a9a9a] shadow-lg focus:outline-none focus:ring-2 focus:ring-[#ffd716] transition-shadow"
+                  aria-label="Search materials, products or suppliers"
+                  enterKeyHint="search"
+                  className="w-full pl-11 pr-11 h-11 md:h-12 rounded-xl border-none bg-white text-[14px] text-[#1e1e1e] placeholder:text-[#9a9a9a] shadow-lg focus:outline-none focus:ring-2 focus:ring-[#ffd716] transition-shadow"
                 />
-              </div>
+                {q !== "" && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setQ("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-full text-[#9a9a9a] hover:text-[#1e1e1e] hover:bg-black/5 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </form>
             </div>
           </div>
         </div>
@@ -376,8 +446,14 @@ export function HubBrowse({
           {filtering ? (
             <div className="flex items-center justify-between gap-3 mb-4">
               <p className="text-[13px] text-[#9a9a9a]">
-                {filtered.length} product{filtered.length !== 1 ? "s" : ""}
-                {cat !== "All" && <> in <span className="font-semibold text-[#1e1e1e] dark:text-white">{cat}</span></>}
+                {q.trim() ? (
+                  <>Showing results for <span className="font-semibold text-[#1e1e1e] dark:text-white">“{q.trim()}”</span> — {filtered.length} found</>
+                ) : (
+                  <>
+                    {filtered.length} product{filtered.length !== 1 ? "s" : ""}
+                    {cat !== "All" && <> in <span className="font-semibold text-[#1e1e1e] dark:text-white">{cat}</span></>}
+                  </>
+                )}
               </p>
               <button
                 onClick={() => { setQ(""); setCat("All"); setAvail(DEFAULT_AVAIL); setPrice(DEFAULT_PRICE); setVerifiedOnly(false); }}
@@ -410,7 +486,19 @@ export function HubBrowse({
               ) : (
                 <>
                   <p className="mt-4 text-[15px] font-bold text-[#1e1e1e] dark:text-white">No products found</p>
-                  <p className="mt-1 text-[13px] text-[#9a9a9a]">Try a different search or category.</p>
+                  <p className="mt-1 text-[13px] text-[#9a9a9a]">
+                    {q.trim()
+                      ? <>Nothing matches <span className="font-semibold text-[#1e1e1e] dark:text-white">“{q.trim()}”</span>. Try a different word or category.</>
+                      : "Try a different search or category."}
+                  </p>
+                  {q.trim() !== "" && (
+                    <button
+                      onClick={() => setQ("")}
+                      className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-[#e3e3e3] dark:border-white/15 px-5 py-3 text-[13.5px] font-bold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors"
+                    >
+                      <X size={15} /> Clear search
+                    </button>
+                  )}
                 </>
               )}
             </div>
