@@ -215,10 +215,10 @@ export function ProductDetail({ product }: { product: CatalogProduct }) {
             </div>
             <div className="mt-4 grid grid-cols-3 gap-4 rounded-xl bg-[#fafafa] dark:bg-white/[0.03] p-4">
               <div><p className="text-[11px] text-[#9a9a9a]">Sales price</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{hasRetail ? naira(retailN) : "—"}</p></div>
-              {hasCost && hasRetail ? (
+              {hasCost ? (
                 <>
-                  <div><p className="text-[11px] text-[#9a9a9a]">Profit</p><p className={cn("text-sm font-bold", profit >= 0 ? "text-[#16a34a]" : "text-[#e5484d]")}>{naira(profit)}</p></div>
-                  <div><p className="text-[11px] text-[#9a9a9a]">Margin</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{Math.round((profit / retailN) * 100)}%</p></div>
+                  <div><p className="text-[11px] text-[#9a9a9a]">Profit</p><p className={cn("text-sm font-bold", hasRetail && profit < 0 ? "text-[#e5484d]" : "text-[#16a34a]")}>{hasRetail ? naira(profit) : "—"}</p></div>
+                  <div><p className="text-[11px] text-[#9a9a9a]">Margin</p><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{hasRetail ? `${Math.round((profit / retailN) * 100)}%` : "—"}</p></div>
                 </>
               ) : (
                 <div className="col-span-2 flex items-center"><p className="text-[12.5px] text-[#9a9a9a]">Add cost to see profit</p></div>
