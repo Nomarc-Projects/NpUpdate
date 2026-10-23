@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { requireUserId } from "@/lib/server-user";
 import { requireAdmin, requireSuperAdmin } from "@/lib/authz";
-import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa, getKeyPlayers, getTrustedClients } from "@/lib/services/platform-settings-read";
+import { getMaintenance, getMailThroughput, getTickerSpeed, getExhibitionHub, getTools, getPaymentPlans, getAboutTeam, getPwa, getKeyPlayers, getTrustedClients, getProperties } from "@/lib/services/platform-settings-read";
 import {
   MAINTENANCE_TAG,
   normalizeMaintenance,
@@ -37,6 +37,9 @@ import {
   TRUSTED_CLIENTS_TAG,
   normalizeTrustedClients,
   type TrustedClientsSetting,
+  PROPERTIES_TAG,
+  normalizeProperties,
+  type PropertiesSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Maintenance mode: the write path ───────────────────────────────────
@@ -407,5 +410,42 @@ export async function setTrustedClients(
 
   revalidateTag(TRUSTED_CLIENTS_TAG, { expire: 0 });
   revalidatePath("/");
+  return next;
+}
+
+
+/* ── Nomarc Projects (property marketplace): the write path ─────────────
+ * Super-admin-only. This switch opens a new public marketplace and sets the
+ * flat listing fee/FX rates that drive real charges, so it belongs with the
+ * other launcher-grade controls.
+ */
+export async function setProperties(
+  input: Partial<PropertiesSetting>,
+): Promise<PropertiesSetting> {
+  const admin = await requireSuperAdmin();
+  const current = await getProperties();
+  const next = normalizeProperties({ ...current, ...input });
+
+  await db.execute(sql`
+    INSERT INTO platform_setting (key, value, updated_at, updated_by)
+    VALUES ('properties', ${JSON.stringify(next)}::jsonb, now(), ${admin})
+    ON CONFLICT (key) DO UPDATE
+      SET value = ${JSON.stringify(next)}::jsonb, updated_at = now(), updated_by = ${admin}
+  `);
+
+  if (current.enabled !== next.enabled) {
+    await db
+      .execute(sql`
+        INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail)
+        VALUES (${admin}, ${next.enabled ? "properties_open" : "properties_lock"}, 'platform_setting', 'properties', NULL)
+      `)
+      .catch(() => {});
+  }
+
+  revalidateTag(PROPERTIES_TAG, { expire: 0 });
+  revalidatePath("/properties");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/properties");
+  revalidatePath("/admin/properties");
   return next;
 }

@@ -44,6 +44,11 @@ export async function getPrivateObject(key: string): Promise<Buffer> {
   return r2.getPrivateObject(key);
 }
 
+export async function uploadPrivateObject(key: string, body: Buffer | Uint8Array, contentType: string) {
+  if (useLocal) return local.uploadObjectLocalPrivate(key, body);
+  return r2.uploadPrivateObject(key, body, contentType);
+}
+
 export async function deletePrivateObject(key: string) {
   if (useLocal) return local.deletePrivateObjectLocal(key);
   return r2.deletePrivateObject(key);

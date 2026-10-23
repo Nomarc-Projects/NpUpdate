@@ -29,6 +29,7 @@ const RULES: Record<string, string[]> = {
   // on this presigned path — the /api/upload fallback stays images-only, since a
   // clip won't fit inside a serverless request body.
   avatar: IMAGE, logo: IMAGE, project: IMAGE, product: [...IMAGE, ...VIDEO],
+  property: IMAGE,
   resume: ["application/pdf"], doc: [...IMAGE, "application/pdf"],
   chat: [...IMAGE, ...VIDEO, ...AUDIO, ...DOCS],
   // Helm documents: contracts, BOQs, spec sheets, drawings, site photos.
@@ -37,9 +38,13 @@ const RULES: Record<string, string[]> = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  // Property ownership documents (deeds, C of O, survey plans…). Private
+  // bucket only, same as Helm: no public URL is ever minted.
+  property_doc: [...IMAGE, "application/pdf", "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 };
 /** Kinds whose bytes must never be publicly addressable. */
-const PRIVATE_KINDS = new Set(["helm"]);
+const PRIVATE_KINDS = new Set(["helm", "property_doc"]);
 const slug = () => Math.random().toString(36).slice(2, 10);
 
 export async function POST(req: Request) {

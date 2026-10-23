@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, bigint, boolean, timestamp, date, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, bigint, boolean, timestamp, date, jsonb, uniqueIndex, index, doublePrecision } from "drizzle-orm/pg-core";
 
 /**
  * Nomarc app schema (Drizzle) on CockroachDB. Better Auth manages
@@ -1366,3 +1366,202 @@ export const catalogueEntry = pgTable("catalogue_entry", {
   createdAt: ts(),
   updatedAt: upd(),
 });
+
+/* ── Nomarc Projects — property marketplace ────────────────────────────
+ * A property listing domain layered onto the existing member dashboard. Money
+ * is stored in minor units (kobo/cents) — the same rule quote_proposal and
+ * payment_transaction follow — because a price in a listing is a contractual
+ * number, not a display string. `priceNgnMinor` is the normalised value used
+ * for cross-currency search and fee calculation; `priceMinor`/`currency` keep
+ * the lister's chosen display currency.
+ *
+ * Documents are private by default: `property_document.storage_key` points at
+ * the private bucket and is only ever resolved through an ownership-checked
+ * presigned GET. Public listings expose document *status*, never the file.
+ */
+export const propertyListerProfile = pgTable("property_lister_profile", {
+  id: id(),
+  userId: text("user_id").notNull().unique(),
+  listerType: text("lister_type").notNull().default("homeowner"), // realtor | homeowner | space_owner
+  displayName: text("display_name"),
+  companyName: text("company_name"),
+  cacNumber: text("cac_number"),
+  phone: text("phone"),
+  email: text("email"),
+  verificationStatus: text("verification_status").notNull().default("unverified"), // unverified | pending | verified | rejected
+  verificationNote: text("verification_note"),
+  cacDocumentKey: text("cac_document_key"),
+  idDocumentKey: text("id_document_key"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: ts(),
+  updatedAt: upd(),
+}, (t) => [index("property_lister_status_idx").on(t.verificationStatus)]);
+
+export const property = pgTable("property", {
+  id: id(),
+  ownerUserId: text("owner_user_id").notNull(),
+  listerProfileId: uuid("lister_profile_id").references(() => propertyListerProfile.id, { onDelete: "set null" }),
+  companyId: uuid("company_id").references(() => company.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  slug: text("slug").notNull(),
+  description: text("description"),
+  kind: text("kind").notNull(), // sale | lease | rent | bulk_land
+  category: text("category").notNull(), // residential | commercial | coworking | shortlet | land
+  propertyType: text("property_type"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  country: text("country").notNull().default("Nigeria"),
+  sizeSqm: integer("size_sqm"),
+  sizeAcres: doublePrecision("size_acres"),
+  bedrooms: integer("bedrooms"),
+  bathrooms: integer("bathrooms"),
+  priceMinor: bigint("price_minor", { mode: "number" }).notNull(),
+  priceNgnMinor: bigint("price_ngn_minor", { mode: "number" }).notNull(),
+  currency: text("currency").notNull().default("NGN"),
+  pricePeriod: text("price_period").notNull().default("one_off"), // one_off | annual | monthly | weekly | daily
+  status: text("status").notNull().default("draft"), // draft | pending_approval | changes_requested | approved_awaiting_payment | published | rejected | sold | leased | rented | expired | archived
+  isBulkLand: boolean("is_bulk_land").notNull().default(false),
+  minimumAcreage: doublePrecision("minimum_acreage").default(1),
+  documentStatus: text("document_status").notNull().default("missing"), // missing | pending | verified
+  contactName: text("contact_name"),
+  contactPhone: text("contact_phone"),
+  contactEmail: text("contact_email"),
+  /** Fee snapshot captured at submission, so a later pricing change never
+   *  rewrites what an owner was quoted. */
+  flatFeeMinor: bigint("flat_fee_minor", { mode: "number" }),
+  rateBps: integer("rate_bps"),
+  feeAmountMinor: bigint("fee_amount_minor", { mode: "number" }),
+  feeCurrency: text("fee_currency").notNull().default("NGN"),
+  feeStatus: text("fee_status").notNull().default("unpaid"), // unpaid | paid | waived | refunded
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  rejectionReason: text("rejection_reason"),
+  publishedAt: timestamp("published_at", { withTimezone: true }),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  viewCount: integer("view_count").notNull().default(0),
+  createdAt: ts(),
+  updatedAt: upd(),
+}, (t) => [
+  uniqueIndex("property_slug_unique").on(t.slug),
+  index("property_owner_idx").on(t.ownerUserId, t.createdAt),
+  index("property_status_published_idx").on(t.status, t.publishedAt),
+  index("property_kind_idx").on(t.kind),
+  index("property_category_idx").on(t.category),
+  index("property_location_idx").on(t.state, t.city),
+  index("property_price_ngn_idx").on(t.priceNgnMinor),
+]);
+
+export const propertyMedia = pgTable("property_media", {
+  id: id(),
+  propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  kind: text("kind").notNull().default("image"), // image | aerial | floor_plan | site_plan | video
+  caption: text("caption"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: ts(),
+}, (t) => [index("property_media_property_idx").on(t.propertyId, t.sortOrder)]);
+
+export const propertyDocument = pgTable("property_document", {
+  id: id(),
+  propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+  ownerUserId: text("owner_user_id").notNull(),
+  docType: text("doc_type").notNull(), // title_deed | c_of_o | land_use_report | survey_plan | cac_certificate | other
+  storageKey: text("storage_key").notNull(),
+  fileName: text("file_name"),
+  mimeType: text("mime_type"),
+  sizeBytes: bigint("size_bytes", { mode: "number" }),
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+  note: text("note"),
+  createdAt: ts(),
+}, (t) => [
+  index("property_document_property_idx").on(t.propertyId),
+  index("property_document_status_idx").on(t.status),
+]);
+
+export const propertyFeePayment = pgTable("property_fee_payment", {
+  id: id(),
+  propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull(),
+  amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
+  currency: text("currency").notNull().default("NGN"),
+  flatFeeMinor: bigint("flat_fee_minor", { mode: "number" }),
+  rateBps: integer("rate_bps"),
+  valueNgnMinor: bigint("value_ngn_minor", { mode: "number" }),
+  provider: text("provider").notNull(),
+  reference: text("reference").notNull().unique(),
+  status: text("status").notNull().default("pending"), // pending | success | failed | waived
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: ts(),
+}, (t) => [
+  index("property_fee_property_idx").on(t.propertyId),
+  index("property_fee_user_idx").on(t.userId),
+]);
+
+export const propertyInquiry = pgTable("property_inquiry", {
+  id: id(),
+  propertyId: uuid("property_id").notNull().references(() => property.id, { onDelete: "cascade" }),
+  buyerUserId: text("buyer_user_id").notNull(),
+  listerUserId: text("lister_user_id").notNull(),
+  conversationId: uuid("conversation_id").references(() => conversation.id, { onDelete: "set null" }),
+  message: text("message"),
+  status: text("status").notNull().default("open"), // open | closed
+  createdAt: ts(),
+  updatedAt: upd(),
+}, (t) => [
+  index("property_inquiry_property_idx").on(t.propertyId, t.createdAt),
+  index("property_inquiry_buyer_idx").on(t.buyerUserId),
+  index("property_inquiry_lister_idx").on(t.listerUserId),
+]);
+
+export const propertyTransaction = pgTable("property_transaction", {
+  id: id(),
+  propertyId: uuid("property_id").references(() => property.id, { onDelete: "set null" }),
+  buyerUserId: text("buyer_user_id").notNull(),
+  sellerUserId: text("seller_user_id").notNull(),
+  kind: text("kind").notNull().default("purchase"), // purchase | investment
+  amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
+  currency: text("currency").notNull().default("NGN"),
+  status: text("status").notNull().default("pending"), // pending | paid | completed | cancelled
+  paymentReference: text("payment_reference"),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  createdAt: ts(),
+  updatedAt: upd(),
+}, (t) => [
+  index("property_transaction_buyer_idx").on(t.buyerUserId, t.createdAt),
+  index("property_transaction_property_idx").on(t.propertyId),
+]);
+
+export const propertyCertificate = pgTable("property_certificate", {
+  id: id(),
+  transactionId: uuid("transaction_id").notNull().references(() => propertyTransaction.id, { onDelete: "cascade" }),
+  propertyId: uuid("property_id").references(() => property.id, { onDelete: "set null" }),
+  buyerUserId: text("buyer_user_id").notNull(),
+  certificateNo: text("certificate_no").notNull().unique(),
+  storageKey: text("storage_key"),
+  issuedAt: timestamp("issued_at", { withTimezone: true }),
+  createdAt: ts(),
+});
+
+export const propertyEvent = pgTable("property_event", {
+  id: id(),
+  propertyId: uuid("property_id").references(() => property.id, { onDelete: "cascade" }),
+  userId: text("user_id"),
+  eventType: text("event_type").notNull(), // view | search | save | inquiry | document_download
+  metadata: jsonb("metadata"),
+  createdAt: ts(),
+}, (t) => [
+  index("property_event_property_idx").on(t.propertyId, t.createdAt),
+  index("property_event_type_idx").on(t.eventType, t.createdAt),
+]);
+
+export const sowrEnrollment = pgTable("sowr_enrollment", {
+  id: id(),
+  userId: text("user_id").notNull(),
+  propertyId: uuid("property_id").references(() => property.id, { onDelete: "set null" }),
+  status: text("status").notNull().default("active"), // active | pending | withdrawn
+  joinedAt: timestamp("joined_at", { withTimezone: true }),
+  createdAt: ts(),
+}, (t) => [index("sowr_enrollment_user_idx").on(t.userId, t.createdAt)]);

@@ -86,6 +86,13 @@ export async function privateUploadUrl(key: string, contentType: string, expires
   );
 }
 
+/** Server-side fallback for private uploads when the browser cannot reach the
+ *  presigned PUT (CORS/proxy). Keeps the bytes out of the public bucket. */
+export async function uploadPrivateObject(key: string, body: Buffer | Uint8Array, contentType: string) {
+  await privateClient().send(new PutObjectCommand({ Bucket: privateBucket!, Key: key, Body: body, ContentType: contentType }));
+  return key;
+}
+
 export async function deletePrivateObject(key: string) {
   await privateClient().send(new DeleteObjectCommand({ Bucket: privateBucket!, Key: key }));
 }

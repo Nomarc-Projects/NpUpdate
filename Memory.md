@@ -6,7 +6,7 @@ non-trivial work.
 
 ---
 
-## A. Current state (as of 2026-10-15)
+## A. Current state (as of 2026-10-23)
 
 | Fact | Value |
 | --- | --- |
@@ -22,6 +22,15 @@ non-trivial work.
 
 ### Recent notable work
 
+- **Nomarc Projects (2026-10-23)** — migration `0065_properties.sql` applied
+  to production (32 statements, 10 tables + `properties` setting verified).
+  Full listing lifecycle: fee calculator/config, public browse/detail with
+  view tracking, owner list/edit + private document uploads/downloads, admin
+  listing/document review, fee checkout/verify/webhook, inquiries via
+  messaging, saved properties, free SOWR enrollment, lister CAC/identity
+  verification, offline buyer transactions with printable and publicly
+  verifiable certificates, admin fee reconciliation, and owner listing
+  close/archive. Lease/rent payment transactions and live testing remain.
 - **Exhibitor plan enforcement** — per-plan category caps (SME 1 / Exhibitor 5 /
   Key Player 10), 10 listings per category, upgrade messaging, plan banner.
 - **Exhibitor category (shop) creation** — "Add a new category" on the product
@@ -77,6 +86,35 @@ locked out of paying entirely.
 `exhibitor-trial.ts`.** Limits are read from there everywhere; do not
 re-implement caps in UI code.
 
+**D-013 · Doppler project is `nomarc_projects`, not `nomarc`.** The installed
+token only has access to `nomarc_projects` (configs dev/stg/prd). Migration
+commands are
+`doppler run -p nomarc_projects -c prd -- node scripts/apply-migration.cjs <file>`.
+Do not use the older `-p nomarc` form in migration comments.
+
+**D-014 · Buyer property transactions are recorded offline, then completed by
+an admin.** A buyer “requests to purchase” a `sale`/`bulk_land` listing, which
+creates a `property_transaction` (`pending`). Nomarc confirms the offline
+transaction in `/admin/properties/transactions`, which marks it `completed`,
+sets the listing to `sold`, and issues a printable `property_certificate`.
+Certificates are HTML print views, publicly verifiable by number at
+`/properties/certificates`, and not title documents. SOWR enrollment is free,
+separate from the transaction, and open from `/properties/sowr`. Listing-fee
+payments are reconciled in `/admin/properties/fees`.
+
+**D-011 · Property listing fee = flat + full-value bracket rate.** Charged once,
+in NGN, after admin approval and before publish. The bracket rate applies to
+the whole normalised value (not progressive); values below ₦100,000 pay the flat
+fee only. The flat fee, FX rates and 90-day duration live in the `properties`
+platform setting so they change without a deploy. See
+`lib/properties/pricing.ts`.
+
+**D-012 · Property documents are private-by-default.** Deeds, C of O, survey
+plans and CAC documents go to the private bucket (`property_doc/${uid}/…`) via
+presigned PUT or `/api/upload/private`. Public pages expose review status only.
+The listing fee is a marketplace charge, not a property transaction; buyer
+checkout and certificates are later phases.
+
 **D-010 · `main` == `VPS_Nomarc` (force-reset 2026-10-15).** At the operator's
 explicit request, `main` was deleted and recreated from `VPS_Nomarc`
 (`2dbf6fe`) so the two branches are identical. `main`'s previous diverged
@@ -104,6 +142,7 @@ lockstep by pushing `VPS_Nomarc` to both.
 | T-010 | **P2** | `.env.example` is incomplete | Omits `DATABASE_URL`, all `R2_*`, `SMTP_*`, `INTERNAL_API_KEY`, `MAIL_DRAIN_SECRET`, `JWT_SECRET`, etc. `ENV.md` is the complete list until this is fixed. |
 | T-011 | **P1** | Local dev cannot reach the DB | `.env` `DATABASE_URL` = stale Cockroach Cloud (`nomarc-production-32243…cloud`) → `password authentication failed for user nomarc` (all pages 500). Live DB is self-hosted Cockroach `root@mydb.nomarcprojects.com:26257/nomarcdb?sslmode=disable`, **firewalled** (26257 refused from outside). Run SQL on the VPS; fix local `.env` or tunnel to make `npm run dev` usable. |
 | T-012 | **P2** | Migrations applied by hand, no ledger | `drizzle/0063_plan_trial.sql` had to be applied manually on 2026-10-15 because prod was missing it while the deployed build already selected `trial_ends_at`. Nothing records which migrations a cluster has applied, so drift recurs. |
+| T-015 | **P2** | Nomarc Projects transaction flow is manual and shallow | Buyer transactions are sale/bulk-land only, completed by an admin after offline payment; SOWR membership is not linked to a purchase. Lease/rent transaction completion and live provider testing are not implemented. Certificates are publicly verifiable but carry no legal title. |
 | T-013 | **P1** | Provider webhooks are not landing; paid orders stay `pending` | GBG SALES LTD had 4 `exhibitor/monthly/₦205,000/seerbit` rows all `pending` while the customer held a receipt. Root cause is unverified — check the Seerbit/Paystack callback URL and webhook signature handling; `configuredProviders()` / `PAYMENT_PROVIDER` may be unset in prod. Until fixed, payments rely on `reconcilePending` or the admin repair tool (`logupdate.md` 2026-10-15). |
 
 ---

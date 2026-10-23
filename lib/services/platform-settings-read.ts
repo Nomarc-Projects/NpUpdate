@@ -43,6 +43,10 @@ import {
   TRUSTED_CLIENTS_DEFAULT,
   normalizeTrustedClients,
   type TrustedClientsSetting,
+  PROPERTIES_TAG,
+  PROPERTIES_DEFAULT,
+  normalizeProperties,
+  type PropertiesSetting,
 } from "@/lib/services/platform-settings-shared";
 
 /* ── Reading platform settings ──────────────────────────────────────────
@@ -339,4 +343,34 @@ const readTrustedClients = unstable_cache(
 
 export async function getTrustedClients(): Promise<TrustedClientsSetting> {
   return readTrustedClients();
+}
+
+
+/**
+ * Nomarc Projects availability + commercial settings. Same fail-open reasoning
+ * as the other switches: an unreadable row (pre-migration, DB hiccup, build-time
+ * prerender) resolves to the designed default. The default is enabled so the
+ * marketplace nav group still appears if the seed row is missing; an admin can
+ * lock it from /admin/platform/properties.
+ */
+const readProperties = unstable_cache(
+  async (): Promise<PropertiesSetting> => {
+    try {
+      const res = await db.execute(
+        sql`SELECT value FROM platform_setting WHERE key = 'properties' LIMIT 1`,
+      );
+      const row = (res.rows as { value?: unknown }[])[0];
+      if (!row) return PROPERTIES_DEFAULT;
+      const value = typeof row.value === "string" ? JSON.parse(row.value) : row.value;
+      return normalizeProperties(value);
+    } catch {
+      return PROPERTIES_DEFAULT;
+    }
+  },
+  ["platform-setting-properties"],
+  { revalidate: 30, tags: [PROPERTIES_TAG] },
+);
+
+export async function getProperties(): Promise<PropertiesSetting> {
+  return readProperties();
 }

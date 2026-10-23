@@ -16,7 +16,7 @@ export async function PUT(req: Request) {
 
   const url = new URL(req.url);
   const key = url.searchParams.get("key") || "";
-  if (!key.startsWith(`helm/${uid}/`)) {
+  if (!key.startsWith(`helm/${uid}/`) && !key.startsWith(`property_doc/${uid}/`)) {
     return NextResponse.json({ error: "Invalid storage key" }, { status: 400 });
   }
 

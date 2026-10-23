@@ -6,6 +6,8 @@
  * doesn't catch it; only a build does.
  */
 
+import { DEFAULT_FLAT_LISTING_FEE_MINOR, DEFAULT_FX_RATES } from "@/lib/properties/pricing";
+
 export const MAINTENANCE_TAG = "platform-setting:maintenance";
 export const MAIL_THROUGHPUT_TAG = "platform-setting:mail-throughput";
 export const TICKER_SPEED_TAG = "platform-setting:ticker-speed";
@@ -384,4 +386,107 @@ export const TRUSTED_CLIENTS_DEFAULT: TrustedClientsSetting = {
 
 export function normalizeTrustedClients(raw: unknown): TrustedClientsSetting {
   return normalizeLogoStrip(raw, TRUSTED_CLIENTS_DEFAULT.heading);
+}
+
+
+/* ── Nomarc Projects (property marketplace) ──────────────────────────────
+ * The launch switch and the editable commercial knobs. Kept in the keyed
+ * platform_setting bag so the fee, FX rates and SOWR copy can change without a
+ * deploy, exactly like the Exhibition Hub switch.
+ */
+export const PROPERTIES_TAG = "platform-setting:properties";
+
+export interface SowrSetting {
+  enabled: boolean;
+  heading: string;
+  body: string;
+  ctaLabel: string;
+  ctaHref: string;
+  imageUrl: string;
+}
+
+export interface PropertiesSetting {
+  /** True = the property nav group and public marketplace are live. Admin can
+   *  still preview the surfaces while it is off. */
+  enabled: boolean;
+  /** True = a submitted listing must be approved by an admin before payment. */
+  approvalRequired: boolean;
+  /** How long a published listing stays live before it expires. */
+  listingDurationDays: number;
+  /** Flat component of the listing fee, in NGN kobo. */
+  flatListingFeeMinor: number;
+  /** NGN per one unit of the foreign currency. */
+  fxRates: { USD: number; GBP: number };
+  sowr: SowrSetting;
+}
+
+export const SOWR_DEFAULT: SowrSetting = {
+  enabled: true,
+  heading: "SOWR Real Estate Program",
+  body:
+    "Partnered with Nomarc Projects, SOWR gives property buyers and investors a structured route into real estate. Join after your property purchase or explore the program from any listing.",
+  ctaLabel: "Explore SOWR",
+  ctaHref: "/properties/sowr",
+  imageUrl: "",
+};
+
+export const PROPERTIES_DEFAULT: PropertiesSetting = {
+  enabled: true,
+  approvalRequired: true,
+  listingDurationDays: 90,
+  flatListingFeeMinor: DEFAULT_FLAT_LISTING_FEE_MINOR,
+  fxRates: { USD: DEFAULT_FX_RATES.USD, GBP: DEFAULT_FX_RATES.GBP },
+  sowr: SOWR_DEFAULT,
+};
+
+function positiveInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.round(n), min), max);
+}
+
+function text(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function normaliseCta(value: unknown): string {
+  const href = typeof value === "string" ? value.trim() : "";
+  if (!href) return SOWR_DEFAULT.ctaHref;
+  if (href.startsWith("/") || href.startsWith("https://")) return href;
+  return SOWR_DEFAULT.ctaHref;
+}
+
+export function normalizeSowr(raw: unknown): SowrSetting {
+  const v = (raw ?? {}) as Partial<SowrSetting>;
+  return {
+    enabled: v.enabled !== false,
+    heading: text(v.heading, SOWR_DEFAULT.heading),
+    body: text(v.body, SOWR_DEFAULT.body),
+    ctaLabel: text(v.ctaLabel, SOWR_DEFAULT.ctaLabel),
+    ctaHref: normaliseCta(v.ctaHref),
+    imageUrl: typeof v.imageUrl === "string" ? v.imageUrl.trim() : "",
+  };
+}
+
+export function normalizeProperties(raw: unknown): PropertiesSetting {
+  const v = (raw ?? {}) as Partial<PropertiesSetting>;
+  const fx = (v.fxRates ?? {}) as Partial<PropertiesSetting["fxRates"]>;
+  const usd = Number(fx.USD);
+  const gbp = Number(fx.GBP);
+  return {
+    enabled: v.enabled === true,
+    approvalRequired: v.approvalRequired !== false,
+    listingDurationDays: positiveInt(v.listingDurationDays, PROPERTIES_DEFAULT.listingDurationDays, 7, 365),
+    flatListingFeeMinor: positiveInt(
+      v.flatListingFeeMinor,
+      PROPERTIES_DEFAULT.flatListingFeeMinor,
+      0,
+      100_000_000, // ₦1,000,000 ceiling protects against a typo
+    ),
+    fxRates: {
+      USD: Number.isFinite(usd) && usd > 0 ? usd : PROPERTIES_DEFAULT.fxRates.USD,
+      GBP: Number.isFinite(gbp) && gbp > 0 ? gbp : PROPERTIES_DEFAULT.fxRates.GBP,
+    },
+    sowr: normalizeSowr(v.sowr),
+  };
 }

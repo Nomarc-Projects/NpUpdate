@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { webhookEvent, paymentRetry, paymentTransaction } from "@/lib/db/schema";
+import { webhookEvent, paymentRetry, paymentTransaction, propertyFeePayment } from "@/lib/db/schema";
 import { getProvider, type ProviderName } from "@/lib/payments";
 import { settleByWebhook, settleTransferWebhook } from "@/lib/services/billing";
 import { settleCartByWebhook } from "@/lib/services/checkout";
+import { settlePropertyFeeByWebhook } from "@/lib/services/property-payments";
 
 export const runtime = "nodejs";
 
@@ -65,7 +66,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ provide
           const { applyPromotionPayment } = await import("@/lib/services/promotion-checkout");
           await applyPromotionPayment(event.reference);
         } else {
-          await settleByWebhook(event.reference);
+          const [propertyFee] = await db.select({ id: propertyFeePayment.id }).from(propertyFeePayment)
+            .where(eq(propertyFeePayment.reference, event.reference)).limit(1);
+          if (propertyFee) await settlePropertyFeeByWebhook(event.reference);
+          else await settleByWebhook(event.reference);
         }
       }
     } catch (e) {

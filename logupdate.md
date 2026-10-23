@@ -18,6 +18,139 @@ Format:
 
 ---
 
+## 2026-10-23 — Nomarc Projects: fee reconciliation + certificate verification
+
+**Changed** — Owners can now close a live listing as sold/leased/rented or
+archive it; pending buyer transactions on that listing are cancelled. Added
+admin listing-fee reconciliation at
+`/admin/properties/fees` with pending/collected/failed tabs, owner and property
+context, collected total, and an admin-only “Verify now” provider check.
+Added public certificate verification: `/properties/certificates` looks up a
+number and `/properties/certificates/[no]` confirms issuance, property and
+date without exposing buyer details. Certificate pages link to both. Admin
+sub-pages now share Listings / Lister verification / Transactions / Fee
+payments navigation, and local private downloads allow admins to open
+`property_doc/` files.
+
+**Why** — Fees are real money and pending provider callbacks need an admin
+reconciliation path; buyers and counterparties need a way to check a
+certificate without trusting a PDF.
+
+**Verified** — `npm run type-check` passed and the full `npm run build` passed.
+
+**Follow-ups** — Still no automated coverage or live provider test (T-002).
+SOWR is not linked to completed purchases; rent/lease payments remain
+inquiry-only (owners can mark them rented/leased manually).
+
+---
+
+## 2026-10-23 — Nomarc Projects: verification, transactions and SOWR
+
+**Changed** — Completed the remaining approved phases:
+
+- **Lister verification** at `/dashboard/properties/verification` with private
+  CAC/ID uploads. Realtors must provide company, CAC number and CAC document;
+  all listers provide an ID. Admin queue at `/admin/properties/listers`
+  can verify/reject with a note. Verified listers show a public badge, and
+  changing sensitive fields after verification returns the profile to review.
+- **Buyer transactions** at `/dashboard/properties/transactions`. A signed-in
+  non-owner can request to purchase a published `sale`/`bulk_land` listing;
+  this creates a pending offline transaction and notifies the lister. Admins
+  complete it at `/admin/properties/transactions`, which marks the listing
+  sold and issues a unique certificate. Buyers get a printable HTML
+  certificate at `/dashboard/properties/certificates/[id]`.
+- **SOWR enrollment** at `/properties/sowr`: free join/withdraw for signed-in
+  users, member status, and dashboard/sidebar entry points. The settings CTA
+  now resolves.
+- **View tracking**: public detail views increment `property.view_count` and
+  write `property_event` rows (deduped per browser session for 30 minutes).
+  Expired published listings no longer appear on detail/saved surfaces.
+- Admin property detail now shows the linked lister profile; owners can open
+  their own private documents from the edit screen.
+
+**Why** — Finish the marketplace phases approved in the plan and make
+verification, ownership and post-sale records useful to buyers and admins.
+
+**Verified** — `npm run type-check` ✅, `npm run build` ✅. Read-only production
+SQL checks passed for lister listing counts, auth-user names and the
+transaction/certificate join.
+
+**Follow-ups** — No automated coverage (T-002) and no live payment/browser
+test. Transactions are offline/manual and sale/bulk-land only; certificates
+are not publicly verifiable; SOWR is not linked to completed purchases.
+
+---
+
+## 2026-10-23 — Nomarc Projects: production migration + publish flow
+
+**Changed** — Applied `drizzle/0065_properties.sql` to production via
+`doppler run -p nomarc_projects -c prd` (32 statements). Verified 10 property
+tables and the `properties` setting exist. Then added:
+
+- Fee checkout at approval: `startPropertyFeeCheckout`, provider callback at
+  `/dashboard/properties/purchases/verify`, webhook fallback for
+  `property_fee_payment`, amount guard + CAS settle, and publish/expiry +
+  owner notification on success. "Pay & publish" on the listings screen.
+- Editable drafts / changes-requested / rejected listings, reusing the wizard
+  with existing media and documents; admin notes are shown to the owner.
+- Buyer inquiries through the existing DM/messaging stack, with
+  `property_inquiry` rows and an owner inbox at
+  `/dashboard/properties/inquiries`.
+- Saved properties via `saved_item` (`itemType = "property"`), public save
+  button and `/dashboard/properties/saved`.
+- Admin property detail with expiring private-document links, document
+  approve/reject, and property approval actions.
+
+**Why** — Complete the listing lifecycle after the foundation and make the
+verified production schema usable end to end.
+
+**Verified** — `npm run type-check` ✅ and `npm run build` ✅. Production schema
+checked read-only: 10/10 tables + `properties` setting present. Payment and
+inquiry flows not exercised in a browser (local DB is stale — T-011).
+
+**Follow-ups** — Lister CAC/identity verification, buyer property
+transactions/certificates, SOWR enrollment. `property_fee_payment` is not
+mirrored into `payment_transaction`, so admin retry/reconciliation only sees
+property fees through the webhook fallback.
+
+---
+
+## 2026-10-23 — Nomarc Projects property marketplace foundation
+
+**Changed** — Added the property domain end to end at foundation level:
+
+- `lib/db/schema.ts`: `property_lister_profile`, `property`, `property_media`,
+  `property_document`, `property_fee_payment`, `property_inquiry`,
+  `property_transaction`, `property_certificate`, `property_event`,
+  `sowr_enrollment`; `drizzle/0065_properties.sql` seeds them plus the
+  `properties` platform setting (enabled, approvalRequired, 90 days, ₦25,000
+  flat fee, USD/GBP FX, SOWR copy). Applied to production later the same day
+  (see the entry above).
+- `lib/properties/pricing.ts`: pure full-value bracket calculator
+  (2%/1%/0.5%/0.2%/0.1%) + flat fee, money parsing/formatting.
+- Platform setting read/write (`getProperties`, `setProperties`) and
+  super-admin config at `/admin/platform/properties`.
+- Nav: Nomarc Projects group in the dashboard sidebar (gated by the setting),
+  admin nav/top-bar links, and admin review queue at `/admin/properties`.
+- Public `/properties` browse + `/properties/[slug]` detail (documents show
+  status only), dashboard overview/listings, add-listing form with public photo
+  uploads and private ownership documents.
+- Upload plumbing: public `property` kind, private `property_doc` kind,
+  generalised local-private prefix checks, and `/api/upload/private` fallback.
+
+**Why** — User approved the property marketplace plan and the commercial
+decisions (one-off fee, approval-before-payment, NGN-only launch). This is the
+Phase 0 slice: schema, settings, navigation, browse/list and admin review.
+
+**Verified** — `npm run type-check` ✅ and `npm run build` ✅. Not exercised
+against a database (T-011; migration deliberately unapplied).
+
+**Follow-ups** — Apply 0065 on the VPS only when instructed. Then implement
+pay-at-publish, inquiries (messaging), saved properties, lister/document
+verification, purchases/certificates and SOWR enrollment.
+
+---
+
 ## 2026-10-15 — Role-aware plans page + exhibitor category (shop) creation
 
 **Changed** — Two fixes.

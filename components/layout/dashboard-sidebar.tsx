@@ -6,7 +6,8 @@ import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
   Upload, FileText, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, type LucideIcon,
+  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Sparkles, BadgeCheck, Handshake,
+  type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
 import { animateThemeChange } from "@/lib/theme-transition";
@@ -62,6 +63,17 @@ const navGroups: Group[] = [
     { label: "Draft",        href: "/dashboard/jobs/posted/drafts", icon: FileText },
     { label: "Applications", href: "/dashboard/applications",  icon: Upload },
     { label: "Saved jobs",   href: "/dashboard/jobs/saved",    icon: Bookmark },
+  ]},
+  { title: "Nomarc Projects", items: [
+    { label: "Browse Properties", href: "/properties",             icon: Building2 },
+    { label: "Add Property",      href: "/dashboard/properties/new", icon: PlusCircle },
+    { label: "My Properties",     href: "/dashboard/properties/listings", icon: House },
+    { label: "Fee Payments",      href: "/dashboard/properties/purchases", icon: CreditCard },
+    { label: "Transactions",      href: "/dashboard/properties/transactions", icon: Handshake },
+    { label: "Inquiries",         href: "/dashboard/properties/inquiries", icon: Inbox },
+    { label: "Saved Properties",  href: "/dashboard/properties/saved", icon: Bookmark },
+    { label: "Lister verification", href: "/dashboard/properties/verification", icon: BadgeCheck },
+    { label: "SOWR Program",      href: "/properties/sowr", icon: Sparkles },
   ]},
   { title: "Exhibition Hub", items: [
     { label: "View Product",     href: "/exhibition-hub",           icon: Package },
@@ -134,13 +146,16 @@ function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapse
   );
 }
 
-function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed: boolean; exhibitionEnabled: boolean; onNavigate?: () => void }) {
+function SidebarInner({ collapsed, exhibitionEnabled, propertiesEnabled, onNavigate }: { collapsed: boolean; exhibitionEnabled: boolean; propertiesEnabled: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
   // The super-admin Exhibition Hub availability toggle decides whether members
   // see the Exhibition Hub doorways. Off = withheld from the sidebar; on = shown.
-  const nav = exhibitionEnabled ? navGroups : navGroups.filter((g) => g.title !== "Exhibition Hub");
+  const nav = navGroups.filter((g) =>
+    (exhibitionEnabled || g.title !== "Exhibition Hub") &&
+    (propertiesEnabled || g.title !== "Nomarc Projects"),
+  );
   const name = user?.name || "My Account";
   const email = user?.email || "";
   // Only the single best (longest) prefix match is active, so e.g.
@@ -286,7 +301,7 @@ function SidebarInner({ collapsed, exhibitionEnabled, onNavigate }: { collapsed:
   );
 }
 
-export function DashboardSidebar({ exhibitionEnabled }: { exhibitionEnabled: boolean }) {
+export function DashboardSidebar({ exhibitionEnabled, propertiesEnabled }: { exhibitionEnabled: boolean; propertiesEnabled: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -325,7 +340,7 @@ export function DashboardSidebar({ exhibitionEnabled }: { exhibitionEnabled: boo
             <button onClick={() => { if (collapsed) { setCollapsed(false); } else { setCollapsed(true); setHovered(false); } }} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label={collapsed ? "Pin sidebar open" : "Collapse sidebar"}>{collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}</button>
           </div>
         )}
-        <SidebarInner collapsed={!expanded} exhibitionEnabled={exhibitionEnabled} />
+        <SidebarInner collapsed={!expanded} exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} />
       </aside>
 
       {/* mobile top bar */}
@@ -366,7 +381,7 @@ export function DashboardSidebar({ exhibitionEnabled }: { exhibitionEnabled: boo
                 <Link href="/" onClick={() => setMobileOpen(false)} aria-label="Nomarc home"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /></Link>
                 <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
               </div>
-              <SidebarInner collapsed={false} exhibitionEnabled={exhibitionEnabled} onNavigate={() => setMobileOpen(false)} />
+              <SidebarInner collapsed={false} exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} onNavigate={() => setMobileOpen(false)} />
             </motion.aside>
           </div>
         )}

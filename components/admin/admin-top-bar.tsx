@@ -26,6 +26,7 @@ const DESTINATIONS: Dest[] = [
   { label: "Exhibitors", group: "User Management", href: "/admin/user-management/exhibitors", icon: ShieldCheck },
   { label: "Job Board", group: "Marketplace & Catalog", href: "/admin/marketplace/jobs", icon: ShoppingBag },
   { label: "Exhibition Hub", group: "Marketplace & Catalog", href: "/admin/marketplace/products", icon: Package },
+  { label: "Nomarc Projects", group: "Marketplace & Catalog", href: "/admin/properties", icon: Building2 },
   { label: "Ad Reviews", group: "Advertising", href: "/admin/advertising/reviews", icon: Megaphone },
   { label: "Active Campaigns", group: "Advertising", href: "/admin/advertising/campaigns", icon: Radio },
   { label: "Ad Board", group: "Advertising", href: "/admin/adverts", icon: Megaphone },

@@ -55,6 +55,7 @@ const NAV: Group[] = [
   { title: "Marketplace & Catalog", items: [
     { label: "Job Board", href: "/admin/marketplace/jobs", icon: ShoppingBag },
     { label: "Exhibition Hub", href: "/admin/marketplace/products", icon: Package },
+    { label: "Nomarc Projects", href: "/admin/properties", icon: Building2 },
   ]},
   { title: "Content", items: [
     { label: "News Feed", href: "/admin/newsfeed", icon: Newspaper },
@@ -107,6 +108,8 @@ const NAV: Group[] = [
     { label: "Trusted Clients Section", href: "/admin/platform/trusted-clients", icon: Handshake, superOnly: true },
     // Opening/locking the marketplace is super-admin only (see setExhibitionHub).
     { label: "Exhibition Hub Config", href: "/admin/platform/exhibition-hub", icon: Store, superOnly: true },
+    // The property marketplace switch + fee/FX/SOWR settings.
+    { label: "Properties Config", href: "/admin/platform/properties", icon: Building2, superOnly: true },
     // Hiding/showing the tools directory is super-admin only (see setTools).
     { label: "Tools Page Config", href: "/admin/platform/tools", icon: Wrench, superOnly: true },
     // Pausing/relaunching payment plans is super-admin only (see setPaymentPlans).

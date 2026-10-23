@@ -6,7 +6,7 @@ import { db } from "@/lib/db/client";
 import { savedItem } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 
-export type SavedType = "job" | "product" | "professional";
+export type SavedType = "job" | "product" | "professional" | "property";
 
 /** IDs the current user has saved for a given type. */
 export async function getSavedIds(itemType: SavedType): Promise<string[]> {
@@ -34,6 +34,6 @@ export async function toggleSaved(itemType: SavedType, itemId: string): Promise<
     await db.insert(savedItem).values({ userId: uid, itemType, itemId });
     saved = true;
   }
-  for (const p of ["/dashboard/products", "/dashboard/products/saved", "/dashboard/jobs", "/dashboard/jobs/saved"]) revalidatePath(p);
+  for (const p of ["/dashboard/products", "/dashboard/products/saved", "/dashboard/jobs", "/dashboard/jobs/saved", "/dashboard/properties/saved", "/properties"]) revalidatePath(p);
   return saved;
 }

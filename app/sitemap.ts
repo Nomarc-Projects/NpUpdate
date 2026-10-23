@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { getPublishedSlugs } from "@/lib/services/newsfeed";
+import { getPublishedPropertySitemap } from "@/lib/services/properties";
 
 // nomarcprojects.com is the canonical domain since the cutover. This has to
 // match robots.ts, which advertises this sitemap under that host — a sitemap
@@ -14,6 +15,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/`,        lastModified: now, changeFrequency: "weekly",  priority: 1 },
     { url: `${BASE}/tools`,   lastModified: now, changeFrequency: "weekly",  priority: 0.8 },
     { url: `${BASE}/newsfeed`, lastModified: now, changeFrequency: "daily",   priority: 0.8 },
+    { url: `${BASE}/properties`, lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: `${BASE}/properties/sowr`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
+    { url: `${BASE}/properties/certificates`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
     { url: `${BASE}/contact`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/terms`,   lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
     { url: `${BASE}/privacy`, lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
@@ -28,5 +32,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...core, ...posts];
+  let propertySlugs: { slug: string; updatedAt: Date }[] = [];
+  try { propertySlugs = await getPublishedPropertySitemap(); } catch { /* db unavailable at build → core only */ }
+  const properties: MetadataRoute.Sitemap = propertySlugs.map((p) => ({
+    url: `${BASE}/properties/${p.slug}`,
+    lastModified: p.updatedAt,
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
+
+  return [...core, ...posts, ...properties];
 }

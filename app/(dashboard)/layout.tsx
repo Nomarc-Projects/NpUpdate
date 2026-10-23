@@ -14,7 +14,7 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
-import { getExhibitionHub, getTools } from "@/lib/services/platform-settings-read";
+import { getExhibitionHub, getTools, getProperties } from "@/lib/services/platform-settings-read";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -85,6 +85,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const exhibitionEnabled = (await getExhibitionHub().catch(() => ({ enabled: false }))).enabled;
   // Same for the Tools page.
   const toolsEnabled = (await getTools().catch(() => ({ enabled: false }))).enabled;
+  // Nomarc Projects is a super-admin-switchable marketplace; hide its nav group
+  // when off, but keep the routes reachable so admins can preview them.
+  const propertiesEnabled = (await getProperties().catch(() => ({ enabled: false }))).enabled;
 
   return (
     <TourProvider audience={viewer.activeRole}>
@@ -93,7 +96,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex-1 flex overflow-hidden">
             <SessionHydrator />
             <PresenceHeartbeat />
-            <DashboardSidebar exhibitionEnabled={exhibitionEnabled} />
+            <DashboardSidebar exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} />
             <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
               <div className="pt-14 lg:pt-0 pb-20 md:pb-0 max-w-full">
                 <ImpersonationBanner />
