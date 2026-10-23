@@ -6,7 +6,7 @@ import { db } from "@/lib/db/client";
 import { product, productVariant, company } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany } from "@/lib/company-internal";
-import { assertCanPublish, assertCategoryCapacity } from "@/lib/services/exhibitor-trial";
+import { assertCanPublish } from "@/lib/services/exhibitor-trial";
 
 export type ProductStatus = "active" | "draft" | "archived";
 export type StockLevel = "high" | "low" | "out";
@@ -92,9 +92,8 @@ export async function createProduct(input: ProductInput, draft = false): Promise
   if (status !== "draft") {
     // Total listing cap + active paid plan.
     await assertCanPublish();
-    // Must be one of the plan's registered shops, and that shop must not be full.
+    // Must be one of the plan's registered shops.
     await assertCategoryRegistered(companyId, input.category);
-    if (input.category?.trim()) await assertCategoryCapacity(input.category.trim());
   }
 
   const v = { ...values(companyId, input), status, draft: status === "draft" };
@@ -124,7 +123,6 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
   if (activating) await assertCanPublish();
   if (nextStatus === "active" && (activating || categoryChanged)) {
     await assertCategoryRegistered(companyId, nextCategory);
-    if (nextCategory) await assertCategoryCapacity(nextCategory, id);
   }
 
   const v = values(companyId, input);
@@ -185,15 +183,13 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
   const uid = await requireUserId();
   const companyId = await ensureCompany(uid);
   // Un-drafting is a publish. Without this the plan cap could be walked around
-  // by saving drafts freely and flipping them live afterwards. The per-category
-  // cap has to be re-checked too, or a whole shelf could be un-drafted at once.
+  // by saving drafts freely and flipping them live afterwards.
   if (status === "active") {
     const [current] = await db.select({ status: product.status, category: product.category }).from(product)
       .where(and(eq(product.id, id), eq(product.companyId, companyId))).limit(1);
     if (current && current.status !== "active") {
       await assertCanPublish();
       await assertCategoryRegistered(companyId, current.category);
-      if (current.category) await assertCategoryCapacity(current.category, id);
     }
   }
   await db.update(product).set({ status, draft: status === "draft", updatedAt: new Date() }).where(and(eq(product.id, id), eq(product.companyId, companyId)));

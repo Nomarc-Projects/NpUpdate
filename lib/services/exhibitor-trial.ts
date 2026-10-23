@@ -8,7 +8,6 @@ import { asExhibitorPlan, getNextPlan, PLAN_LABEL, type ExhibitorPlan } from "@/
 import { TRIAL_DAYS, type ExhibitorLimitSummary, type TrialState } from "@/lib/services/exhibitor-trial-rules";
 import {
   EXHIBITOR_CATEGORY_CAP,
-  EXHIBITOR_PRODUCTS_PER_CATEGORY,
   getExhibitorTotalListingCap,
 } from "@/lib/services/exhibitor-plan-rules";
 import { getActiveTrial } from "@/lib/services/trial";
@@ -151,35 +150,6 @@ function upgradeHint(plan: ExhibitorPlan): string {
 }
 
 /**
- * Throws when publishing another active product in `category` would exceed the
- * per-category cap. `excludeProductId` lets an edit ignore the row being saved
- * (so re-saving a full category is a no-op, not an error). Called by
- * createProduct, updateProduct and setProductStatus so the number holds no
- * matter which screen a listing is published from.
- */
-export async function assertCategoryCapacity(category: string, excludeProductId?: string): Promise<void> {
-  const uid = await requireUserId();
-  const [co] = await db
-    .select({ id: company.id })
-    .from(company)
-    .where(eq(company.ownerUserId, uid))
-    .limit(1);
-  if (!co) return;
-
-  const plan = await exhibitorPlan(uid);
-  const cap = EXHIBITOR_PRODUCTS_PER_CATEGORY[plan] ?? 0;
-  const conds = [eq(product.companyId, co.id), eq(product.category, category), eq(product.status, "active")];
-  if (excludeProductId) conds.push(ne(product.id, excludeProductId));
-  const [row] = await db.select({ n: count() }).from(product).where(and(...conds));
-
-  if (Number(row?.n ?? 0) >= cap) {
-    throw new Error(
-      `You've reached your ${PLAN_LABEL[plan]} plan's limit of ${cap} product${cap === 1 ? "" : "s"} in “${category}”.${upgradeHint(plan)}`,
-    );
-  }
-}
-
-/**
  * The exhibitor's plan plus how much of it is used — powers the plan-limit
  * banner. Null when there's no company (the caller isn't an exhibitor yet).
  */
@@ -194,7 +164,6 @@ export async function getExhibitorLimitSummary(): Promise<ExhibitorLimitSummary 
 
   const plan = await exhibitorPlan(uid);
   const categoryCap = EXHIBITOR_CATEGORY_CAP[plan];
-  const perCategoryCap = EXHIBITOR_PRODUCTS_PER_CATEGORY[plan];
   const totalCap = getExhibitorTotalListingCap(plan);
 
   const grouped = await db
@@ -209,8 +178,7 @@ export async function getExhibitorLimitSummary(): Promise<ExhibitorLimitSummary 
   const registered = co.categories ?? [];
   const categories = registered.map((name) => ({ name, count: byCategory.get(name) ?? 0 }));
   const atCategoryLimit = registered.length >= categoryCap;
-  const atUploadLimit =
-    totalActive >= totalCap || categories.some((c) => perCategoryCap > 0 && c.count >= perCategoryCap);
+  const atUploadLimit = totalActive >= totalCap;
 
   const next = getNextPlan(plan, "exhibitor");
   return {
@@ -218,7 +186,6 @@ export async function getExhibitorLimitSummary(): Promise<ExhibitorLimitSummary 
     planLabel: PLAN_LABEL[plan],
     categoryCap,
     categoryUsed: registered.length,
-    perCategoryCap,
     totalCap,
     totalActive,
     categories,

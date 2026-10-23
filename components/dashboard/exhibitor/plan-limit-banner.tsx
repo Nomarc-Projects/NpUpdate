@@ -21,20 +21,15 @@ export function PlanLimitBanner({ limits }: { limits: ExhibitorLimitSummary | nu
     );
   }
 
-  const { atCategoryLimit, atUploadLimit, categoryCap, categoryUsed, perCategoryCap, totalActive, totalCap, nextPlanLabel } = limits;
-  const usage = `${categoryUsed}/${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} · ${totalActive}/${totalCap} products (max ${perCategoryCap} per category)`;
+  const { atCategoryLimit, atUploadLimit, categoryCap, categoryUsed, totalActive, totalCap, nextPlanLabel } = limits;
+  const usage = `${categoryUsed}/${categoryCap} categor${categoryCap === 1 ? "y" : "ies"} · ${totalActive}/${totalCap} products used — split them across categories however you like`;
 
-  // The upload allowance is the blocking one: a category slot being taken just
-  // means another shop can't be opened, not that this upload fails. Warn only
-  // when a listing can no longer be published.
+  // Only the total upload allowance blocks publishing; category slots just
+  // decide how many shops the exhibitor can spread that allowance across.
   if (atUploadLimit) {
-    const reason =
-      totalActive >= totalCap
-        ? `You've used all ${totalCap} listings on your plan.`
-        : `A shop has reached its ${perCategoryCap}-product limit.`;
     return (
       <Frame warning>
-        <Reason warning title="You've reached your upload limit" body={`${reason}${nextPlanLabel ? ` Upgrade to ${nextPlanLabel} to add more.` : ""}`} />
+        <Reason warning title="You've reached your upload limit" body={`You've used all ${totalCap} product uploads on your plan.${nextPlanLabel ? ` Upgrade to ${nextPlanLabel} to add more.` : ""}`} />
         {nextPlanLabel && <Upgrade label={`Upgrade to ${nextPlanLabel}`} />}
       </Frame>
     );

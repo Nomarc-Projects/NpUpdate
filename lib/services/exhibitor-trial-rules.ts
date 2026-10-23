@@ -43,16 +43,14 @@ export type ExhibitorLimitSummary = {
   /** Categories (shops) the plan allows, and how many are registered. */
   categoryCap: number;
   categoryUsed: number;
-  /** Max active products in any one category. */
-  perCategoryCap: number;
-  /** Total active listing allowance: categoryCap × perCategoryCap. */
+  /** Total active listing allowance, freely split across categories. */
   totalCap: number;
   totalActive: number;
   /** Per-category active counts for the registered shops. */
   categories: ExhibitorCategoryUsage[];
   /** Every category slot is taken. */
   atCategoryLimit: boolean;
-  /** A category is full, or the overall listing allowance is. */
+  /** The overall listing allowance is used up. */
   atUploadLimit: boolean;
   /** The next tier up, if any — for the upgrade CTA. */
   nextPlanLabel: string | null;

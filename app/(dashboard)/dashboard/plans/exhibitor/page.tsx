@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useTheme } from "@/components/theme";
 import { Check, ChevronDown, ChevronUp, Clock } from "lucide-react";
 import { naira, planPrice, cycleSaving, PLAN_LABEL, type BillingCycle, type ExhibitorPlan } from "@/lib/entitlements";
-import { exhibitorPlanFeatures } from "@/lib/services/exhibitor-plan-rules";
+import {
+  EXHIBITOR_CATEGORY_CAP,
+  getExhibitorTotalListingCap,
+} from "@/lib/services/exhibitor-plan-rules";
 import { startCheckout } from "@/lib/services/billing";
 import { startTrial } from "@/lib/services/trial";
 import { toast } from "sonner";
@@ -24,12 +27,11 @@ const TIERS: { plan: ExhibitorPlan; popular?: boolean }[] = [
 ];
 
 function getFeatures(plan: ExhibitorPlan): string[] {
-  const catCap = plan === "free" ? 0 : ({ sme: 1, exhibitor: 5, key_player: 10 } as Record<ExhibitorPlan, number>)[plan];
-  const perCat = plan === "free" ? 0 : 10;
-  const total = catCap * perCat;
+  const catCap = EXHIBITOR_CATEGORY_CAP[plan];
+  const total = getExhibitorTotalListingCap(plan);
   const features = [
     `${catCap} categor${catCap === 1 ? "y" : "ies"}`,
-    `${total} product uploads`,
+    `${total} product uploads, split across categories as you like`,
   ];
   if (plan === "exhibitor" || plan === "key_player") features.push("Performance Insight");
   if (plan === "key_player") features.push("Monthly Industry Report");

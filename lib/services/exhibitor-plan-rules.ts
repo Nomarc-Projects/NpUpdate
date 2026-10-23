@@ -20,17 +20,20 @@ export const EXHIBITOR_CATEGORY_CAP: Record<ExhibitorPlan, number> = {
   key_player: 10,
 };
 
-/** Max active products allowed PER CATEGORY (shop). Total = categories × perCategory. */
-export const EXHIBITOR_PRODUCTS_PER_CATEGORY: Record<ExhibitorPlan, number> = {
+/**
+ * Total active listings a plan allows. Exhibitors may spread this across their
+ * registered categories however they like — there is no per-category cap.
+ */
+export const EXHIBITOR_PRODUCT_CAP: Record<ExhibitorPlan, number> = {
   free: 0,
   sme: 10,
-  exhibitor: 10,
-  key_player: 10,
+  exhibitor: 50,
+  key_player: 100,
 };
 
-/** Total active listings = categoryCap × productsPerCategory. */
+/** Total active listings allowed on a plan, regardless of category split. */
 export function getExhibitorTotalListingCap(plan: ExhibitorPlan): number {
-  return EXHIBITOR_CATEGORY_CAP[plan] * EXHIBITOR_PRODUCTS_PER_CATEGORY[plan];
+  return EXHIBITOR_PRODUCT_CAP[plan];
 }
 
 /** Profile promotion ads bundled with the tier ("Includes 1 active profile promotion ad"). */
@@ -44,12 +47,11 @@ export const EXHIBITOR_PROFILE_ADS: Record<ExhibitorPlan, number> = {
 /** Feature bullets shown on the plan card and in checkout. */
 export function exhibitorPlanFeatures(plan: Exclude<ExhibitorPlan, "free">): string[] {
   const catCap = EXHIBITOR_CATEGORY_CAP[plan];
-  const perCat = EXHIBITOR_PRODUCTS_PER_CATEGORY[plan];
-  const total = catCap * perCat;
+  const total = EXHIBITOR_PRODUCT_CAP[plan];
   const ads = EXHIBITOR_PROFILE_ADS[plan];
   return [
     `Up to ${catCap} product categor${catCap === 1 ? "y" : "ies"} (shops).`,
-    `${perCat} products per category (max ${total} active listings total).`,
+    `${total} product uploads in total — split them across your categories however you like.`,
     ...(ads > 0 ? [`Includes ${ads} active profile promotion ad.`] : []),
   ];
 }
