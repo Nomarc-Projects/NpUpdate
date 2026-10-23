@@ -219,7 +219,16 @@ export async function getCompanyById(id: string): Promise<CompanyDetail | null> 
     const certs = await db.select().from(companyCertification).where(eq(companyCertification.companyId, id)).catch(() => []);
     let products: CompanyDetail["products"] = [];
     try {
-      const rows = await db.select().from(product).where(and(eq(product.companyId, id), eq(product.draft, false))).limit(12);
+      // Select explicit columns rather than `SELECT *` so this query keeps
+      // working on databases where the `lead_time_value`/`lead_time_unit`
+      // columns (migration 0064) have not yet been applied.
+      const rows = await db
+        .select({
+          id: product.id, name: product.name, coverUrl: product.coverUrl, tags: product.tags,
+        })
+        .from(product)
+        .where(and(eq(product.companyId, id), eq(product.draft, false)))
+        .limit(12);
       products = rows.map((p) => ({ id: p.id, name: p.name, coverUrl: p.coverUrl, tags: p.tags ?? [] }));
     } catch { /* table may be empty pre-seed */ }
     return {
