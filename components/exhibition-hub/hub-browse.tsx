@@ -110,13 +110,12 @@ function matchesQuery(p: ProductCard, s: string) {
  *  anything?" pre-check, so the two can never disagree about a filter. */
 function matchesFilters(
   p: ProductCard,
-  o: { cat: string; query: string; avail: string; price: string; verifiedOnly: boolean },
+  o: { cat: string; query: string; avail: string; price: string },
 ): boolean {
   return (
     (o.cat === "All" || matchesCategory(p, o.cat)) &&
     matchesQuery(p, o.query) &&
     (o.avail === DEFAULT_AVAIL || p.avail === o.avail) &&
-    (!o.verifiedOnly || fromVerifiedSupplier(p)) &&
     matchesPrice(p, o.price)
   );
 }
@@ -149,7 +148,6 @@ export function HubBrowse({
   const [avail, setAvail] = useState(DEFAULT_AVAIL);
   const [price, setPrice] = useState(DEFAULT_PRICE);
   const [sort, setSort] = useState(DEFAULT_SORT);
-  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set(initialSaved));
   const [quickView, setQuickView] = useState<ShopCardData | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -208,16 +206,16 @@ export function HubBrowse({
     [present],
   );
 
-  const filtering = q.trim() !== "" || cat !== "All" || avail !== DEFAULT_AVAIL || price !== DEFAULT_PRICE || verifiedOnly;
+  const filtering = q.trim() !== "" || cat !== "All" || avail !== DEFAULT_AVAIL || price !== DEFAULT_PRICE;
 
   const filtered = useMemo(() => {
     const list = products.filter((p) =>
-      matchesFilters(p, { cat, query: q.trim().toLowerCase(), avail, price, verifiedOnly }),
+      matchesFilters(p, { cat, query: q.trim().toLowerCase(), avail, price }),
     );
     if (sort === SORT_OPTIONS[1]) return [...list].sort((a, b) => a.price - b.price);
     if (sort === SORT_OPTIONS[2]) return [...list].sort((a, b) => b.price - a.price);
     return list;
-  }, [products, q, cat, avail, price, sort, verifiedOnly]);
+  }, [products, q, cat, avail, price, sort]);
 
   /** Whether picking `nextCat` would actually leave any listing on screen, with
    *  the other filters as they stand. Used to decide if jumping to the results
@@ -225,7 +223,7 @@ export function HubBrowse({
    *  would drop the buyer at the bottom instead of at their results. */
   function hasResultsFor(nextCat: string) {
     return products.some((p) =>
-      matchesFilters(p, { cat: nextCat, query: q.trim().toLowerCase(), avail, price, verifiedOnly }),
+      matchesFilters(p, { cat: nextCat, query: q.trim().toLowerCase(), avail, price }),
     );
   }
 
@@ -385,25 +383,13 @@ export function HubBrowse({
           <PromotedListings variant="row" />
         </div>
 
-        {/* Filters — category / availability / price / sort dropdowns + a
-            verified-only toggle, all backed by real ProductCard fields. */}
+        {/* Filters — category / availability / price / sort dropdowns, all
+            backed by real ProductCard fields. */}
         <div className="flex flex-wrap items-center gap-2 mb-6">
           <FilterPill label="Category" value={cat} options={chips} onChange={pickCategory} />
           <FilterPill label="Availability" value={avail} options={AVAIL_FILTERS} onChange={setAvail} />
           <FilterPill label="Price" value={price} options={PRICE_BUCKETS} onChange={setPrice} />
           <FilterPill label="Sort by" value={sort} options={SORT_OPTIONS} onChange={setSort} />
-          <button
-            type="button"
-            onClick={() => setVerifiedOnly((v) => !v)}
-            className={`flex items-center gap-2 h-10 pl-3 pr-3.5 rounded-lg border text-[13px] font-semibold transition-colors ${
-              verifiedOnly ? "border-[#1e1e1e] dark:border-white text-[#1e1e1e] dark:text-white" : "border-[#e3e3e3] dark:border-white/15 text-[#6b6b6b] dark:text-white/60 hover:border-[#ffd716]"
-            }`}
-          >
-            <span className={`relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full transition-colors ${verifiedOnly ? "bg-[#ffd716]" : "bg-[#d4d4d4] dark:bg-white/15"}`}>
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${verifiedOnly ? "translate-x-4" : "translate-x-0.5"}`} />
-            </span>
-            Verified only
-          </button>
         </div>
 
         {/* Category cards — image carousel, ~6 visible with prev/next arrows.
@@ -456,7 +442,7 @@ export function HubBrowse({
                 )}
               </p>
               <button
-                onClick={() => { setQ(""); setCat("All"); setAvail(DEFAULT_AVAIL); setPrice(DEFAULT_PRICE); setVerifiedOnly(false); }}
+                onClick={() => { setQ(""); setCat("All"); setAvail(DEFAULT_AVAIL); setPrice(DEFAULT_PRICE); }}
                 className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-[#9a9a9a] hover:text-[#e5484d] transition-colors"
               >
                 <X size={13} /> Clear filters
