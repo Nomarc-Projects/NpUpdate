@@ -22,6 +22,12 @@ const AVAILABILITY = [
   { value: "rentable", label: "Rentable" },
 ];
 
+const LEAD_TIME_UNITS = [
+  { value: "days", label: "Days" },
+  { value: "weeks", label: "Weeks" },
+  { value: "months", label: "Months" },
+];
+
 type EditorVariant = {
   /** Stable React key; new variants use a temp key until saved. */
   key: string;
@@ -66,6 +72,8 @@ export function ProductEditScreen({ product }: { product: ProductForEdit }) {
   const [vendorName, setVendorName] = useState(product.vendorName ?? "");
   const [description, setDescription] = useState(product.description ?? "");
   const [availability, setAvailability] = useState(product.availability ?? "");
+  const [leadTimeValue, setLeadTimeValue] = useState(product.leadTimeValue != null ? String(product.leadTimeValue) : "");
+  const [leadTimeUnit, setLeadTimeUnit] = useState(product.leadTimeUnit ?? "days");
 
   const [retailMin, setRetailMin] = useState(product.retailMin != null ? String(product.retailMin) : "");
   const [retailMax, setRetailMax] = useState(product.retailMax != null ? String(product.retailMax) : "");
@@ -125,6 +133,15 @@ export function ProductEditScreen({ product }: { product: ProductForEdit }) {
     }
   }
 
+  function changeAvailability(next: string) {
+    setAvailability(next);
+    // Lead time belongs only to made-to-order listings.
+    if (next !== "made_to_order") {
+      setLeadTimeValue("");
+      setLeadTimeUnit("days");
+    }
+  }
+
   function addTag(raw: string) {
     const t = raw.trim();
     if (!t) return;
@@ -150,11 +167,18 @@ export function ProductEditScreen({ product }: { product: ProductForEdit }) {
 
   async function save() {
     if (!name.trim()) { toast.error("Product name is required"); return; }
+    const leadN = Number(leadTimeValue);
+    if (availability === "made_to_order" && (!leadTimeValue.trim() || !Number.isInteger(leadN) || leadN <= 0)) {
+      toast.error("Add a lead time so buyers know how long a made-to-order product will take.");
+      return;
+    }
     setSaving(true);
     try {
       await updateProduct(product.id, {
         name, sku: sku || undefined, category: category || undefined, type: type || undefined,
         vendorName: vendorName || undefined, description: description || undefined, availability: availability || undefined,
+        leadTimeValue: availability === "made_to_order" ? leadTimeValue : undefined,
+        leadTimeUnit: availability === "made_to_order" ? leadTimeUnit : undefined,
         retailMin: retailMin || undefined, retailMax: retailMax || undefined,
         wholesaleMin: wholesaleMin || undefined, wholesaleMax: wholesaleMax || undefined,
         costPerItem: cost || undefined, stock: stock || undefined, unit: unit || undefined,
@@ -276,11 +300,33 @@ export function ProductEditScreen({ product }: { product: ProductForEdit }) {
             </label>
             <label className={labelClass}>Type<input value={type} onChange={(e) => setType(e.target.value)} className={cn(fieldClass, "mt-1")} placeholder="Material, Equipment, Service" /></label>
             <label className={labelClass}>Availability
-              <select value={availability} onChange={(e) => setAvailability(e.target.value)} className={cn(fieldClass, "mt-1")}>
+              <select value={availability} onChange={(e) => changeAvailability(e.target.value)} className={cn(fieldClass, "mt-1")}>
                 <option value="">Select…</option>
                 {AVAILABILITY.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </label>
+            {availability === "made_to_order" && (
+              <label className={cn(labelClass, "sm:col-span-2")}>
+                Lead time *
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={leadTimeValue}
+                    onChange={(e) => setLeadTimeValue(e.target.value)}
+                    className={cn(fieldClass, "flex-1")}
+                    placeholder="14"
+                    aria-required="true"
+                  />
+                  <select value={leadTimeUnit} onChange={(e) => setLeadTimeUnit(e.target.value)} className={cn(fieldClass, "w-36 flex-shrink-0")} aria-label="Lead time unit">
+                    {LEAD_TIME_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                  </select>
+                </div>
+                <span className="mt-1 block text-[11px] font-normal text-[#9a9a9a]">How long buyers should expect to wait, e.g. 14 Days.</span>
+              </label>
+            )}
             <label className={cn(labelClass, "sm:col-span-2")}>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} className={cn(fieldClass, "mt-1 resize-y")} placeholder="Explain the applications and key benefits of this product…" /></label>
           </div>
         </Section>

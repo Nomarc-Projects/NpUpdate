@@ -35,9 +35,37 @@ export type ProductInput = {
   retailMin?: string | number; retailMax?: string | number; wholesaleMin?: string | number; wholesaleMax?: string | number;
   costPerItem?: string | number; stock?: string | number; unit?: string; seoTitle?: string; seoDescription?: string;
   status?: ProductStatus;
+  /** Required when `availability` is "made_to_order". */
+  leadTimeValue?: string | number; leadTimeUnit?: string;
 };
 
+const LEAD_TIME_UNITS = ["days", "weeks", "months"] as const;
+type LeadTimeUnit = (typeof LEAD_TIME_UNITS)[number];
+
+function parseLeadTime(input: ProductInput): { value: number | null; unit: LeadTimeUnit | null } {
+  const raw = input.leadTimeValue;
+  const n = raw == null || raw === "" ? null : Number(raw);
+  const value = n != null && Number.isInteger(n) && n > 0 ? n : null;
+  const unit = (LEAD_TIME_UNITS as readonly string[]).includes(input.leadTimeUnit ?? "")
+    ? (input.leadTimeUnit as LeadTimeUnit)
+    : null;
+  return { value, unit };
+}
+
+function assertLeadTime(input: ProductInput): void {
+  const { value, unit } = parseLeadTime(input);
+  if (value == null || unit == null) {
+    throw new Error("Lead time is required when availability is Made to order. Add a number and choose Days, Weeks or Months.");
+  }
+}
+
 function values(companyId: string, input: ProductInput) {
+  const availability = input.availability || null;
+  // A lead time only makes sense for made-to-order listings, so switching to
+  // any other availability always clears it.
+  const leadTime = availability === "made_to_order"
+    ? parseLeadTime(input)
+    : { value: null, unit: null };
   return {
     companyId,
     name: input.name.trim(),
@@ -48,7 +76,9 @@ function values(companyId: string, input: ProductInput) {
     vendorName: input.vendorName || null,
     description: input.description || null,
     tags: input.tags && input.tags.length ? input.tags : null,
-    availability: input.availability || null,
+    availability,
+    leadTimeValue: leadTime.value,
+    leadTimeUnit: leadTime.unit,
     coverUrl: input.coverUrl || null,
     gallery: input.gallery && input.gallery.length ? input.gallery : null,
     specs: input.specs && input.specs.length ? input.specs.filter((s) => s.label.trim()) : null,
@@ -95,6 +125,7 @@ export async function createProduct(input: ProductInput, draft = false): Promise
     // Must be one of the plan's registered shops.
     await assertCategoryRegistered(companyId, input.category);
   }
+  if (status === "active" && input.availability === "made_to_order") assertLeadTime(input);
 
   const v = { ...values(companyId, input), status, draft: status === "draft" };
   const [row] = await db.insert(product).values(v).returning({ id: product.id });
@@ -116,6 +147,10 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
   const nextCategory = input.category?.trim() || null;
   const activating = nextStatus === "active" && existing.status !== "active";
   const categoryChanged = nextCategory !== (existing.category ?? null);
+
+  // Made-to-order listings must always carry a lead time; editing a legacy row
+  // with no lead time will therefore be blocked until the exhibitor adds one.
+  if (nextStatus === "active" && input.availability === "made_to_order") assertLeadTime(input);
 
   // Publishing, or moving a live listing into another shop, must respect the
   // plan caps exactly like create/setProductStatus — the edit form is just
@@ -145,6 +180,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
 export type ProductForEdit = {
   id: string; name: string; slug: string | null; sku: string | null; category: string | null; type: string | null;
   vendorName: string | null; description: string | null; tags: string[]; availability: string | null;
+  leadTimeValue: number | null; leadTimeUnit: string | null;
   coverUrl: string | null; gallery: string[]; specs: { label: string; value: string }[];
   retailMin: number | null; retailMax: number | null; wholesaleMin: number | null; wholesaleMax: number | null;
   costPerItem: number | null; stock: number; unit: string | null;
@@ -168,7 +204,8 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
   return {
     id: r.id, name: r.name, slug: r.slug, sku: r.sku, category: r.category, type: r.type,
     vendorName: r.vendorName, description: r.description, tags: r.tags ?? [],
-    availability: r.availability, coverUrl: r.coverUrl, gallery: r.gallery ?? [],
+    availability: r.availability, leadTimeValue: r.leadTimeValue, leadTimeUnit: r.leadTimeUnit,
+    coverUrl: r.coverUrl, gallery: r.gallery ?? [],
     specs: r.specs ?? [],
     retailMin: r.retailMin, retailMax: r.retailMax, wholesaleMin: r.wholesaleMin, wholesaleMax: r.wholesaleMax,
     costPerItem: r.costPerItem, stock: r.stock ?? 0, unit: r.unit,
@@ -185,9 +222,15 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
   // Un-drafting is a publish. Without this the plan cap could be walked around
   // by saving drafts freely and flipping them live afterwards.
   if (status === "active") {
-    const [current] = await db.select({ status: product.status, category: product.category }).from(product)
+    const [current] = await db.select({
+      status: product.status, category: product.category,
+      availability: product.availability, leadTimeValue: product.leadTimeValue, leadTimeUnit: product.leadTimeUnit,
+    }).from(product)
       .where(and(eq(product.id, id), eq(product.companyId, companyId))).limit(1);
     if (current && current.status !== "active") {
+      if (current.availability === "made_to_order" && (!current.leadTimeValue || !current.leadTimeUnit)) {
+        throw new Error("This made-to-order product needs a lead time before it can be published. Edit it and add one.");
+      }
       await assertCanPublish();
       await assertCategoryRegistered(companyId, current.category);
     }

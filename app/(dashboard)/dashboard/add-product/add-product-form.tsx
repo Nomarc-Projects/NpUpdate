@@ -16,6 +16,12 @@ import { cn } from "@/lib/utils";
 
 const DESC_MAX = 500;
 
+const LEAD_TIME_UNITS = [
+  { value: "days", label: "Days" },
+  { value: "weeks", label: "Weeks" },
+  { value: "months", label: "Months" },
+];
+
 function FormSection({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-[#f0f0f0] py-7 first:border-t-0 first:pt-0 dark:border-white/10">
@@ -101,6 +107,8 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
   const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [docUrls, setDocUrls] = useState<string[]>([]);
   const [inStock, setInStock] = useState(true);
+  const [leadTimeValue, setLeadTimeValue] = useState("");
+  const [leadTimeUnit, setLeadTimeUnit] = useState("days");
   const [description, setDescription] = useState("");
   const [features, setFeatures] = useState<string[]>([""]);
   const [confirmed, setConfirmed] = useState(false);
@@ -204,6 +212,11 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
       toast.error("Tell buyers what the price is per, or pick one from the list.");
       return;
     }
+    const leadN = Number(leadTimeValue);
+    if (!draft && !inStock && (!leadTimeValue.trim() || !Number.isInteger(leadN) || leadN <= 0)) {
+      toast.error("Add a lead time so buyers know how long a made-to-order product will take.");
+      return;
+    }
     if (!draft && !confirmed) { toast.error("Please confirm your product details comply with platform guidelines."); return; }
     // Publish needs a cover image; a draft may be saved without one.
     if (!draft && coverUrls.length === 0) {
@@ -252,6 +265,8 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
       coverUrl: cover,
       gallery: gallery.length ? gallery : undefined,
       availability: inStock ? "in_stock" : "made_to_order",
+      leadTimeValue: inStock ? undefined : leadTimeValue,
+      leadTimeUnit: inStock ? undefined : leadTimeUnit,
       stock: inStock ? 100 : 0,
       status: draft ? "draft" : "active",
     }, draft)
@@ -397,9 +412,46 @@ export function AddProductForm({ allowedCategories = [], limits = null }: AddPro
             </Field>
           </div>
           <label className="mt-4 flex items-center gap-2 text-[13px] text-[#3d3d3d] dark:text-white/70">
-            <input type="checkbox" checked={inStock} onChange={(e) => setInStock(e.target.checked)} className="h-4 w-4 accent-[#ffd716]" />
+            <input
+              type="checkbox"
+              checked={inStock}
+              onChange={(e) => {
+                setInStock(e.target.checked);
+                // Lead time belongs only to made-to-order listings.
+                if (e.target.checked) { setLeadTimeValue(""); setLeadTimeUnit("days"); }
+              }}
+              className="h-4 w-4 accent-[#ffd716]"
+            />
             Currently in stock and available for order
           </label>
+          {!inStock && (
+            <div className="mt-4 max-w-sm">
+              <Field label="Lead time" required hint="e.g. 14 Days">
+                <div className="flex gap-2">
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    value={leadTimeValue}
+                    onChange={(e) => setLeadTimeValue(e.target.value)}
+                    placeholder="14"
+                    aria-required="true"
+                  />
+                  <select
+                    className={cn(inputClass, "w-36 flex-shrink-0")}
+                    value={leadTimeUnit}
+                    onChange={(e) => setLeadTimeUnit(e.target.value)}
+                    aria-label="Lead time unit"
+                  >
+                    {LEAD_TIME_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+                  </select>
+                </div>
+              </Field>
+              <p className="mt-1 text-[11.5px] text-[#9a9a9a]">Made-to-order products need a lead time so buyers know when to expect them.</p>
+            </div>
+          )}
         </FormSection>
 
         {/* Description & specs */}

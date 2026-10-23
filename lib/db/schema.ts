@@ -211,6 +211,8 @@ export const product = pgTable("product", {
   materialGrade: text("material_grade"),
   variations: text("variations"),
   availability: text("availability"), // in_stock | made_to_order | rentable
+  leadTimeValue: integer("lead_time_value"),
+  leadTimeUnit: text("lead_time_unit"), // days | weeks | months
   tags: text("tags").array(),
   coverUrl: text("cover_url"),
   gallery: text("gallery").array(),

@@ -30,6 +30,8 @@ export type ProductCard = {
   /** Only set when the supplier actually recorded an availability. Absent means
    *  unknown — the storefront's "In stock now" rail must not claim it. */
   availabilityKey?: AvailabilityKey;
+  /** Human-readable lead time for made-to-order listings, e.g. "14 Days". */
+  leadTime?: string;
   /** The exhibitor-chosen taxonomy category (product.category) — the hub matches
    *  its category rails on this before falling back to tag text. */
   category?: string;
@@ -64,6 +66,10 @@ const AVAIL: Record<string, string> = { in_stock: "In Stock", made_to_order: "Ma
 const AVAIL_KEY = (a: string | null): AvailabilityKey | undefined =>
   a === "in_stock" || a === "made_to_order" || a === "rentable" ? a : undefined;
 const UNKNOWN_AVAIL = "Availability on request";
+function formatLeadTime(value: number | null, unit: string | null): string {
+  if (!value || !unit) return "";
+  return `${value} ${unit.charAt(0).toUpperCase()}${unit.slice(1)}`;
+}
 
 function toJobCard(j: typeof job.$inferSelect): JobCard {
   return {
@@ -151,13 +157,19 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
 
   return rows.map(({ p, coName, coLoc, coVerified, coLogo }) => {
     const availabilityKey = AVAIL_KEY(p.availability);
+    const leadTime = availabilityKey === "made_to_order"
+      ? formatLeadTime(p.leadTimeValue, p.leadTimeUnit)
+      : "";
     return {
       id: p.id,
       name: p.name,
       supplier: coName,
       location: coLoc ?? "",
-      avail: availabilityKey ? AVAIL[availabilityKey] : UNKNOWN_AVAIL,
+      avail: availabilityKey
+        ? (leadTime ? `${AVAIL[availabilityKey]} · ${leadTime}` : AVAIL[availabilityKey])
+        : UNKNOWN_AVAIL,
       availabilityKey,
+      leadTime: leadTime || undefined,
       tags: p.tags ?? [],
       img: p.coverUrl ?? "",
       verified: coVerified ?? false,
