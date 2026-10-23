@@ -66,10 +66,6 @@ const AVAIL: Record<string, string> = { in_stock: "In Stock", made_to_order: "Ma
 const AVAIL_KEY = (a: string | null): AvailabilityKey | undefined =>
   a === "in_stock" || a === "made_to_order" || a === "rentable" ? a : undefined;
 const UNKNOWN_AVAIL = "Availability on request";
-function formatLeadTime(value: number | null, unit: string | null): string {
-  if (!value || !unit) return "";
-  return `${value} ${unit.charAt(0).toUpperCase()}${unit.slice(1)}`;
-}
 
 function toJobCard(j: typeof job.$inferSelect): JobCard {
   return {
@@ -137,8 +133,20 @@ export async function getPublicJobById(id: string): Promise<JobCard | null> {
 
 /** Published products joined with their company (supplier + location). */
 export async function getProductsForBrowse(): Promise<ProductCard[]> {
+  // Select explicit columns rather than `SELECT *` so the public hub keeps
+  // working even on databases where the `lead_time_value`/`lead_time_unit`
+  // columns (migration 0064) have not yet been applied. The admin query uses
+  // raw SQL with explicit columns and survives this; the public Drizzle
+  // query did not.
   const rows = await db
-    .select({ p: product, coName: company.name, coLoc: company.headquarters, coVerified: company.verified, coLogo: company.avatarUrl })
+    .select({
+      id: product.id, name: product.name, category: product.category,
+      retailMin: product.retailMin, stock: product.stock, status: product.status,
+      createdAt: product.createdAt, coverUrl: product.coverUrl, description: product.description,
+      tags: product.tags, unit: product.unit, availability: product.availability,
+      companyId: product.companyId,
+      coName: company.name, coLoc: company.headquarters, coVerified: company.verified, coLogo: company.avatarUrl,
+    })
     .from(product)
     .innerJoin(company, eq(product.companyId, company.id))
     .where(eq(product.draft, false))
@@ -155,80 +163,93 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
     variantOf = new Set(vRows.map((v) => v.productId));
   } catch { variantOf = new Set(); }
 
-  return rows.map(({ p, coName, coLoc, coVerified, coLogo }) => {
-    const availabilityKey = AVAIL_KEY(p.availability);
-    const leadTime = availabilityKey === "made_to_order"
-      ? formatLeadTime(p.leadTimeValue, p.leadTimeUnit)
-      : "";
+  return rows.map(({
+    id, name, category, retailMin, stock, status, createdAt, coverUrl, description, tags, unit, availability, companyId,
+    coName, coLoc, coVerified, coLogo,
+  }) => {
+    const availabilityKey = AVAIL_KEY(availability);
     return {
-      id: p.id,
-      name: p.name,
+      id,
+      name,
       supplier: coName,
       location: coLoc ?? "",
-      avail: availabilityKey
-        ? (leadTime ? `${AVAIL[availabilityKey]} · ${leadTime}` : AVAIL[availabilityKey])
-        : UNKNOWN_AVAIL,
+      avail: availabilityKey ? AVAIL[availabilityKey] : UNKNOWN_AVAIL,
       availabilityKey,
-      leadTime: leadTime || undefined,
-      tags: p.tags ?? [],
-      img: p.coverUrl ?? "",
+      leadTime: undefined,
+      tags: tags ?? [],
+      img: coverUrl ?? "",
       verified: coVerified ?? false,
-      price: p.retailMin ?? 0,
-      category: p.category ?? undefined,
-      vendorCompanyId: p.companyId,
-      unit: p.unit ?? "unit",
+      price: retailMin ?? 0,
+      category: category ?? undefined,
+      vendorCompanyId: companyId,
+      unit: unit ?? "unit",
       vendorLogo: coLogo ?? undefined,
-      hasVariants: variantOf.has(p.id),
-      description: p.description ?? "",
-      createdAt: new Date(p.createdAt).toISOString(),
+      hasVariants: variantOf.has(id),
+      description: description ?? "",
+      createdAt: new Date(createdAt).toISOString(),
     };
   });
 }
 
 /** Public single product (for the Exhibition Hub PDP) → the presentational
  *  CatalogProduct shape the ProductView renders. Published products only. */
-export async function getBrowseProductById(id: string): Promise<CatalogProduct | null> {
+export async function getBrowseProductById(productId: string): Promise<CatalogProduct | null> {
   const rows = await db
-    .select({ p: product, coName: company.name, coOwnerUserId: company.ownerUserId, coVerified: company.verified })
+    .select({
+      id: product.id, name: product.name, sku: product.sku, status: product.status,
+      category: product.category, type: product.type, vendorName: product.vendorName,
+      tags: product.tags, retailMin: product.retailMin, retailMax: product.retailMax,
+      wholesaleMin: product.wholesaleMin, wholesaleMax: product.wholesaleMax,
+      costPerItem: product.costPerItem, stock: product.stock, unit: product.unit,
+      coverUrl: product.coverUrl, gallery: product.gallery, description: product.description,
+      specs: product.specs, availability: product.availability, companyId: product.companyId,
+      coName: company.name, coOwnerUserId: company.ownerUserId, coVerified: company.verified,
+      createdAt: product.createdAt, updatedAt: product.updatedAt,
+    })
     .from(product)
     .innerJoin(company, eq(product.companyId, company.id))
-    .where(and(eq(product.id, id), eq(product.draft, false)))
+    .where(and(eq(product.id, productId), eq(product.draft, false)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
-  const { p, coName, coOwnerUserId, coVerified } = row;
+  const {
+    id, name, sku, status, category, type, vendorName, tags, retailMin, retailMax,
+    wholesaleMin, wholesaleMax, costPerItem, stock, unit, coverUrl, gallery, description,
+    specs, availability, companyId, coName, coOwnerUserId, coVerified,
+    createdAt, updatedAt,
+  } = row;
   const vs = await db.select().from(productVariant).where(eq(productVariant.productId, id)).orderBy(asc(productVariant.sortOrder));
-  const images = [p.coverUrl, ...(p.gallery ?? [])].filter(Boolean) as string[];
-  const stock = p.stock ?? 0;
-  const stockLevel: "high" | "low" | "out" = stock <= 0 ? "out" : stock < 10 ? "low" : "high";
+  const images = [coverUrl, ...(gallery ?? [])].filter(Boolean) as string[];
+  const stockValue = stock ?? 0;
+  const stockLevel: "high" | "low" | "out" = stockValue <= 0 ? "out" : stockValue < 10 ? "low" : "high";
   return {
-    id: p.id,
-    name: p.name,
-    sku: p.sku ?? "",
-    status: (p.status as "active" | "draft" | "archived") ?? "active",
-    category: p.category ?? "",
-    type: p.type ?? "",
-    vendor: p.vendorName || coName || "",
-    tags: p.tags ?? [],
-    retailMin: p.retailMin ?? 0,
-    retailMax: p.retailMax ?? undefined,
-    wholesaleMin: p.wholesaleMin ?? 0,
-    wholesaleMax: p.wholesaleMax ?? undefined,
-    costPerItem: p.costPerItem ?? 0,
-    stock,
+    id,
+    name,
+    sku: sku ?? "",
+    status: (status as "active" | "draft" | "archived") ?? "active",
+    category: category ?? "",
+    type: type ?? "",
+    vendor: vendorName || coName || "",
+    tags: tags ?? [],
+    retailMin: retailMin ?? 0,
+    retailMax: retailMax ?? undefined,
+    wholesaleMin: wholesaleMin ?? 0,
+    wholesaleMax: wholesaleMax ?? undefined,
+    costPerItem: costPerItem ?? 0,
+    stock: stockValue,
     stockLevel,
-    unit: p.unit ?? "unit",
+    unit: unit ?? "unit",
     images,
-    description: p.description ?? "",
-    availability: AVAIL_KEY(p.availability),
+    description: description ?? "",
+    availability: AVAIL_KEY(availability),
     verified: coVerified ?? false,
     vendorUserId: coOwnerUserId ?? undefined,
-    vendorCompanyId: p.companyId,
-    specs: p.specs ?? [],
+    vendorCompanyId: companyId,
+    specs: specs ?? [],
     variants: vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec ?? undefined, price: v.price ?? 0, stock: v.stock ?? 0, sku: v.sku ?? "", status: v.active ?? true })),
     totalSales: 0,
     ordersCount: 0,
-    createdAt: new Date(p.createdAt).toISOString(),
-    updatedAt: new Date(p.updatedAt).toISOString(),
+    createdAt: new Date(createdAt).toISOString(),
+    updatedAt: new Date(updatedAt).toISOString(),
   };
 }
