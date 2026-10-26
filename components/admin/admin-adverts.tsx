@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { GalleryHorizontalEnd, Plus, Trash2, Eye, EyeOff, Pencil } from "lucide-react";
+import { GalleryHorizontalEnd, Plus, Trash2, Eye, EyeOff, Pencil, UploadCloud, X, Loader2 } from "lucide-react";
 import { Modal, Field, inputClass, GhostButton, PrimaryButton } from "@/components/ui/modal";
 import { createAdvert, updateAdvert, toggleAdvertActive, deleteAdvert, type Advert } from "@/lib/services/adverts";
 import { PromotedCard } from "@/components/ui/promoted-card";
 import { DashBanner, BannerContent, bannerPrimaryBtn } from "@/components/dashboard/dash-banner";
 import { r2Url } from "@/lib/r2-public";
+import { uploadFile, type UploadKind } from "@/lib/upload-client";
 
 const ACCENTS = ["#ffd716", "#22c55e", "#f97316", "#6366f1", "#06b6d4", "#ec4899", "#1e1e1e"];
 const blank = {
@@ -18,6 +19,90 @@ const blank = {
   imageUrl: "", accent: "#ffd716", sortOrder: 0,
 };
 type Form = typeof blank;
+type ImageField = "avatarUrl" | "imageUrl";
+
+function AdvertImageUpload({
+  label, kind, field, value, maxSizeMB, onChange, onUploadingChange,
+}: {
+  label: string;
+  kind: UploadKind;
+  field: ImageField;
+  value: string;
+  maxSizeMB: number;
+  onChange: (url: string) => void;
+  onUploadingChange: (field: ImageField, uploading: boolean) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const imageLabel = field === "avatarUrl" ? "avatar image" : "ads image";
+
+  async function chooseFile(file: File | undefined) {
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) {
+      toast.error("Choose a PNG, JPG, WEBP or GIF image");
+      return;
+    }
+    if (file.size > maxSizeMB * 1024 * 1024) {
+      toast.error(`Image must be ${maxSizeMB}MB or smaller`);
+      return;
+    }
+
+    setUploading(true);
+    onUploadingChange(field, true);
+    try {
+      onChange(await uploadFile(file, kind));
+      toast.success(`${imageLabel} uploaded`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Image upload failed");
+    } finally {
+      setUploading(false);
+      onUploadingChange(field, false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {value ? (
+        <div className="flex items-center gap-3 rounded-xl border border-[#ececec] dark:border-white/10 p-2.5">
+          <div className={`overflow-hidden rounded-lg bg-[#f5f5f5] dark:bg-white/5 ${field === "avatarUrl" ? "h-14 w-14" : "h-16 w-28"}`}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={value} alt={imageLabel} className="h-full w-full object-cover" />
+          </div>
+          <p className="min-w-0 flex-1 truncate text-[12px] text-[#6b6b6b] dark:text-white/60">{imageLabel} selected</p>
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            disabled={uploading}
+            aria-label={`Remove ${imageLabel}`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9a9a9a] transition-colors hover:bg-[#fdecec] hover:text-[#e5484d] disabled:opacity-50"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      ) : null}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        className="hidden"
+        onChange={(event) => {
+          void chooseFile(event.target.files?.[0]);
+          event.target.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="inline-flex items-center gap-2 rounded-lg border border-dashed border-[#d9d9d9] px-3.5 py-2.5 text-[12.5px] font-semibold text-[#5f5f5f] transition-colors hover:border-[#caa400] hover:bg-[#fffdf2] hover:text-[#1e1e1e] dark:border-white/15 dark:text-white/70 dark:hover:bg-[#ffd716]/5 dark:hover:text-white disabled:opacity-60"
+      >
+        {uploading ? <Loader2 size={15} className="animate-spin" /> : <UploadCloud size={15} />}
+        {uploading ? "Uploading…" : value ? `Replace ${imageLabel}` : label}
+      </button>
+      <p className="text-[11px] text-[#9a9a9a]">Choose an image from your phone or computer · PNG, JPG, WEBP or GIF · max {maxSizeMB}MB</p>
+    </div>
+  );
+}
 
 export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
   const router = useRouter();
@@ -26,6 +111,21 @@ export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
   const [editId, setEditId] = useState<string | null>(null);
   const [f, setF] = useState<Form>(blank);
   const [pending, start] = useTransition();
+  const [uploadingImages, setUploadingImages] = useState<Set<ImageField>>(new Set());
+
+  function updateUploading(field: ImageField, uploading: boolean) {
+    setUploadingImages((current) => {
+      const next = new Set(current);
+      if (uploading) next.add(field);
+      else next.delete(field);
+      return next;
+    });
+  }
+
+  function closeModal() {
+    if (uploadingImages.size > 0) { toast.error("Wait for image uploads to finish"); return; }
+    setOpen(false);
+  }
 
   function openNew() { setEditId(null); setF(blank); setOpen(true); }
   function openEdit(a: Advert) {
@@ -41,6 +141,7 @@ export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
 
   function submit() {
     if (!f.heading.trim()) { toast.error("Title is required"); return; }
+    if (uploadingImages.size > 0) { toast.error("Wait for image uploads to finish"); return; }
     start(async () => {
       try {
         if (editId) { await updateAdvert(editId, f); toast.success("Ad updated"); }
@@ -103,8 +204,8 @@ export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
       </div>
 
       {/* Create / edit modal */}
-      <Modal open={open} onClose={() => setOpen(false)} title={editId ? "Edit ad" : "New ad"} maxWidth="max-w-[600px]"
-        footer={<><GhostButton type="button" onClick={() => setOpen(false)}>Cancel</GhostButton><PrimaryButton type="button" disabled={pending} onClick={submit}>{editId ? "Save changes" : "Publish"}</PrimaryButton></>}>
+      <Modal open={open} onClose={closeModal} title={editId ? "Edit ad" : "New ad"} maxWidth="max-w-[600px]"
+        footer={<><GhostButton type="button" onClick={closeModal}>Cancel</GhostButton><PrimaryButton type="button" disabled={pending || uploadingImages.size > 0} onClick={submit}>{editId ? "Save changes" : "Publish"}</PrimaryButton></>}>
         <div className="space-y-5">
           {/* Live preview */}
           <div>
@@ -119,7 +220,9 @@ export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
               <Field label="Tag" hint="Pill on the image"><input className={inputClass} value={f.badge} onChange={(e) => setF({ ...f, badge: e.target.value })} placeholder="Promoted" /></Field>
             </div>
             <Field label="Meta line" hint="Role / category · location"><input className={inputClass} value={f.promotedMeta} onChange={(e) => setF({ ...f, promotedMeta: e.target.value })} placeholder="e.g. Core Building Materials · Ikeja, Lagos, Nigeria" /></Field>
-            <Field label="Avatar URL" hint="Optional — falls back to initials"><input className={inputClass} value={f.avatarUrl} onChange={(e) => setF({ ...f, avatarUrl: e.target.value })} placeholder="https://…" /></Field>
+            <Field label="Avatar Image" hint="Optional — falls back to initials">
+              <AdvertImageUpload label="Upload Avatar Image" kind="avatar" field="avatarUrl" value={f.avatarUrl} maxSizeMB={5} onChange={(avatarUrl) => setF((prev) => ({ ...prev, avatarUrl }))} onUploadingChange={updateUploading} />
+            </Field>
           </div>
 
           <div className="space-y-4 border-t border-[#f0f0f0] dark:border-white/10 pt-4">
@@ -143,7 +246,9 @@ export function AdminAdverts({ adverts = [] }: { adverts?: Advert[] }) {
           <div className="space-y-4 border-t border-[#f0f0f0] dark:border-white/10 pt-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[#b3b3b3]">Media & display</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Image URL"><input className={inputClass} value={f.imageUrl} onChange={(e) => setF({ ...f, imageUrl: e.target.value })} placeholder="https://…" /></Field>
+              <Field label="Ads Image" hint="Optional image shown on the advert card">
+                <AdvertImageUpload label="Upload Ads Image" kind="project" field="imageUrl" value={f.imageUrl} maxSizeMB={8} onChange={(imageUrl) => setF((prev) => ({ ...prev, imageUrl }))} onUploadingChange={updateUploading} />
+              </Field>
               <Field label="Display order" hint="Lower shows first"><input type="number" className={inputClass} value={f.sortOrder} onChange={(e) => setF({ ...f, sortOrder: Number(e.target.value) || 0 })} /></Field>
             </div>
             <Field label="Accent color">
