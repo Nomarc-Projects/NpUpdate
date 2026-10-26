@@ -193,26 +193,46 @@ export type ProductForEdit = {
 
 export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit | null> {
   const uid = await requireUserId();
-  const [p] = await db.select()
+  const [p] = await db.select({
+    id: product.id, name: product.name, slug: product.slug, sku: product.sku,
+    category: product.category, type: product.type, vendorName: product.vendorName,
+    description: product.description, tags: product.tags, availability: product.availability,
+    coverUrl: product.coverUrl, gallery: product.gallery, specs: product.specs,
+    retailMin: product.retailMin, retailMax: product.retailMax,
+    wholesaleMin: product.wholesaleMin, wholesaleMax: product.wholesaleMax,
+    costPerItem: product.costPerItem, stock: product.stock, unit: product.unit,
+    seoTitle: product.seoTitle, seoDescription: product.seoDescription,
+    status: product.status, companyId: product.companyId, categories: company.categories,
+  })
     .from(product)
     .innerJoin(company, eq(product.companyId, company.id))
     .where(and(eq(product.id, id), eq(company.ownerUserId, uid)))
     .limit(1);
   if (!p) return null;
-  const r = p.product;
+  // Lead-time columns were added in a later migration. Let older production
+  // databases continue to load the editor, treating absent values as unset.
+  let leadTimeValue: number | null = null;
+  let leadTimeUnit: string | null = null;
+  try {
+    const [leadTime] = await db.select({
+      value: product.leadTimeValue, unit: product.leadTimeUnit,
+    }).from(product).where(eq(product.id, id)).limit(1);
+    leadTimeValue = leadTime?.value ?? null;
+    leadTimeUnit = leadTime?.unit ?? null;
+  } catch { /* optional columns are absent before migration 0064 */ }
   const vs = await db.select().from(productVariant).where(eq(productVariant.productId, id)).orderBy(asc(productVariant.sortOrder));
   return {
-    id: r.id, name: r.name, slug: r.slug, sku: r.sku, category: r.category, type: r.type,
-    vendorName: r.vendorName, description: r.description, tags: r.tags ?? [],
-    availability: r.availability, leadTimeValue: r.leadTimeValue, leadTimeUnit: r.leadTimeUnit,
-    coverUrl: r.coverUrl, gallery: r.gallery ?? [],
-    specs: r.specs ?? [],
-    retailMin: r.retailMin, retailMax: r.retailMax, wholesaleMin: r.wholesaleMin, wholesaleMax: r.wholesaleMax,
-    costPerItem: r.costPerItem, stock: r.stock ?? 0, unit: r.unit,
-    seoTitle: r.seoTitle, seoDescription: r.seoDescription,
-    status: (r.status as ProductStatus) ?? "active", companyId: r.companyId,
+    id: p.id, name: p.name, slug: p.slug, sku: p.sku, category: p.category, type: p.type,
+    vendorName: p.vendorName, description: p.description, tags: p.tags ?? [],
+    availability: p.availability, leadTimeValue, leadTimeUnit,
+    coverUrl: p.coverUrl, gallery: p.gallery ?? [],
+    specs: p.specs ?? [],
+    retailMin: p.retailMin, retailMax: p.retailMax, wholesaleMin: p.wholesaleMin, wholesaleMax: p.wholesaleMax,
+    costPerItem: p.costPerItem, stock: p.stock ?? 0, unit: p.unit,
+    seoTitle: p.seoTitle, seoDescription: p.seoDescription,
+    status: (p.status as ProductStatus) ?? "active", companyId: p.companyId,
     variants: vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true })),
-    categories: p.company.categories ?? [],
+    categories: p.categories ?? [],
   };
 }
 
@@ -291,7 +311,15 @@ export async function removeVariant(id: string): Promise<void> {
   bump();
 }
 
-function mapRow(p: typeof product.$inferSelect, variants: VariantRow[], vendorUserId: string | null = null, companyVerified = false): MyProduct {
+type DashboardProductRow = Pick<typeof product.$inferSelect,
+  | "id" | "name" | "sku" | "status" | "category" | "type" | "vendorName" | "tags"
+  | "retailMin" | "retailMax" | "wholesaleMin" | "wholesaleMax" | "costPerItem"
+  | "stock" | "unit" | "coverUrl" | "gallery" | "description" | "slug"
+  | "seoTitle" | "seoDescription" | "specs" | "availability" | "companyId"
+  | "createdAt" | "updatedAt"
+>;
+
+function mapRow(p: DashboardProductRow, variants: VariantRow[], vendorUserId: string | null = null, companyVerified = false): MyProduct {
   return {
     id: p.id, name: p.name, sku: p.sku, status: (p.status as ProductStatus) ?? "active", category: p.category, type: p.type,
     vendorName: p.vendorName, tags: p.tags ?? [], retailMin: p.retailMin, retailMax: p.retailMax,
@@ -313,7 +341,19 @@ export async function getMyProducts(): Promise<MyProduct[]> {
     const uid = await requireUserId();
     const [c] = await db.select({ id: company.id }).from(company).where(eq(company.ownerUserId, uid)).limit(1);
     if (!c) return [];
-    const rows = await db.select().from(product).where(eq(product.companyId, c.id)).orderBy(desc(product.createdAt));
+    // Avoid SELECT *: older production databases may not have the optional
+    // lead-time columns, which are not needed to render the exhibitor catalog.
+    const rows = await db.select({
+      id: product.id, name: product.name, sku: product.sku, status: product.status,
+      category: product.category, type: product.type, vendorName: product.vendorName,
+      tags: product.tags, retailMin: product.retailMin, retailMax: product.retailMax,
+      wholesaleMin: product.wholesaleMin, wholesaleMax: product.wholesaleMax,
+      costPerItem: product.costPerItem, stock: product.stock, unit: product.unit,
+      coverUrl: product.coverUrl, gallery: product.gallery, description: product.description,
+      slug: product.slug, seoTitle: product.seoTitle, seoDescription: product.seoDescription,
+      specs: product.specs, availability: product.availability, companyId: product.companyId,
+      createdAt: product.createdAt, updatedAt: product.updatedAt,
+    }).from(product).where(eq(product.companyId, c.id)).orderBy(desc(product.createdAt));
     const ids = rows.map((r) => r.id);
     const vars = ids.length ? await db.select().from(productVariant).where(eq(productVariant.productId, ids[0])).orderBy(asc(productVariant.sortOrder)) : [];
     // fetch variants per product (small N) — keep simple
