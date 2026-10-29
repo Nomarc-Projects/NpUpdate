@@ -18,7 +18,155 @@ Format:
 
 ---
 
-## 2026-10-27 — Keep exhibitor product writes compatible with pre-0064 databases
+## 2026-10-29 — Require lister verification before property listings
+
+**Changed** — Add Property now checks lister status first: unverified or
+rejected listers see the verification form, pending listers see “Your
+verification is being reviewed”, and verified listers see the property form.
+The standalone dashboard verification link/tile was removed; the legacy route
+and verification notifications now lead through Add Property. `saveProperty`
+also rejects create and edit requests unless the lister is verified.
+
+**Why** — Lister verification is a prerequisite for property listings, not a
+separate optional step.
+
+**Verified** — `npm run type-check` and `git diff --check` passed.
+
+---
+
+## 2026-10-29 — Gate property listings on lister verification
+
+**Changed** — Add Property now shows verification first for unverified/rejected
+listers, a “Your verification is being reviewed” message for pending listers,
+and the listing form only for verified listers. Removed the separate dashboard
+verification sidebar/workspace links, redirected the legacy route into Add
+Property, and routed verification notifications there. The `saveProperty`
+server action now rejects unverified create and edit requests.
+
+**Why** — Verification is a prerequisite to listing, not a separate optional
+step.
+
+**Verified** — `npm run type-check` passed. A full local build is blocked by the
+missing Tailwind native optional binding.
+
+---
+
+## 2026-10-29 — Rename buyer marketplace navigation
+
+**Changed** — Renamed the dashboard buyer link to “View Marketplace”, updated
+the marketplace page title and buyer-facing breadcrumbs/actions, and used
+“Marketplace” in mobile and public navigation. Kept product-specific actions
+such as “View Product” unchanged.
+
+**Why** — “Marketplace” makes it clear that the destination is a catalog of
+products from many sellers and distinguishes it from “Showcase Product”.
+
+**Verified** — Type-check and `git diff --check` passed.
+
+---
+
+## 2026-10-29 — Set Key Players annual plan price to ₦5,000,000
+
+**Changed** — Updated the Key Players annual amount in the shared pricing
+source from ₦5,200,000 to ₦5,000,000, matching ten paid months at ₦500,000.
+
+**Why** — The Key Players annual plan includes two free months.
+
+**Verified** — Type-check and source search confirm the shared pricing value is
+used for plan display and checkout; the old amount has no other references.
+
+---
+
+## 2026-10-29 — Set Exhibitors annual plan price to ₦2,050,000
+
+**Changed** — Updated the Exhibitors annual amount in the shared pricing source
+from ₦2,100,000 to ₦2,050,000, matching ten paid months at ₦205,000.
+
+**Why** — The Exhibitors annual plan includes two free months.
+
+**Verified** — Type-check and source search confirm the shared pricing value is
+used for plan display and checkout; the old amount has no other references.
+
+---
+
+## 2026-10-29 — Set Key Players biannual plan price to ₦2,500,000
+
+**Changed** — Updated the Key Players biannual amount in the shared pricing
+source from ₦2,800,000 to ₦2,500,000, matching five paid months at ₦500,000.
+
+**Why** — The Key Players biannual plan includes one free month.
+
+**Verified** — Type-check and source search confirm the shared pricing value is
+used for plan display and checkout; the old amount has no other references.
+
+---
+
+## 2026-10-29 — Set Exhibitors biannual plan price to ₦1,025,000
+
+**Changed** — Updated the Exhibitors biannual amount in the shared pricing
+source from ₦1,150,000 to ₦1,025,000, matching five paid months at ₦205,000.
+
+**Why** — The Exhibitors biannual plan includes one free month.
+
+**Verified** — Type-check and source search confirm the shared pricing value is
+used for plan display and checkout; the old amount has no other references.
+
+---
+
+## 2026-10-29 — Set SMEs biannual plan price to ₦300,000
+
+**Changed** — Updated the SMEs biannual amount in the shared pricing source
+from ₦330,000 to ₦300,000, matching five paid months at ₦60,000 per month.
+
+**Why** — The SMEs biannual plan includes one free month.
+
+**Verified** — Type-check and source search confirmed the shared plan price is
+the only ₦330,000 SMEs biannual value.
+
+---
+
+## 2026-10-29 — Add exhibitor delivery coverage to products
+
+**Changed** — Added nationwide, selected-states and pickup-only delivery choices
+to the shared product form, enforced a valid choice when products are created
+or edited, and added delivery labels to marketplace cards. The product
+description tab now shows the full selected-state list. Migration 0066 adds
+nullable delivery fields so existing products remain without a tag until edited.
+Bulk product imports also accept delivery mode and semicolon-separated states.
+
+**Why** — Buyers need to know whether an exhibitor delivers to their state
+before they contact the supplier.
+
+**Verified** — `npm run type-check` and `git diff --check` passed. A full local
+build remains blocked by the missing Tailwind native optional binding.
+
+**Follow-ups** — Apply `drizzle/0066_product_delivery.sql` before using the new
+field in production; apply `0064_product_lead_time.sql` as well if it is still
+missing and made-to-order listings must be saved.
+
+---
+
+## 2026-10-29 — Unify exhibitor product create and edit forms
+
+**Changed** — Added one shared product form used by both Add product and Edit
+product. The common screen includes the combined product details, availability,
+pricing, stock, images/gallery, supporting documents, tags, technical specs,
+variants, category creation, and status fields. Both modes save through the
+existing product services.
+
+**Why** — Exhibitors need to see and manage the same complete product data when
+they create a listing and when they return to edit it.
+
+**Verified** — `npm run type-check` passed. A full local build is blocked by the
+missing Tailwind native optional binding in this environment; live upload was
+not exercised.
+
+**Follow-ups** — Apply production migration 0064 when Doppler access is
+available, then smoke-test create/edit and media uploads against production.
+
+---
+
+## 2026-10-29 — Keep exhibitor product writes compatible with pre-0064 databases
 
 **Changed** — Product create/edit now retries ordinary stock/draft writes without
 the optional lead-time columns when the database reports them missing. Draft
