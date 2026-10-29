@@ -98,7 +98,7 @@ async function upsertProfile(uid: string, input: ListerInput, submit: boolean) {
     .set({ listerProfileId: profileId, updatedAt: new Date() })
     .where(eq(property.ownerUserId, uid));
 
-  revalidatePath("/dashboard/properties/verification");
+  revalidatePath("/dashboard/properties/new");
   revalidatePath("/dashboard/properties");
   return { ...values, id: profileId };
 }
@@ -125,7 +125,7 @@ export async function submitListerVerification(input: ListerInput) {
     type: "property_lister_verification",
     title: "Lister verification submitted",
     body: "We are reviewing your lister profile and documents. You will be notified when it is done.",
-    href: "/dashboard/properties/verification",
+    href: "/dashboard/properties/new",
   }).catch(() => {});
   revalidatePath("/admin/properties/listers");
   return profile;
@@ -207,10 +207,10 @@ export async function reviewListerProfile(id: string, decision: "verify" | "reje
     type: decision === "verify" ? "property_lister_verified" : "property_lister_rejected",
     title: decision === "verify" ? "Lister verification approved" : "Lister verification not approved",
     body: decision === "verify" ? "Your lister profile is now verified on Nomarc Projects." : cleanNote || "Please review your details and resubmit.",
-    href: "/dashboard/properties/verification",
+    href: "/dashboard/properties/new",
   }).catch(() => {});
 
   revalidatePath("/admin/properties/listers");
-  revalidatePath("/dashboard/properties/verification");
+  revalidatePath("/dashboard/properties/new");
   return decision;
 }

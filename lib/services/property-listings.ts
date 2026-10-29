@@ -76,6 +76,15 @@ export type SavePropertyResult = { id: string; slug: string; status: string };
 
 export async function saveProperty(input: PropertyDraftInput): Promise<SavePropertyResult> {
   const uid = await requireUserId();
+  const [lister] = await db
+    .select({ id: propertyListerProfile.id, verificationStatus: propertyListerProfile.verificationStatus })
+    .from(propertyListerProfile)
+    .where(eq(propertyListerProfile.userId, uid))
+    .limit(1);
+  if (lister?.verificationStatus !== "verified") {
+    throw new Error("Complete lister verification before adding or editing a property.");
+  }
+
   const title = input.title.trim();
   if (!title) throw new Error("Property title is required");
   if (!isPropertyKind(input.kind)) throw new Error("Choose a listing kind");
@@ -134,12 +143,6 @@ export async function saveProperty(input: PropertyDraftInput): Promise<SavePrope
       throw new Error(`Attach the required documents: ${missing.join(", ").replaceAll("_", " ")}`);
     }
   }
-
-  const [lister] = await db
-    .select({ id: propertyListerProfile.id })
-    .from(propertyListerProfile)
-    .where(eq(propertyListerProfile.userId, uid))
-    .limit(1);
 
   const values = {
     ownerUserId: uid,

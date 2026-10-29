@@ -85,10 +85,10 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
             {status === "verified"
               ? "Buyers can see that your lister profile is verified."
               : status === "pending"
-                ? "An admin is reviewing your details and documents."
+                ? "Your verification is being reviewed."
                 : status === "rejected"
                   ? initial?.verificationNote || "Update your details and resubmit."
-                  : "Verify your identity to build buyer trust. You can still list while unverified."}
+                  : "Complete verification before creating or editing property listings."}
           </p>
         </div>
       </div>

@@ -83,10 +83,6 @@ export default async function PropertiesDashboardPage() {
           <p className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Saved properties</p>
           <p className="mt-1 text-[12px] text-[#9a9a9a]">Properties you bookmarked while browsing.</p>
         </Link>
-        <Link href="/dashboard/properties/verification" className="rounded-2xl border border-[#ececec] bg-white p-4 transition-colors hover:border-[#22c55e] dark:border-white/10 dark:bg-[#1e1e1e]">
-          <p className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Lister verification</p>
-          <p className="mt-1 text-[12px] text-[#9a9a9a]">Verify your identity and CAC details.</p>
-        </Link>
         <Link href="/dashboard/properties/transactions" className="rounded-2xl border border-[#ececec] bg-white p-4 transition-colors hover:border-[#22c55e] dark:border-white/10 dark:bg-[#1e1e1e]">
           <p className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Transactions</p>
           <p className="mt-1 text-[12px] text-[#9a9a9a]">Purchase requests, completed sales and certificates.</p>
