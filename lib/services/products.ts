@@ -41,6 +41,21 @@ export type ProductInput = {
 
 const LEAD_TIME_UNITS = ["days", "weeks", "months"] as const;
 type LeadTimeUnit = (typeof LEAD_TIME_UNITS)[number];
+const LEAD_TIME_MIGRATION_ERROR = "The product database needs an update before made-to-order products can be saved. Please contact support.";
+
+function isMissingLeadTimeColumns(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { code, message, cause } = error as { code?: unknown; message?: unknown; cause?: unknown };
+  const text = typeof message === "string" ? message : "";
+  if (/lead_time_(?:value|unit)/i.test(text)
+    && (code === "42703" || /does not exist|undefined column|unknown column/i.test(text))) return true;
+  return cause !== error && isMissingLeadTimeColumns(cause);
+}
+
+function withoutLeadTime<T extends { leadTimeValue: unknown; leadTimeUnit: unknown }>(values: T) {
+  const { leadTimeValue: _leadTimeValue, leadTimeUnit: _leadTimeUnit, ...compatible } = values;
+  return compatible;
+}
 
 function parseLeadTime(input: ProductInput): { value: number | null; unit: LeadTimeUnit | null } {
   const raw = input.leadTimeValue;
@@ -128,9 +143,18 @@ export async function createProduct(input: ProductInput, draft = false): Promise
   if (status === "active" && input.availability === "made_to_order") assertLeadTime(input);
 
   const v = { ...values(companyId, input), status, draft: status === "draft" };
-  const [row] = await db.insert(product).values(v).returning({ id: product.id });
+  let productId: string;
+  try {
+    const [row] = await db.insert(product).values(v).returning({ id: product.id });
+    productId = row.id;
+  } catch (error) {
+    if (!isMissingLeadTimeColumns(error)) throw error;
+    if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
+    const [row] = await db.insert(product).values(withoutLeadTime(v)).returning({ id: product.id });
+    productId = row.id;
+  }
   bump();
-  return row.id;
+  return productId;
 }
 
 export async function updateProduct(id: string, input: ProductInput): Promise<void> {
@@ -161,16 +185,20 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
   }
 
   const v = values(companyId, input);
-  await db
-    .update(product)
-    .set({
-      ...v,
-      // Only touch status when the caller actually asked to change it; the edit
-      // drawer omits it, so editing a draft keeps it a draft.
-      ...(input.status ? { status: input.status, draft: input.status === "draft" } : {}),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(product.id, id), eq(product.companyId, companyId)));
+  const patch = {
+    ...v,
+    // Only touch status when the caller actually asked to change it; the edit
+    // drawer omits it, so editing a draft keeps it a draft.
+    ...(input.status ? { status: input.status, draft: input.status === "draft" } : {}),
+    updatedAt: new Date(),
+  };
+  try {
+    await db.update(product).set(patch).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+  } catch (error) {
+    if (!isMissingLeadTimeColumns(error)) throw error;
+    if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
+    await db.update(product).set(withoutLeadTime(patch)).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+  }
   bump();
 }
 
@@ -243,13 +271,23 @@ export async function setProductStatus(id: string, status: ProductStatus): Promi
   // by saving drafts freely and flipping them live afterwards.
   if (status === "active") {
     const [current] = await db.select({
-      status: product.status, category: product.category,
-      availability: product.availability, leadTimeValue: product.leadTimeValue, leadTimeUnit: product.leadTimeUnit,
+      status: product.status, category: product.category, availability: product.availability,
     }).from(product)
       .where(and(eq(product.id, id), eq(product.companyId, companyId))).limit(1);
     if (current && current.status !== "active") {
-      if (current.availability === "made_to_order" && (!current.leadTimeValue || !current.leadTimeUnit)) {
-        throw new Error("This made-to-order product needs a lead time before it can be published. Edit it and add one.");
+      if (current.availability === "made_to_order") {
+        let leadTime: { value: number | null; unit: string | null } | undefined;
+        try {
+          [leadTime] = await db.select({
+            value: product.leadTimeValue, unit: product.leadTimeUnit,
+          }).from(product).where(eq(product.id, id)).limit(1);
+        } catch (error) {
+          if (isMissingLeadTimeColumns(error)) throw new Error(LEAD_TIME_MIGRATION_ERROR);
+          throw error;
+        }
+        if (!leadTime?.value || !leadTime.unit) {
+          throw new Error("This made-to-order product needs a lead time before it can be published. Edit it and add one.");
+        }
       }
       await assertCanPublish();
       await assertCategoryRegistered(companyId, current.category);

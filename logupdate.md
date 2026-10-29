@@ -18,6 +18,28 @@ Format:
 
 ---
 
+## 2026-10-27 — Keep exhibitor product writes compatible with pre-0064 databases
+
+**Changed** — Product create/edit now retries ordinary stock/draft writes without
+the optional lead-time columns when the database reports them missing. Draft
+publishing no longer selects those fields for every product. Made-to-order
+operations report a clear migration-required error instead of a raw database
+failure.
+
+**Why** — The lead-time columns are introduced by migration 0064, while product
+write paths previously referenced them unconditionally.
+
+**Verified** — `npm run type-check` passed and `git diff --check` passed. A local
+production build could not load Tailwind's optional native binding. Migration
+0064 was authorized but could not be applied because this environment has no
+Doppler token. Live edit/upload verification remains pending.
+
+**Follow-ups** — Authenticate Doppler for `nomarc_projects`/`prd`, apply
+`drizzle/0064_product_lead_time.sql`, then smoke-test exhibitor product edit and
+upload.
+
+---
+
 ## 2026-10-23 — Nomarc Projects: fee reconciliation + certificate verification
 
 **Changed** — Owners can now close a live listing as sold/leased/rented or
