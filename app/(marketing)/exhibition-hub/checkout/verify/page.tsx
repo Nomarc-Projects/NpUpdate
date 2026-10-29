@@ -63,7 +63,7 @@ function CartCheckoutVerifyInner() {
       <p className="mt-2 text-sm text-[#9a9a9a]">{ui.body}</p>
       <div className="mt-6 flex gap-3">
         <Link href="/dashboard/my-orders" className="px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors">My orders</Link>
-        <Link href="/exhibition-hub" className="px-5 py-2.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-sm font-medium text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">Exhibition Hub</Link>
+        <Link href="/exhibition-hub" className="px-5 py-2.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-sm font-medium text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">Marketplace</Link>
       </div>
     </div>
   );

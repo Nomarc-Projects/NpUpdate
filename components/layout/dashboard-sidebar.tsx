@@ -6,7 +6,7 @@ import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
   Upload, FileText, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Sparkles, BadgeCheck, Handshake,
+  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Sparkles, Handshake,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -64,7 +64,7 @@ const navGroups: Group[] = [
     { label: "Applications", href: "/dashboard/applications",  icon: Upload },
     { label: "Saved jobs",   href: "/dashboard/jobs/saved",    icon: Bookmark },
   ]},
-  { title: "Nomarc Projects", items: [
+  { title: "Property Listings", items: [
     { label: "Browse Properties", href: "/properties",             icon: Building2 },
     { label: "Add Property",      href: "/dashboard/properties/new", icon: PlusCircle },
     { label: "My Properties",     href: "/dashboard/properties/listings", icon: House },
@@ -72,11 +72,10 @@ const navGroups: Group[] = [
     { label: "Transactions",      href: "/dashboard/properties/transactions", icon: Handshake },
     { label: "Inquiries",         href: "/dashboard/properties/inquiries", icon: Inbox },
     { label: "Saved Properties",  href: "/dashboard/properties/saved", icon: Bookmark },
-    { label: "Lister verification", href: "/dashboard/properties/verification", icon: BadgeCheck },
     { label: "SOWR Program",      href: "/properties/sowr", icon: Sparkles },
   ]},
-  { title: "Exhibition Hub", items: [
-    { label: "View Product",     href: "/exhibition-hub",           icon: Package },
+  { title: "Marketplace", items: [
+    { label: "View Marketplace", href: "/exhibition-hub",           icon: Package },
     { label: "Saved Product",    href: "/dashboard/products/saved", icon: Bookmark },
     { label: "Showcase Product", href: "/dashboard/my-products",    icon: Store },
   ]},
@@ -153,8 +152,8 @@ function SidebarInner({ collapsed, exhibitionEnabled, propertiesEnabled, onNavig
   // The super-admin Exhibition Hub availability toggle decides whether members
   // see the Exhibition Hub doorways. Off = withheld from the sidebar; on = shown.
   const nav = navGroups.filter((g) =>
-    (exhibitionEnabled || g.title !== "Exhibition Hub") &&
-    (propertiesEnabled || g.title !== "Nomarc Projects"),
+    (exhibitionEnabled || g.title !== "Marketplace") &&
+    (propertiesEnabled || g.title !== "Property Listings"),
   );
   const name = user?.name || "My Account";
   const email = user?.email || "";
@@ -264,7 +263,7 @@ function SidebarInner({ collapsed, exhibitionEnabled, propertiesEnabled, onNavig
                   <span className="flex-1 truncate">{group.title}</span>
                 </Link>
               ) : (
-                <p className="px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#b3b3b3]">{group.title}</p>
+                <p className="mt-1 px-3 mb-2 text-[11px] font-bold uppercase tracking-wider text-[#555] dark:text-white/80">{group.title}</p>
               )
             )}
             {!group.title && gi > 0 && <div className={cn("mb-3 border-t border-[#ececec] dark:border-white/10", collapsed ? "mx-2" : "mx-3")} />}

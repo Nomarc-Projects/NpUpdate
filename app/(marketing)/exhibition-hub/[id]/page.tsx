@@ -16,10 +16,10 @@ async function loadProduct(id: string): Promise<CatalogProduct | null> {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const p = await loadProduct(id);
-  if (!p) return { title: "Product — Nomarc Exhibition Hub" };
+  if (!p) return { title: "Product — Nomarc Marketplace" };
   return pageMetadata({
-    title: `${p.name} — Nomarc Exhibition Hub`,
-    description: p.description || `${p.name} from ${p.vendor} on the Nomarc Exhibition Hub.`,
+    title: `${p.name} — Nomarc Marketplace`,
+    description: p.description || `${p.name} from ${p.vendor} on the Nomarc Marketplace.`,
     path: `/exhibition-hub/${id}`,
     image: p.images[0],
   });

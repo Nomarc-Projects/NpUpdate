@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCheckoutSummary } from "@/lib/services/checkout";
 import { ThankYou } from "@/components/exhibition-hub/thank-you";
 
-export const metadata: Metadata = { title: "Order confirmed — Nomarc Exhibition Hub" };
+export const metadata: Metadata = { title: "Order confirmed — Nomarc Marketplace" };
 
 export default async function CheckoutThankYouPage({ searchParams }: { searchParams: Promise<{ ref?: string }> }) {
   const { ref } = await searchParams;

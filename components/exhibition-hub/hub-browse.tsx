@@ -324,7 +324,7 @@ export function HubBrowse({
                 height, so the wrapper's extra min-height piled up as dead
                 space below the search bar instead of centring around it. */}
             <div className="relative min-h-[440px] md:min-h-0 md:h-[460px] flex flex-col items-center justify-center text-center px-5 md:px-10 py-14 md:py-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#ffd716] mb-3">Exhibition Hub</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-[#ffd716] mb-3">Marketplace</p>
               <h1 className="text-[clamp(1.5rem,6.4vw,2.5rem)] font-bold leading-[1.12] tracking-tight text-white max-w-[720px] [text-wrap:balance]">
                 Explore building materials, equipment and products
               </h1>

@@ -59,7 +59,7 @@ export function CompareView() {
     <section className="px-6 md:px-10 lg:px-14 pt-10 pb-24">
       <div className="max-w-[1280px] mx-auto">
         <Link href="/exhibition-hub" className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white transition-colors">
-          <ArrowLeft size={15} /> Back to Exhibition Hub
+          <ArrowLeft size={15} /> Back to Marketplace
         </Link>
 
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
@@ -83,7 +83,7 @@ export function CompareView() {
             <div className="w-12 h-12 rounded-xl bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center text-[#9a9a9a]"><Scale size={22} /></div>
             <p className="mt-4 text-[15px] font-bold text-[#1e1e1e] dark:text-white">Nothing to compare yet</p>
             <p className="mt-1 text-[13px] text-[#9a9a9a] max-w-sm">
-              Hover any product in the Exhibition Hub and tap the compare icon to shortlist up to four.
+              Browse the Marketplace and tap a product&apos;s compare icon to shortlist up to four.
             </p>
             <Link href="/exhibition-hub" className="mt-5 px-5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">
               Browse products

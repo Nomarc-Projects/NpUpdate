@@ -17,7 +17,7 @@ import { signOut as authSignOut } from "@/lib/auth-client";
 const desktopNavLinks = [
   { label: "Home",           href: "/" },
   { label: "Tools",          href: "/tools" },
-  { label: "Exhibition Hub", href: "/exhibition-hub" },
+  { label: "Marketplace",     href: "/exhibition-hub" },
   { label: "News Feed",     href: "/newsfeed" },
   { label: "About",          href: "/about" },
   { label: "Contact",        href: "/contact" },
@@ -27,7 +27,7 @@ const desktopNavLinks = [
 const menuItems: StaggeredMenuItem[] = [
   { label: "Home",           link: "/",               ariaLabel: "Go to home page" },
   { label: "Tools",          link: "/tools",          ariaLabel: "View our tools" },
-  { label: "Exhibition Hub", link: "/exhibition-hub", ariaLabel: "Browse the exhibition hub" },
+  { label: "Marketplace",     link: "/exhibition-hub", ariaLabel: "Browse the marketplace" },
   { label: "News Feed",     link: "/newsfeed",      ariaLabel: "Read the news feed" },
   { label: "About",          link: "/about",          ariaLabel: "About Nomarc" },
   { label: "Contact",        link: "/contact",        ariaLabel: "Get in touch" },

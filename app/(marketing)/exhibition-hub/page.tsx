@@ -6,11 +6,11 @@ import { getSavedIds } from "@/lib/services/saved";
 import { HubBrowse } from "@/components/exhibition-hub/hub-browse";
 
 export const metadata: Metadata = {
-  title: "Exhibition Hub — Nomarc Projects",
+  title: "Marketplace — Nomarc Projects",
   description:
-    "Browse verified construction materials, equipment and products from suppliers across Nigeria. Request a quote or order directly on Nomarc's Exhibition Hub.",
+    "Browse verified construction materials, equipment and products from suppliers across Nigeria. Request a quote or order directly on Nomarc's Marketplace.",
   openGraph: {
-    title: "Exhibition Hub — Nomarc Projects",
+    title: "Marketplace — Nomarc Projects",
     description: "Discover verified construction products and suppliers across Nigeria.",
     url: "https://www.nomarcprojects.com/exhibition-hub",
     siteName: "Nomarc Projects",

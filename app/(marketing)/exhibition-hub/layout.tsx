@@ -43,7 +43,7 @@ export default async function ExhibitionHubLayout({ children }: { children: Reac
   if (!openToPublic) {
     return (
       <ComingSoon
-        headline="The Exhibition Hub is almost ready"
+        headline="The Marketplace is almost ready"
         message="We're putting the finishing touches to the marketplace — verified suppliers, product catalogues and direct quote requests, all in one place. It opens to everyone shortly."
         primaryHref="/"
         primaryLabel="Back to home"

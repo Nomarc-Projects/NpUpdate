@@ -16,13 +16,13 @@ import { ExhibitorView } from "@/components/dashboard/buyer/exhibitor-view";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const company = await getCompanyById(id).catch(() => null);
-  if (!company) return { title: "Company not found — Nomarc Exhibition Hub" };
+  if (!company) return { title: "Company not found — Nomarc Marketplace" };
   return pageMetadata({
-    title: `${company.name} — Nomarc Exhibition Hub`,
+    title: `${company.name} — Nomarc Marketplace`,
     description:
       company.about ||
       company.tagline ||
-      `${company.name} on the Nomarc Exhibition Hub — browse their catalog and connect.`,
+      `${company.name} on the Nomarc Marketplace — browse their catalog and connect.`,
     path: `/company/${id}`,
     image: company.avatarUrl,
   });

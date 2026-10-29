@@ -36,9 +36,9 @@ export function CartDrawer() {
         <div className="flex flex-col items-center justify-center text-center py-16">
           <div className="w-12 h-12 rounded-xl bg-[#f5f5f5] dark:bg-white/5 flex items-center justify-center text-[#9a9a9a]"><ShoppingBag size={22} /></div>
           <p className="mt-3 text-[13.5px] font-semibold text-[#1e1e1e] dark:text-white">Your cart is empty</p>
-          <p className="mt-1 text-[12.5px] text-[#9a9a9a] max-w-[240px]">Browse the Exhibition Hub and add materials, equipment or products.</p>
+          <p className="mt-1 text-[12.5px] text-[#9a9a9a] max-w-[240px]">Browse the marketplace and add materials, equipment or products.</p>
           <Link href="/exhibition-hub" onClick={() => setOpen(false)} className="mt-4 px-4 py-2 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[12.5px] font-semibold hover:bg-[#e6c114] transition-colors">
-            Browse Exhibition Hub
+            Browse Marketplace
           </Link>
         </div>
       ) : (

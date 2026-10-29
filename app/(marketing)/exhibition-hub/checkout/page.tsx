@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { getMyAddresses } from "@/lib/services/addresses";
 import { CheckoutFlow } from "@/components/exhibition-hub/checkout-flow";
 
-export const metadata: Metadata = { title: "Checkout — Nomarc Exhibition Hub" };
+export const metadata: Metadata = { title: "Checkout — Nomarc Marketplace" };
 
 export default async function ExhibitionHubCheckoutPage() {
   const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);

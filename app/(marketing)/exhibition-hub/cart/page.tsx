@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { CartPage } from "@/components/exhibition-hub/cart-page";
 
-export const metadata: Metadata = { title: "Your cart — Nomarc Exhibition Hub" };
+export const metadata: Metadata = { title: "Your cart — Nomarc Marketplace" };
 
 export default async function ExhibitionHubCartPage() {
   const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);

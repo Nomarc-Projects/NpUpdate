@@ -38,7 +38,7 @@ export function CartPage({ signedIn }: { signedIn: boolean }) {
           <p className="mt-3 text-[15px] font-bold text-[#1e1e1e] dark:text-white">Your cart is empty</p>
           <p className="mt-1 text-[13px] text-[#9a9a9a] max-w-sm">Browse verified materials, equipment and products from suppliers across Nigeria.</p>
           <Link href="/exhibition-hub" className="mt-4 px-5 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors">
-            Browse Exhibition Hub
+            Browse Marketplace
           </Link>
         </div>
       ) : (

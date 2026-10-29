@@ -9,9 +9,9 @@ const ITEMS = [
   { label: "Home", href: "/dashboard", icon: LayoutDashboard },
   { label: "Jobs", href: "/dashboard/jobs", icon: Briefcase },
   { label: "Messages", href: "/dashboard/messages", icon: MessageSquare },
-  // The Exhibition Hub (the marketplace). Gated by the same super-admin toggle
+  // The marketplace is gated by the same super-admin toggle
   // as the desktop sidebar — off hides this doorway.
-  { label: "Products", href: "/exhibition-hub", icon: Store },
+  { label: "Marketplace", href: "/exhibition-hub", icon: Store },
   { label: "More", href: "/dashboard/settings", icon: MoreHorizontal },
 ];
 
