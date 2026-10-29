@@ -279,9 +279,9 @@ export const PRICING: Record<Exclude<ProfessionalPlan, "free">, Record<BillingCy
 };
 
 export const EXHIBITOR_PRICING: Record<Exclude<ExhibitorPlan, "free">, Record<BillingCycle, number>> = {
-  sme: { monthly: 60_000, biannual: 330_000, annual: 600_000 },
-  exhibitor: { monthly: 205_000, biannual: 1_150_000, annual: 2_100_000 },
-  key_player: { monthly: 500_000, biannual: 2_800_000, annual: 5_200_000 },
+  sme: { monthly: 60_000, biannual: 300_000, annual: 600_000 },
+  exhibitor: { monthly: 205_000, biannual: 1_025_000, annual: 2_050_000 },
+  key_player: { monthly: 500_000, biannual: 2_500_000, annual: 5_000_000 },
 };
 
 /**
