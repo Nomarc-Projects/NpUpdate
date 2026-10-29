@@ -1,11 +1,12 @@
 "use server";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { job, product, productVariant, company } from "@/lib/db/schema";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 import type { CatalogProduct } from "@/lib/sample-catalog";
+import { deliveryTag, isDeliveryMode, type DeliveryMode } from "@/lib/product-delivery";
 
 /**
  * Jobs are a professional-only surface. These exports live in a `"use server"`
@@ -46,7 +47,27 @@ export type ProductCard = {
   description?: string;
   /** ISO timestamp — powers the "Recently added" storefront rail. */
   createdAt?: string;
+  /** Omitted for legacy products until the exhibitor sets delivery coverage. */
+  deliveryLabel?: string;
 };
+
+type DeliveryInfo = { mode: DeliveryMode | null; states: string[] };
+
+async function getDeliveryInfo(ids: string[]): Promise<Map<string, DeliveryInfo>> {
+  if (!ids.length) return new Map();
+  try {
+    const rows = await db.select({
+      id: product.id, mode: product.deliveryMode, states: product.deliveryStates,
+    }).from(product).where(inArray(product.id, ids));
+    return new Map(rows.map((row) => [row.id, {
+      mode: isDeliveryMode(row.mode) ? row.mode : null,
+      states: row.states ?? [],
+    }]));
+  } catch {
+    // Migration 0066 is additive; keep public product browsing available until applied.
+    return new Map();
+  }
+}
 
 const naira = (n: number) => `₦${(n / 1000).toLocaleString()}k`;
 function ago(d: Date | string) {
@@ -149,8 +170,10 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
     })
     .from(product)
     .innerJoin(company, eq(product.companyId, company.id))
-    .where(eq(product.draft, false))
-    .orderBy(desc(company.verified), desc(product.createdAt));
+      .where(eq(product.draft, false))
+      .orderBy(desc(company.verified), desc(product.createdAt));
+
+  const deliveryById = await getDeliveryInfo(rows.map((row) => row.id));
 
   // Which of these products carry variants? One grouped read beats N per-card
   // lookups; resilient (→ empty set) so the browse never breaks on this.
@@ -168,6 +191,7 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
     coName, coLoc, coVerified, coLogo,
   }) => {
     const availabilityKey = AVAIL_KEY(availability);
+    const delivery = deliveryById.get(id);
     return {
       id,
       name,
@@ -187,6 +211,7 @@ export async function getProductsForBrowse(): Promise<ProductCard[]> {
       hasVariants: variantOf.has(id),
       description: description ?? "",
       createdAt: new Date(createdAt).toISOString(),
+      deliveryLabel: deliveryTag(delivery?.mode, delivery?.states),
     };
   });
 }
@@ -212,6 +237,7 @@ export async function getBrowseProductById(productId: string): Promise<CatalogPr
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  const delivery = (await getDeliveryInfo([row.id])).get(row.id);
   const {
     id, name, sku, status, category, type, vendorName, tags, retailMin, retailMax,
     wholesaleMin, wholesaleMax, costPerItem, stock, unit, coverUrl, gallery, description,
@@ -242,6 +268,8 @@ export async function getBrowseProductById(productId: string): Promise<CatalogPr
     images,
     description: description ?? "",
     availability: AVAIL_KEY(availability),
+    deliveryMode: delivery?.mode ?? null,
+    deliveryStates: delivery?.states ?? [],
     verified: coVerified ?? false,
     vendorUserId: coOwnerUserId ?? undefined,
     vendorCompanyId: companyId,

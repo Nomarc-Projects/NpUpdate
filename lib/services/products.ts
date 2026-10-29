@@ -1,12 +1,13 @@
 "use server";
 
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { product, productVariant, company } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { ensureCompany } from "@/lib/company-internal";
 import { assertCanPublish } from "@/lib/services/exhibitor-trial";
+import { isDeliveryMode, NIGERIAN_STATES, type DeliveryMode } from "@/lib/product-delivery";
 
 export type ProductStatus = "active" | "draft" | "archived";
 export type StockLevel = "high" | "low" | "out";
@@ -19,6 +20,7 @@ export type MyProduct = {
   wholesaleMin: number | null; wholesaleMax: number | null; costPerItem: number | null; stock: number;
   stockLevel: StockLevel; unit: string | null; images: string[]; description: string | null;
   slug: string | null; seoTitle: string | null; seoDescription: string | null; specs: SpecRow[]; variants: VariantRow[];
+  deliveryMode: DeliveryMode | null; deliveryStates: string[];
   availability: string | null; companyId: string; vendorUserId: string | null; companyVerified: boolean;
   createdAt: string; updatedAt: string;
 };
@@ -37,11 +39,13 @@ export type ProductInput = {
   status?: ProductStatus;
   /** Required when `availability` is "made_to_order". */
   leadTimeValue?: string | number; leadTimeUnit?: string;
+  deliveryMode?: DeliveryMode | null; deliveryStates?: string[];
 };
 
 const LEAD_TIME_UNITS = ["days", "weeks", "months"] as const;
 type LeadTimeUnit = (typeof LEAD_TIME_UNITS)[number];
 const LEAD_TIME_MIGRATION_ERROR = "The product database needs an update before made-to-order products can be saved. Please contact support.";
+const DELIVERY_MIGRATION_ERROR = "Product delivery options need a database update. Please contact support before saving this product.";
 
 function isMissingLeadTimeColumns(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
@@ -55,6 +59,26 @@ function isMissingLeadTimeColumns(error: unknown): boolean {
 function withoutLeadTime<T extends { leadTimeValue: unknown; leadTimeUnit: unknown }>(values: T) {
   const { leadTimeValue: _leadTimeValue, leadTimeUnit: _leadTimeUnit, ...compatible } = values;
   return compatible;
+}
+
+function isMissingDeliveryColumns(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const { code, message, cause } = error as { code?: unknown; message?: unknown; cause?: unknown };
+  const text = typeof message === "string" ? message : "";
+  if (/delivery_(?:mode|states)/i.test(text)
+    && (code === "42703" || /does not exist|undefined column|unknown column/i.test(text))) return true;
+  return cause !== error && isMissingDeliveryColumns(cause);
+}
+
+function assertDelivery(input: ProductInput): void {
+  if (!isDeliveryMode(input.deliveryMode)) {
+    throw new Error("Choose a delivery option for this product.");
+  }
+  if (input.deliveryMode !== "selected_states") return;
+  const states = [...new Set((input.deliveryStates ?? []).map((state) => state.trim()).filter(Boolean))];
+  if (!states.length) throw new Error("Select at least one state for delivery.");
+  const invalid = states.filter((state) => !NIGERIAN_STATES.includes(state));
+  if (invalid.length) throw new Error(`Unknown delivery state${invalid.length === 1 ? "" : "s"}: ${invalid.join(", ")}`);
 }
 
 function parseLeadTime(input: ProductInput): { value: number | null; unit: LeadTimeUnit | null } {
@@ -81,6 +105,7 @@ function values(companyId: string, input: ProductInput) {
   const leadTime = availability === "made_to_order"
     ? parseLeadTime(input)
     : { value: null, unit: null };
+  const selectedDeliveryStates = new Set((input.deliveryStates ?? []).map((state) => state.trim()));
   return {
     companyId,
     name: input.name.trim(),
@@ -94,6 +119,8 @@ function values(companyId: string, input: ProductInput) {
     availability,
     leadTimeValue: leadTime.value,
     leadTimeUnit: leadTime.unit,
+    deliveryMode: input.deliveryMode || null,
+    deliveryStates: input.deliveryMode === "selected_states" ? NIGERIAN_STATES.filter((state) => selectedDeliveryStates.has(state)) : null,
     coverUrl: input.coverUrl || null,
     gallery: input.gallery && input.gallery.length ? input.gallery : null,
     specs: input.specs && input.specs.length ? input.specs.filter((s) => s.label.trim()) : null,
@@ -129,6 +156,7 @@ async function assertCategoryRegistered(companyId: string, category: string | nu
 export async function createProduct(input: ProductInput, draft = false): Promise<string> {
   const uid = await requireUserId();
   if (!input.name?.trim()) throw new Error("Product name is required");
+  assertDelivery(input);
   const companyId = await ensureCompany(uid);
   const status = draft ? "draft" : input.status ?? "active";
   // Drafts are always free — the plan caps what's PUBLISHED, so an exhibitor
@@ -148,10 +176,16 @@ export async function createProduct(input: ProductInput, draft = false): Promise
     const [row] = await db.insert(product).values(v).returning({ id: product.id });
     productId = row.id;
   } catch (error) {
+    if (isMissingDeliveryColumns(error)) throw new Error(DELIVERY_MIGRATION_ERROR);
     if (!isMissingLeadTimeColumns(error)) throw error;
     if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
-    const [row] = await db.insert(product).values(withoutLeadTime(v)).returning({ id: product.id });
-    productId = row.id;
+    try {
+      const [row] = await db.insert(product).values(withoutLeadTime(v)).returning({ id: product.id });
+      productId = row.id;
+    } catch (fallbackError) {
+      if (isMissingDeliveryColumns(fallbackError)) throw new Error(DELIVERY_MIGRATION_ERROR);
+      throw fallbackError;
+    }
   }
   bump();
   return productId;
@@ -159,6 +193,7 @@ export async function createProduct(input: ProductInput, draft = false): Promise
 
 export async function updateProduct(id: string, input: ProductInput): Promise<void> {
   const uid = await requireUserId();
+  assertDelivery(input);
   const companyId = await ensureCompany(uid);
   const [existing] = await db
     .select({ status: product.status, category: product.category })
@@ -195,9 +230,15 @@ export async function updateProduct(id: string, input: ProductInput): Promise<vo
   try {
     await db.update(product).set(patch).where(and(eq(product.id, id), eq(product.companyId, companyId)));
   } catch (error) {
+    if (isMissingDeliveryColumns(error)) throw new Error(DELIVERY_MIGRATION_ERROR);
     if (!isMissingLeadTimeColumns(error)) throw error;
     if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
-    await db.update(product).set(withoutLeadTime(patch)).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+    try {
+      await db.update(product).set(withoutLeadTime(patch)).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+    } catch (fallbackError) {
+      if (isMissingDeliveryColumns(fallbackError)) throw new Error(DELIVERY_MIGRATION_ERROR);
+      throw fallbackError;
+    }
   }
   bump();
 }
@@ -209,6 +250,7 @@ export type ProductForEdit = {
   id: string; name: string; slug: string | null; sku: string | null; category: string | null; type: string | null;
   vendorName: string | null; description: string | null; tags: string[]; availability: string | null;
   leadTimeValue: number | null; leadTimeUnit: string | null;
+  deliveryMode: DeliveryMode | null; deliveryStates: string[];
   coverUrl: string | null; gallery: string[]; specs: { label: string; value: string }[];
   retailMin: number | null; retailMax: number | null; wholesaleMin: number | null; wholesaleMax: number | null;
   costPerItem: number | null; stock: number; unit: string | null;
@@ -241,6 +283,8 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
   // databases continue to load the editor, treating absent values as unset.
   let leadTimeValue: number | null = null;
   let leadTimeUnit: string | null = null;
+  let deliveryMode: DeliveryMode | null = null;
+  let deliveryStates: string[] = [];
   try {
     const [leadTime] = await db.select({
       value: product.leadTimeValue, unit: product.leadTimeUnit,
@@ -248,11 +292,19 @@ export async function getOwnedProductForEdit(id: string): Promise<ProductForEdit
     leadTimeValue = leadTime?.value ?? null;
     leadTimeUnit = leadTime?.unit ?? null;
   } catch { /* optional columns are absent before migration 0064 */ }
+  try {
+    const [delivery] = await db.select({
+      mode: product.deliveryMode, states: product.deliveryStates,
+    }).from(product).where(eq(product.id, id)).limit(1);
+    deliveryMode = isDeliveryMode(delivery?.mode) ? delivery.mode : null;
+    deliveryStates = delivery?.states ?? [];
+  } catch { /* optional delivery columns are absent before migration 0066 */ }
   const vs = await db.select().from(productVariant).where(eq(productVariant.productId, id)).orderBy(asc(productVariant.sortOrder));
   return {
     id: p.id, name: p.name, slug: p.slug, sku: p.sku, category: p.category, type: p.type,
     vendorName: p.vendorName, description: p.description, tags: p.tags ?? [],
     availability: p.availability, leadTimeValue, leadTimeUnit,
+    deliveryMode, deliveryStates,
     coverUrl: p.coverUrl, gallery: p.gallery ?? [],
     specs: p.specs ?? [],
     retailMin: p.retailMin, retailMax: p.retailMax, wholesaleMin: p.wholesaleMin, wholesaleMax: p.wholesaleMax,
@@ -357,7 +409,14 @@ type DashboardProductRow = Pick<typeof product.$inferSelect,
   | "createdAt" | "updatedAt"
 >;
 
-function mapRow(p: DashboardProductRow, variants: VariantRow[], vendorUserId: string | null = null, companyVerified = false): MyProduct {
+function mapRow(
+  p: DashboardProductRow,
+  variants: VariantRow[],
+  vendorUserId: string | null = null,
+  companyVerified = false,
+  deliveryMode: DeliveryMode | null = null,
+  deliveryStates: string[] = [],
+): MyProduct {
   return {
     id: p.id, name: p.name, sku: p.sku, status: (p.status as ProductStatus) ?? "active", category: p.category, type: p.type,
     vendorName: p.vendorName, tags: p.tags ?? [], retailMin: p.retailMin, retailMax: p.retailMax,
@@ -367,10 +426,30 @@ function mapRow(p: DashboardProductRow, variants: VariantRow[], vendorUserId: st
     description: p.description, slug: p.slug, seoTitle: p.seoTitle, seoDescription: p.seoDescription,
     specs: p.specs ?? [],
     variants,
+    deliveryMode,
+    deliveryStates,
     availability: p.availability, companyId: p.companyId, vendorUserId, companyVerified,
     createdAt: p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "",
     updatedAt: p.updatedAt ? new Date(p.updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "",
   };
+}
+
+type ProductDelivery = { mode: DeliveryMode | null; states: string[] };
+
+async function getProductDeliveryMap(ids: string[]): Promise<Map<string, ProductDelivery>> {
+  if (!ids.length) return new Map();
+  try {
+    const rows = await db.select({
+      id: product.id, mode: product.deliveryMode, states: product.deliveryStates,
+    }).from(product).where(inArray(product.id, ids));
+    return new Map(rows.map((row) => [row.id, {
+      mode: isDeliveryMode(row.mode) ? row.mode : null,
+      states: row.states ?? [],
+    }]));
+  } catch {
+    // Before migration 0066 existing products have no delivery information.
+    return new Map();
+  }
 }
 
 /** The signed-in exhibitor's catalog. Resilient: returns [] pre-migration. */
@@ -393,12 +472,21 @@ export async function getMyProducts(): Promise<MyProduct[]> {
       createdAt: product.createdAt, updatedAt: product.updatedAt,
     }).from(product).where(eq(product.companyId, c.id)).orderBy(desc(product.createdAt));
     const ids = rows.map((r) => r.id);
+    const deliveries = await getProductDeliveryMap(ids);
     const vars = ids.length ? await db.select().from(productVariant).where(eq(productVariant.productId, ids[0])).orderBy(asc(productVariant.sortOrder)) : [];
     // fetch variants per product (small N) — keep simple
     const out: MyProduct[] = [];
     for (const r of rows) {
       const vs = r.id === ids[0] ? vars : await db.select().from(productVariant).where(eq(productVariant.productId, r.id)).orderBy(asc(productVariant.sortOrder));
-      out.push(mapRow(r, vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true }))));
+      const delivery = deliveries.get(r.id);
+      out.push(mapRow(
+        r,
+        vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true })),
+        null,
+        false,
+        delivery?.mode ?? null,
+        delivery?.states ?? [],
+      ));
     }
     return out;
   } catch {
@@ -409,11 +497,29 @@ export async function getMyProducts(): Promise<MyProduct[]> {
 /** A single product (owner edit or buyer view). Resilient. */
 export async function getProductById(id: string): Promise<MyProduct | null> {
   try {
-    const [p] = await db.select().from(product).where(eq(product.id, id)).limit(1);
+    const [p] = await db.select({
+      id: product.id, name: product.name, sku: product.sku, status: product.status,
+      category: product.category, type: product.type, vendorName: product.vendorName,
+      tags: product.tags, retailMin: product.retailMin, retailMax: product.retailMax,
+      wholesaleMin: product.wholesaleMin, wholesaleMax: product.wholesaleMax,
+      costPerItem: product.costPerItem, stock: product.stock, unit: product.unit,
+      coverUrl: product.coverUrl, gallery: product.gallery, description: product.description,
+      slug: product.slug, seoTitle: product.seoTitle, seoDescription: product.seoDescription,
+      specs: product.specs, availability: product.availability, companyId: product.companyId,
+      createdAt: product.createdAt, updatedAt: product.updatedAt,
+    }).from(product).where(eq(product.id, id)).limit(1);
     if (!p) return null;
     const vs = await db.select().from(productVariant).where(eq(productVariant.productId, id)).orderBy(asc(productVariant.sortOrder));
     const [co] = await db.select({ ownerUserId: company.ownerUserId, verified: company.verified }).from(company).where(eq(company.id, p.companyId)).limit(1);
-    return mapRow(p, vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true })), co?.ownerUserId ?? null, co?.verified ?? false);
+    const delivery = (await getProductDeliveryMap([id])).get(id);
+    return mapRow(
+      p,
+      vs.map((v) => ({ id: v.id, name: v.name, spec: v.spec, price: v.price, stock: v.stock ?? 0, sku: v.sku, active: v.active ?? true })),
+      co?.ownerUserId ?? null,
+      co?.verified ?? false,
+      delivery?.mode ?? null,
+      delivery?.states ?? [],
+    );
   } catch {
     return null;
   }

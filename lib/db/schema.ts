@@ -213,6 +213,8 @@ export const product = pgTable("product", {
   availability: text("availability"), // in_stock | made_to_order | rentable
   leadTimeValue: integer("lead_time_value"),
   leadTimeUnit: text("lead_time_unit"), // days | weeks | months
+  deliveryMode: text("delivery_mode"), // nationwide | selected_states | pickup_only; null on legacy listings
+  deliveryStates: text("delivery_states").array(),
   tags: text("tags").array(),
   coverUrl: text("cover_url"),
   gallery: text("gallery").array(),

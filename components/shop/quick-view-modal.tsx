@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowRight, BadgeCheck, Heart, MapPin, PackageSearch, ShoppingCart, X } from "lucide-react";
+import { ArrowRight, BadgeCheck, Heart, MapPin, PackageSearch, ShoppingCart, Truck, X } from "lucide-react";
 import { naira } from "@/lib/sample-catalog";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/store/cart";
@@ -119,6 +119,8 @@ export function QuickViewModal({
                   {p.price > 0 ? naira(p.price) : "Request price"}
                   {p.price > 0 && p.unit && <span className="ml-1 text-[12px] font-semibold text-[#9a9a9a]">/ {p.unit}</span>}
                 </p>
+
+                {p.deliveryLabel && <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-[#e5e5e5] px-2.5 py-1 text-[11px] font-semibold text-[#555] dark:border-white/10 dark:text-white/75"><Truck size={12} />{p.deliveryLabel}</span>}
 
                 {p.tags.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">

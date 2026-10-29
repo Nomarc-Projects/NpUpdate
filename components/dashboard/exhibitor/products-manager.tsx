@@ -16,19 +16,22 @@ import { Pagination } from "@/components/ui/pagination";
 import { r2Url } from "@/lib/r2-public";
 import { PlanLimitBanner } from "@/components/dashboard/exhibitor/plan-limit-banner";
 import type { ExhibitorLimitSummary } from "@/lib/services/exhibitor-trial-rules";
+import { parseDeliveryMode } from "@/lib/product-delivery";
 
 const PRODUCT_IMPORT: ImportConfig = {
   title: "Import products",
-  subtitle: "Bulk-add your catalog from a spreadsheet.",
+  subtitle: "Bulk-add your catalog from a spreadsheet. Delivery is required; separate selected states with semicolons.",
   noun: "product",
-  columns: ["Name", "SKU", "Category", "Type", "Vendor", "Retail", "Wholesale", "Cost", "Stock", "Unit", "Description", "Tags"],
-  sample: ["High-Yield TMT Rebar 16mm", "RBR-16-500", "Building Materials", "Structural", "Titan SteelCo", "18500", "15800", "14200", "4200", "length", "Grade 500B rebar", "Rebar;Structural Steel"],
+  columns: ["Name", "SKU", "Category", "Type", "Vendor", "Retail", "Wholesale", "Cost", "Stock", "Unit", "Description", "Tags", "Delivery", "Delivery states"],
+  sample: ["High-Yield TMT Rebar 16mm", "RBR-16-500", "Building Materials", "Structural", "Titan SteelCo", "18500", "15800", "14200", "4200", "length", "Grade 500B rebar", "Rebar;Structural Steel", "Selected states", "Lagos;Ogun"],
   requiredKey: "name",
   templateName: "nomarc-products-template.csv",
   importRow: (r) => createProduct({
     name: r.name, sku: r.sku, category: r.category, type: r.type, vendorName: r.vendor,
     description: r.description, retailMin: r.retail, wholesaleMin: r.wholesale, costPerItem: r.cost,
     stock: r.stock, unit: r.unit, tags: r.tags ? r.tags.split(/[;|]/).map((t) => t.trim()).filter(Boolean) : undefined,
+    deliveryMode: parseDeliveryMode(r.delivery),
+    deliveryStates: r["delivery states"] ? r["delivery states"].split(/[;|]/).map((s) => s.trim()).filter(Boolean) : undefined,
     status: "active",
   }),
 };

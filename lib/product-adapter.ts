@@ -11,6 +11,8 @@ export function toCatalogProduct(p: MyProduct): CatalogProduct {
     vendorUserId: p.vendorUserId ?? undefined,
     vendorCompanyId: p.companyId,
     availability: (p.availability && (AVAIL_KEYS as string[]).includes(p.availability) ? p.availability as Availability : inferAvailability(p.stockLevel)),
+    deliveryMode: p.deliveryMode,
+    deliveryStates: p.deliveryStates,
     verified: p.companyVerified,
     id: p.id,
     name: p.name,

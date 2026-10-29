@@ -4,6 +4,7 @@
 
 import type { ProductCard } from "@/lib/services/catalog";
 import { r2Url } from "@/lib/r2-public";
+import type { DeliveryMode } from "@/lib/product-delivery";
 
 export type ProductStatus = "active" | "draft" | "archived";
 export type StockLevel = "high" | "low" | "out";
@@ -38,6 +39,8 @@ export type CatalogProduct = {
   images: string[];
   description: string;
   availability?: Availability;
+  deliveryMode?: DeliveryMode | null;
+  deliveryStates?: string[];
   /** Whether the selling company is Nomarc-verified — gates the "Verified
    *  supplier" trust badge on the PDP. Absent/false on unverified sellers. */
   verified?: boolean;

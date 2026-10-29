@@ -42,8 +42,8 @@ export const NIGERIA_LGA: Record<string, string[]> = {
   "Zamfara": ["Anka", "Bakura", "Birnin Magaji Kiyaw", "Bukkuyum", "Bungudu", "Gummi", "Gusau", "Kaura Namoda", "Maradun", "Maru", "Shinkafi", "Talata Mafara", "Chafe", "Zurmi"],
 };
 
-/** All state names, alphabetical — options for the State dropdown. */
-export const NG_STATES = Object.keys(NIGERIA_LGA);
+/** All state names, trimmed and alphabetical — options for state dropdowns. */
+export const NG_STATES = Object.keys(NIGERIA_LGA).map((state) => state.trim()).sort((a, b) => a.localeCompare(b));
 
 /** LGAs for a state (empty when the state is unknown/unset). */
 export function lgasFor(state: string): string[] {

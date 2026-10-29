@@ -256,7 +256,7 @@ export function ProductView({
     <div className="pb-24 sm:pb-8">
       {/* ── breadcrumb ── */}
       <div className="px-4 sm:px-6 lg:px-8 pt-5 flex items-center gap-1.5 text-[12px] text-[#9a9a9a]">
-        <Link href={hrefBase} className="hover:text-[#1e1e1e] dark:hover:text-white inline-flex items-center gap-1"><ArrowLeft size={13} /> Shop</Link>
+        <Link href={hrefBase} className="hover:text-[#1e1e1e] dark:hover:text-white inline-flex items-center gap-1"><ArrowLeft size={13} /> Marketplace</Link>
         <ChevronRight size={12} />
         <span className="truncate max-w-[100px] sm:max-w-none">{product.category}</span>
         <ChevronRight size={12} />
@@ -341,7 +341,28 @@ export function ProductView({
             <AnimatePresence mode="wait">
               <motion.div key={tab} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
                 className="mt-4 text-[13.5px] leading-relaxed text-[#4b4b4b] dark:text-white/70">
-                {tab === "Description" && <p>{product.description || "No description provided for this product yet."}</p>}
+                {tab === "Description" && (
+                  <div className="space-y-4">
+                    <p>{product.description || "No description provided for this product yet."}</p>
+                    {product.deliveryMode && (
+                      <section className="rounded-xl border border-[#ececec] bg-[#fafafa] p-4 dark:border-white/10 dark:bg-white/[0.03]">
+                        <h3 className="flex items-center gap-2 text-[13px] font-bold text-[#1e1e1e] dark:text-white"><Truck size={15} className="text-[#8a6d00] dark:text-[#ffd716]" /> Delivery</h3>
+                        {product.deliveryMode === "nationwide" ? (
+                          <p className="mt-2 text-[13px] text-[#4b4b4b] dark:text-white/70">This exhibitor delivers nationwide across Nigeria.</p>
+                        ) : product.deliveryMode === "pickup_only" ? (
+                          <p className="mt-2 text-[13px] text-[#4b4b4b] dark:text-white/70">Pickup only. Delivery is not available for this product.</p>
+                        ) : (
+                          <>
+                            <p className="mt-2 text-[13px] text-[#4b4b4b] dark:text-white/70">Delivery is available in these states:</p>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {(product.deliveryStates ?? []).map((state) => <span key={state} className="rounded-full border border-[#e3e3e3] bg-white px-2.5 py-1 text-[11.5px] font-medium text-[#4b4b4b] dark:border-white/10 dark:bg-white/5 dark:text-white/75">{state}</span>)}
+                            </div>
+                          </>
+                        )}
+                      </section>
+                    )}
+                  </div>
+                )}
 
                 {tab === "Specifications" && (
                   product.specs.length > 0 ? (

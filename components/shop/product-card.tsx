@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { BadgeCheck, Eye, Heart, PackageSearch, Scale, ShoppingCart } from "lucide-react";
+import { BadgeCheck, Eye, Heart, PackageSearch, Scale, ShoppingCart, Truck } from "lucide-react";
 import { naira } from "@/lib/sample-catalog";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/lib/store/cart";
@@ -33,6 +33,7 @@ export type ShopCardData = {
    *  full PDP (variant selection needs the real detail page). */
   hasVariants?: boolean;
   createdAt?: string;
+  deliveryLabel?: string;
 };
 
 /** One circular hover action in the card's right-hand action rail. */
@@ -181,6 +182,13 @@ export function ShopProductCard({
         >
           {p.avail}
         </span>
+
+        {p.deliveryLabel && (
+          <span className="absolute bottom-2.5 left-2.5 inline-flex max-w-[calc(100%-1.25rem)] items-center gap-1 rounded-full border border-white/80 bg-white/95 px-2 py-1 text-[9.5px] font-semibold text-[#343434] shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-[#1e1e1e]/90 dark:text-white/85">
+            <Truck size={11} className="flex-shrink-0 text-[#727272] dark:text-white/65" />
+            <span className="truncate">{p.deliveryLabel}</span>
+          </span>
+        )}
 
         {/* Verified reads as a mark alone — the word doubled the badge's width
             on a 2-up mobile grid for no extra meaning. */}
