@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageSquare, ArrowLeft, Loader2, Check, CheckCheck, Clock, ExternalLink, UserPlus, FileText, Download, MoreVertical, Info, Wifi, X } from "lucide-react";
+import { Search, MessageSquare, ArrowLeft, ArrowDown, Loader2, Check, CheckCheck, Clock, ExternalLink, UserPlus, FileText, Download, MoreVertical, Info, Wifi, X } from "lucide-react";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { getThread, sendMessage, archiveConversation, type ConvoSummary, type ChatThread, type ChatMessage, type MessageType } from "@/lib/services/messaging";
 import { enqueue, dequeue, getPending } from "@/lib/offline-queue";
@@ -337,7 +337,12 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
 
                 <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2.5 bg-[#fafafa] dark:bg-[#161616]">
                   {thread.messages.length === 0 ? (
-                    <p className="text-center text-[13px] text-[#9a9a9a] py-10">No messages yet — say hello 👋</p>
+                    <div className="flex min-h-full flex-col items-center justify-end pb-2 text-center">
+                      <p className="max-w-[380px] text-[15px] font-semibold leading-relaxed text-[#414141] dark:text-white/85 sm:text-base">
+                        No messages yet. Type your message in the box below to start the conversation.
+                      </p>
+                      <ArrowDown size={19} strokeWidth={2.5} className="mt-2 text-[#8a6d00] dark:text-[#ffd716]" aria-hidden="true" />
+                    </div>
                   ) : (() => {
                     // unread divider: position before the trailing N incoming messages
                     const unreadCount = list.find((c) => c.id === activeId)?.unread ?? 0;
