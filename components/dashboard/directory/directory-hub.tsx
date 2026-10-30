@@ -17,7 +17,7 @@ const TABS = [
   { key: "ministries", label: "Ministries" },
 ];
 
-/** The single Directory page: People · Companies · Institutions · Government
+/** The Connect page (member directory): People · Companies · Institutions · Government
  *  Ministries. Each tab keeps its own table so the shared component is a thin
  *  tab shell that swaps the dataset underneath. Initial tab honours ?tab=. */
 export function DirectoryHub({
@@ -36,7 +36,7 @@ export function DirectoryHub({
   return (
     <div className="px-6 py-6 md:px-8">
       <div className="mb-5">
-        <h1 className="text-[20px] font-bold text-[#1e1e1e] dark:text-white">Directory</h1>
+        <h1 className="text-[20px] font-bold text-[#1e1e1e] dark:text-white">Connect</h1>
         <p className="mt-0.5 text-[13px] text-[#9a9a9a]">
           Discover and connect with professionals, companies, institutions, and ministries.
         </p>

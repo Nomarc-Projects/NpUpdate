@@ -14,6 +14,10 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
+import { hasSavedItems } from "@/lib/services/saved";
+import { getMyListerProfile } from "@/lib/services/property-listers";
+import { getOwnerPropertyStats } from "@/lib/services/properties";
+import { hasSubmittedApplication } from "@/lib/services/jobs";
 import { getExhibitionHub, getTools, getProperties } from "@/lib/services/platform-settings-read";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
@@ -89,6 +93,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
   // when off, but keep the routes reachable so admins can preview them.
   const propertiesEnabled = (await getProperties().catch(() => ({ enabled: false }))).enabled;
 
+  // Progressive nav reveal flags, computed on the server so the sidebar never
+  // flashes entries the user hasn't earned yet.
+  const [hasSavedProduct, listerProfile, propertyStats, hasApplied] = await Promise.all([
+    hasSavedItems("product").catch(() => false),
+    getMyListerProfile().catch(() => null),
+    getOwnerPropertyStats().catch(() => null),
+    hasSubmittedApplication().catch(() => false),
+  ]);
+  const exhibitorUnlocked = viewer.heldRoles.has("exhibitor") || viewer.activeRole === "exhibitor";
+  const listerVerified = listerProfile?.verificationStatus === "verified";
+  const hasPropertyListing = (propertyStats?.total ?? 0) > 0;
+
   return (
     <TourProvider audience={viewer.activeRole}>
       <RoleProvider heldRoles={Array.from(viewer.heldRoles)} activeRole={viewer.activeRole} plans={viewer.plans}>
@@ -96,7 +112,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex-1 flex overflow-hidden">
             <SessionHydrator />
             <PresenceHeartbeat />
-            <DashboardSidebar exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} />
+            <DashboardSidebar
+              exhibitionEnabled={exhibitionEnabled}
+              propertiesEnabled={propertiesEnabled}
+              exhibitorUnlocked={exhibitorUnlocked}
+              hasSavedProduct={hasSavedProduct}
+              listerVerified={listerVerified}
+              hasPropertyListing={hasPropertyListing}
+              hasSubmittedApplication={hasApplied}
+            />
             <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
               <div className="pt-14 lg:pt-0 pb-20 md:pb-0 max-w-full">
                 <ImpersonationBanner />

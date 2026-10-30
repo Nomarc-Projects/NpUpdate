@@ -234,6 +234,17 @@ export const product = pgTable("product", {
   updatedAt: upd(),
 });
 
+/**
+ * Records a user's acceptance of the Exhibition Hub exhibitor guidelines. The
+ * Add Product funnel requires acceptance before showing subscription plans;
+ * the row is an explicit, auditable consent record rather than localStorage.
+ */
+export const exhibitorGuidelineAcceptance = pgTable("exhibitor_guideline_acceptance", {
+  userId: text("user_id").primaryKey(),
+  guidelineVersion: text("guideline_version").notNull().default("2026-07-10"),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const productVariant = pgTable("product_variant", {
   id: id(),
   productId: uuid("product_id").notNull().references(() => product.id, { onDelete: "cascade" }),

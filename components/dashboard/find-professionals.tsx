@@ -354,7 +354,7 @@ function MiniSelect({ value, options, onChange, icon, suffix }: {
 }
 
 /* ── main ── */
-export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {} }: { role: Role; pros?: ProCard[]; myOpenJobs?: OpenJob[]; online?: Record<string, boolean> }) {
+export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {}, savedIds = [] }: { role: Role; pros?: ProCard[]; myOpenJobs?: OpenJob[]; online?: Record<string, boolean>; savedIds?: string[] }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProDetail | null>(null);
@@ -365,6 +365,11 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const [sel, setSel] = useState<Record<string, string[]>>({});
   const [occSearch, setOccSearch] = useState("");
   const [locSearch, setLocSearch] = useState("");
+  // "Saved" only exists once the user has actually saved a first profile —
+  // the tab pair stays hidden for a fresh account.
+  const savedTabAvailable = savedIds.length > 0;
+  const [listTab, setListTab] = useState<"all" | "saved">("all");
+  const savedSet = useMemo(() => new Set(savedIds), [savedIds]);
 
   // Filter options are derived from the professionals' own profile data rather
   // than a hardcoded list, so Occupation / Practice status / Location always
@@ -441,6 +446,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const locSearchLower = locSearch.trim().toLowerCase();
   const practiceStatus = sel["Practice status"] ?? [];
   let results = pros.filter((p) => {
+    if (listTab === "saved" && !savedSet.has(p.id)) return false;
     const hay = `${p.name} ${p.headline} ${p.location} ${p.skills.join(" ")}`.toLowerCase();
     if (q && !hay.includes(q)) return false;
     if (type === "Individual Professional" && p.isCompany) return false;
@@ -460,7 +466,7 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   const pageCount = Math.max(1, Math.ceil(results.length / perPage));
   const safePage = Math.min(page, pageCount);
   const paged = results.slice((safePage - 1) * perPage, safePage * perPage);
-  useEffect(() => { setPage(1); }, [query, sel, sortBy, perPage, type]);
+  useEffect(() => { setPage(1); }, [query, sel, sortBy, perPage, type, listTab]);
 
   const gridCls = view === "list" ? "space-y-3"
     : view === "g2" ? "grid grid-cols-1 sm:grid-cols-2 gap-4"
@@ -557,6 +563,20 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
         {/* List column */}
         <div className="flex-1 overflow-y-auto min-w-0">
           <div className="px-5 sm:px-6 pb-10">
+            {/* All | Saved toggle — the Saved tab exists only once the user has
+                actually saved their first professional profile. */}
+            {savedTabAvailable && (
+              <div className="mb-4 inline-flex items-center rounded-full border border-[#e3e3e3] dark:border-white/15 p-1">
+                <button onClick={() => setListTab("all")} className={cn("rounded-full px-5 py-2 text-[12.5px] font-semibold transition-colors", listTab === "all" ? "bg-[#ffd716] text-[#1e1e1e]" : "text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white")}>
+                  All
+                </button>
+                <button onClick={() => setListTab("saved")} className={cn("inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[12.5px] font-semibold transition-colors", listTab === "saved" ? "bg-[#ffd716] text-[#1e1e1e]" : "text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white")}>
+                  Saved
+                  <span className={cn("text-[10px]", listTab === "saved" ? "text-[#1e1e1e]/60" : "text-[#9a9a9a]")}>{savedIds.length}</span>
+                </button>
+              </div>
+            )}
+
             {/* Hero banner with embedded search — mirrors Browse Jobs */}
             <div className="rounded-2xl bg-[#1e1e1e] dark:bg-[#ffd716] p-5 sm:p-6 mb-4">
               <h2 className="text-[17px] sm:text-[19px] font-bold text-white dark:text-[#1e1e1e] leading-snug">{role === "exhibitor" ? "Find the right people for your brand" : "Find verified construction talent"}</h2>
@@ -573,8 +593,8 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
             {results.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center py-20">
                 <div className="w-14 h-14 rounded-2xl bg-[#fff7cc] dark:bg-[#ffd716]/10 flex items-center justify-center text-[#caa400] mb-4"><Users size={22} /></div>
-                <h3 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">{pros.length === 0 ? "No professionals yet" : "No professionals match"}</h3>
-                <p className="mt-1.5 text-[13px] text-[#9a9a9a] max-w-sm">{pros.length === 0 ? "Check back soon as talent joins the platform." : "Try adjusting your filters or search."}</p>
+                <h3 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">{listTab === "saved" ? "No saved professionals yet" : pros.length === 0 ? "No professionals yet" : "No professionals match"}</h3>
+                <p className="mt-1.5 text-[13px] text-[#9a9a9a] max-w-sm">{listTab === "saved" ? "Use the bookmark icon to keep professionals here while you compare." : pros.length === 0 ? "Check back soon as talent joins the platform." : "Try adjusting your filters or search."}</p>
                 {activeCount > 0 && <button onClick={clearAll} className="mt-5 px-5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors">Clear filters</button>}
               </div>
             ) : (

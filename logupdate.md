@@ -125,6 +125,46 @@ the only ₦330,000 SMEs biannual value.
 
 ---
 
+## 2026-10-30 — Progressive nav: jobs, property, exhibition hub funnels
+
+**Changed** — Sidebar and funnels restructured per the progressive-reveal specs:
+
+- **Jobs**: Post Jobs / Posted Jobs / Draft merged into one "Post Jobs" page
+  (Active, Drafts, Closed tabs retained; closed-job delete keeps its confirm
+  dialog). Saved Jobs left the sidebar; the Find Jobs page gained an
+  All/Saved tab pair (hidden until the first bookmark). Applications is
+  sidebar-hidden until a first submitted application. Clicking an active job
+  opens its applicant list, with the applicant's profile slide-over now
+  reachable from the row alongside theapplication slide-over.
+- **Find Professionals** moved under Jobs; Saved Profile removed from the
+  sidebar; the Find Professionals page gained an All/Saved toggle, hidden
+  until the first saved profile (saved_item and custom lists both counted).
+- **Property Listings**: new accounts see Browse Properties and My
+  Properties only; the Add Property button lives on My Properties and leads
+  to lister verification → review message → form (fee payable after
+  submission as before). Fee Payments appears for verified listers;
+  Inquiries/Transactions/Saved Properties appear after the first listing.
+- **Exhibition Hub**: one section. New users see Showcase Product and View
+  Marketplace; Showcase Product now stages guidelines acceptance (persisted
+  via new migration 0067 + exhibitor-onboarding service) → subscription
+  plans → Add Product form (plan purchase grants the exhibitor role). After
+  that the sidebar swaps Showcase Product for My Products (whose page holds
+  the Add Product button) and reveals Saved Products after the first save.
+  Company Profile and the standalone SOWR entry left the sidebar; those
+  routes remain reachable.
+
+**Why** — Keep the member sidebar short for new users, surface links only
+when they become useful, and make job/property/hub journeys self-guiding.
+
+**Verified** — `npm run type-check` passed. Full local build remains blocked
+in this environment (Tailwind native optional binding unavailable); flows
+were reviewed statically, not exercised against production.
+
+**Follow-ups** — Apply migrations 0066 and 0067 before relying on the new
+fields; smoke-test the funnels once deployed.
+
+---
+
 ## 2026-10-29 — Add exhibitor delivery coverage to products
 
 **Changed** — Added nationwide, selected-states and pickup-only delivery choices

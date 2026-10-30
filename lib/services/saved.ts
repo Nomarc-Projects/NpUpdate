@@ -18,6 +18,18 @@ export async function getSavedIds(itemType: SavedType): Promise<string[]> {
   return rows.map((r) => r.itemId);
 }
 
+/** Whether the current user has saved at least one item of a type. Powers the
+ *  progressive reveal of "Saved" tabs in the sidebar/pages. */
+export async function hasSavedItems(itemType: SavedType): Promise<boolean> {
+  const uid = await requireUserId();
+  const rows = await db
+    .select({ id: savedItem.id })
+    .from(savedItem)
+    .where(and(eq(savedItem.userId, uid), eq(savedItem.itemType, itemType)))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /** Toggle a bookmark. Returns the new saved state (true = now saved). */
 export async function toggleSaved(itemType: SavedType, itemId: string): Promise<boolean> {
   const uid = await requireUserId();

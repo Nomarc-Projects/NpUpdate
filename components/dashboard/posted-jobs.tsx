@@ -66,12 +66,12 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
     <div className="px-6 md:px-8 py-6">
       <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-[#1e1e1e] dark:text-white">Posted Jobs</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-[#1e1e1e] dark:text-white">Post Jobs</h1>
           <p className="text-sm text-[#9a9a9a] mt-0.5">Manage your listings and review applicants.</p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setGuidelinesOpen(true)} className="text-[13px] font-medium text-[#6b6b6b] hover:text-[#1e1e1e] dark:text-white/60 dark:hover:text-white transition-colors">View posting guidelines</button>
-          <Link href="/dashboard/jobs/post" className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors"><Plus size={16} /> New Job post</Link>
+          <Link href="/dashboard/jobs/post" className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-sm font-semibold hover:bg-[#e6c114] transition-colors"><Plus size={16} /> New job</Link>
         </div>
       </div>
 
@@ -121,7 +121,7 @@ export function PostedJobs({ jobs = [], initialTab = "active" }: { jobs?: Posted
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white truncate">{j.title}</h3>
+                    <Link href={`/dashboard/jobs/posted/${j.id}`} title="View applicants" className="text-[15px] font-semibold text-[#1e1e1e] dark:text-white truncate hover:text-[#caa400] transition-colors">{j.title}</Link>
                     <StatusBadge tone={j.status === "closed" ? "grey" : "green"}>{j.status === "closed" ? "Closed" : "Active"}</StatusBadge>
                     {j.newApplicants > 0 && <StatusBadge tone="yellow">{j.newApplicants} new</StatusBadge>}
                   </div>

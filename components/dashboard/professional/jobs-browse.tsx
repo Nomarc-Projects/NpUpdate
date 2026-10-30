@@ -600,6 +600,9 @@ export function JobsBrowse({
   items?: JobCard[];
 }) {
   const [overviewJob, setOverviewJob] = useState<JobCard | null>(null);
+  // "Saved" applies only once the user has actually bookmarked a first job —
+  // a fresh account just sees the board.
+  const [tab, setTab] = useState<"all" | "saved">("all");
   const [query, setQuery] = useState("");
   const [sel, setSel] = useState<Record<string, string[]>>({});
   const [locationQuery, setLocationQuery] = useState("");
@@ -620,6 +623,7 @@ export function JobsBrowse({
    * apply buttons break is worse than an empty one.
    */
   const data = items;
+  const savedView = saved || tab === "saved";
   const typed = useTypingPlaceholder(PLACEHOLDER_WORDS, !query);
 
   useEffect(() => {
@@ -644,7 +648,7 @@ export function JobsBrowse({
   const q = query.trim().toLowerCase();
   const loc = locationQuery.trim().toLowerCase();
   const filtered = data.filter((j) => {
-    if (saved && !savedIds.has(j.id)) return false;
+    if (savedView && !savedIds.has(j.id)) return false;
     if (q && !`${j.title} ${j.company} ${j.location} ${j.desc}`.toLowerCase().includes(q)) return false;
     if (loc && !j.location.toLowerCase().includes(loc)) return false;
     const tags = j.tags.map((t) => t.toLowerCase());
@@ -691,15 +695,30 @@ export function JobsBrowse({
     <div className="flex flex-col h-[calc(100dvh-3.5rem)] lg:h-screen min-h-0 overflow-hidden">
       {/* Header */}
       <div className="px-5 sm:px-6 pt-6 pb-4 flex-shrink-0">
-        <h1 className="text-xl sm:text-2xl font-bold text-[#1e1e1e] dark:text-white">{saved ? "Saved Jobs" : "Jobs"}</h1>
-        <p className="text-[13px] text-[#9a9a9a] mt-0.5">{saved ? "Roles you've bookmarked to come back to." : "Discover roles that match your profile."}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#1e1e1e] dark:text-white">{savedView ? "Saved Jobs" : "Jobs"}</h1>
+            <p className="text-[13px] text-[#9a9a9a] mt-0.5">{savedView ? "Roles you've bookmarked to come back to." : "Discover roles that match your profile."}</p>
+          </div>
+          {!saved && initialSaved.length > 0 && (
+            <div className="inline-flex items-center rounded-full border border-[#e3e3e3] dark:border-white/15 p-1">
+              <button onClick={() => setTab("all")} className={cn("rounded-full px-5 py-2 text-[12.5px] font-semibold transition-colors", tab === "all" ? "bg-[#ffd716] text-[#1e1e1e]" : "text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white")}>
+                All
+              </button>
+              <button onClick={() => setTab("saved")} className={cn("inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[12.5px] font-semibold transition-colors", tab === "saved" ? "bg-[#ffd716] text-[#1e1e1e]" : "text-[#6b6b6b] dark:text-white/60 hover:text-[#1e1e1e] dark:hover:text-white")}>
+                Saved
+                <span className={cn("text-[10px]", tab === "saved" ? "text-[#1e1e1e]/60" : "text-[#9a9a9a]")}>{initialSaved.length}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Body */}
       <div className="flex flex-1 min-h-0 overflow-hidden border-t border-[#f0f0f0] dark:border-white/10">
         {/* Desktop filter sidebar */}
         <AnimatePresence initial={false}>
-          {!saved && sidebarOpen && (
+          {!savedView && sidebarOpen && (
             <motion.aside key="sidebar" initial={{ width: 0, opacity: 0 }} animate={{ width: 240, opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: "spring", stiffness: 320, damping: 30 }}
               className="hidden lg:flex flex-col flex-shrink-0 border-r border-[#f0f0f0] dark:border-white/10 overflow-hidden">
               <div className="w-[240px] h-full overflow-y-auto px-5 py-4">
@@ -739,7 +758,7 @@ export function JobsBrowse({
         <div className="flex-1 overflow-y-auto min-w-0">
           <div className="px-5 sm:px-6 py-5">
             {/* Toolbar: filters trigger + search + sort/perpage/view */}
-            {!saved && (
+            {!savedView && (
               <div className="mb-4 flex items-center gap-2.5 flex-wrap">
                 {!sidebarOpen && (
                   <button onClick={() => setSidebarOpen(true)} title="Show filters" className="hidden lg:inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[12.5px] font-medium text-[#6b6b6b] dark:text-white/60 hover:border-[#ffd716] transition-colors flex-shrink-0">
@@ -774,7 +793,7 @@ export function JobsBrowse({
             )}
 
             {/* Active filter chips */}
-            {!saved && activeCount > 0 && (
+            {!savedView && activeCount > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-3">
                 {Object.entries(sel).flatMap(([key, vals]) => vals.map((v) => (
                   <button key={`${key}:${v}`} onClick={() => toggle(key, v)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#fff7cc] dark:bg-[#ffd716]/10 text-[#1e1e1e] dark:text-[#ffd716] text-[11.5px] font-medium border border-[#ffd716]/30 hover:bg-[#ffe566] transition-colors">{v} <X size={10} /></button>
@@ -785,21 +804,21 @@ export function JobsBrowse({
             )}
 
             {/* Count */}
-            {!saved && (
+            {!savedView && (
               <p className="text-[12px] text-[#9a9a9a] mb-3">Showing <span className="font-semibold text-[#1e1e1e] dark:text-white">{sorted.length}</span> {sorted.length === 1 ? "job" : "jobs"}{activeCount > 0 ? " matching your filters" : ""}</p>
             )}
 
             {/* Results */}
             {sorted.length === 0 ? (
               <EmptyState
-                icon={saved ? Bookmark : SearchX}
-                tone={saved ? "yellow" : "grey"}
-                title={saved ? "No saved jobs yet" : "No jobs match"}
-                description={saved ? "Tap the bookmark icon on any role to keep it here for later. Your shortlist stays private and is only visible to you." : "Try adjusting or clearing your filters."}
-                primary={saved ? { label: "Browse jobs", href: "/dashboard/jobs", icon: Search } : (activeCount > 0 ? { label: "Clear filters", onClick: clearAll } : undefined)}
-                secondary={saved ? { label: "View submitted", href: "/dashboard/applications" } : undefined}
+                icon={savedView ? Bookmark : SearchX}
+                tone={savedView ? "yellow" : "grey"}
+                title={savedView ? "No saved jobs yet" : "No jobs match"}
+                description={savedView ? "Tap the bookmark icon on any role to keep it here for later. Your shortlist stays private and is only visible to you." : "Try adjusting or clearing your filters."}
+                primary={savedView ? { label: "Browse jobs", href: "/dashboard/jobs", icon: Search } : (activeCount > 0 ? { label: "Clear filters", onClick: clearAll } : undefined)}
+                secondary={savedView ? { label: "View submitted", href: "/dashboard/applications" } : undefined}
               />
-            ) : saved ? (
+            ) : savedView ? (
               <div className="space-y-3">
                 <AnimatePresence>
                   {sorted.map((j) => <SavedJobCard key={j.id} job={j} onRemove={() => toggleSave(j.id)} />)}
@@ -827,7 +846,7 @@ export function JobsBrowse({
         </div>
 
         {/* Right column (xl): profile OR job preview (inline swap) */}
-        {!saved && (
+        {!savedView && (
           <div className="hidden xl:block w-[300px] flex-shrink-0 border-l border-[#f0f0f0] dark:border-white/10 overflow-hidden">
             <AnimatePresence mode="wait">
               {overviewJob ? (

@@ -1,28 +1,34 @@
 import { redirect } from "next/navigation";
 import { AddProductForm } from "./add-product-form";
-import { ExhibitorGate } from "@/components/dashboard/onboarding/exhibitor-gate";
+import { ExhibitorGuidelinesStep } from "./guidelines-step";
 import { getViewer } from "@/lib/viewer-server";
-import { can } from "@/lib/entitlements";
 import { getExhibitorLimitSummary, getTrialState } from "@/lib/services/exhibitor-trial";
 import { getMyCompany } from "@/lib/services/company";
+import { hasAcceptedExhibitorGuidelines } from "@/lib/services/exhibitor-onboarding";
 
-export const metadata = { title: "Add new product" };
+export const metadata = { title: "Showcase Product" };
 
+/**
+ * Showcase Product funnel, in order: guidelines → subscription plans → the
+ * Add Product form.
+ *
+ * - A user who has never accepted the guidelines (and doesn't hold the
+ *   exhibitor role, which they could only have gotten by already accepting
+ *   them during onboarding) sees the guidelines first.
+ * - Accepted users without an active, unexpired plan are sent to the
+ *   exhibitor plans screen; a settled purchase grants the exhibitor role
+ *   (billing → setRolePlan) and the verify page routes back here.
+ * - With a plan active the Add Product form renders; the user is an exhibitor.
+ */
 export default async function AddProductPage() {
   const viewer = await getViewer();
-  if (!can(viewer, "exhibitorDashboard")) {
-    return (
-      <ExhibitorGate
-        title="Become an Exhibitor to add products"
-        description="Add your company name and primary industry to open your showroom — takes less than a minute."
-      />
-    );
+  const isExhibitor = viewer.heldRoles.has("exhibitor") || viewer.activeRole === "exhibitor";
+  if (!isExhibitor && !(await hasAcceptedExhibitorGuidelines())) {
+    return <ExhibitorGuidelinesStep />;
   }
 
-  // Plan selection comes after account setup: nobody reaches the upload form
-  // without an active, unexpired paid plan. The dashboard routes here as a
-  // courtesy, but the URL is typeable — so the gate is enforced again on the
-  // way in, and createProduct/setProductStatus enforce it independently.
+  // Same server-side plan gate as before — createProduct/setProductStatus
+  // enforce it independently, since the URL is typeable.
   const trial = await getTrialState().catch(() => null);
   if (!trial?.subscribed) redirect("/dashboard/plans/exhibitor");
 

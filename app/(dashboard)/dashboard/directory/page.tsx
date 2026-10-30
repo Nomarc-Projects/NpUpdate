@@ -6,6 +6,7 @@ import { listCatalogue } from "@/lib/services/directory-catalogue";
 import { getViewer } from "@/lib/viewer-server";
 import { can } from "@/lib/entitlements";
 
+export const metadata = { title: "Connect" };
 export const dynamic = "force-dynamic";
 
 export default async function DirectoryPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
@@ -16,8 +17,8 @@ export default async function DirectoryPage({ searchParams }: { searchParams: Pr
   if (!can(viewer, "jobBoard")) {
     return (
       <ProfessionalGate
-        title="Complete your profile to see the directory"
-        description="A quick headline and bio unlocks the directory — takes less than a minute."
+        title="Complete your profile to open Connect"
+        description="A quick headline and bio unlocks Connect — takes less than a minute."
       />
     );
   }

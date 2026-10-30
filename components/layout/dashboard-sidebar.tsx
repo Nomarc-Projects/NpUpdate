@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
-  Upload, FileText, User, BookmarkCheck, PlusCircle,
+  Upload, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Sparkles, Handshake,
+  Bell, Sun, Moon, Package, Store, Boxes, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Handshake,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -39,54 +39,64 @@ const secondary: Group = {
   ],
 };
 
-/* The menu, exactly as specified: two top-level entries, then three titled
- * sections. Deliberately role-agnostic — every doorway is always visible, so
- * no role switch can ever hide a destination. Utility links (notifications,
- * settings, support) stay pinned at the bottom under a divider.
+/* The menu: two top-level entries, Directory, then the role journeys.
+ *
+ * Jobs groups both hiring goals (hire / get hired). The Property Listings and
+ * Exhibition Hub sections reveal tabs progressively — props computed in the
+ * dashboard layout decide what this user has actually done, so a new account
+ * never faces a long panel of links it can't use yet. Utility links
+ * (notifications, settings, support) stay pinned at the bottom.
  */
 const navGroups: Group[] = [
   {
     items: [
-      { label: "Dashboard", href: "/dashboard",          icon: LayoutGrid },
-      { label: "Messages",  href: "/dashboard/messages", icon: MessageSquare },
+      { label: "Dashboard", href: "/dashboard",           icon: LayoutGrid },
+      { label: "Messages",  href: "/dashboard/messages",  icon: MessageSquare },
+      { label: "Connect", href: "/dashboard/directory", icon: User },
     ],
   },
-  { title: "Directory", items: [
-    { label: "Directory",           href: "/dashboard/directory",          icon: User },
-    { label: "Find professionals",  href: "/dashboard/find-professionals", icon: Search },
-    { label: "Saved Profile",       href: "/dashboard/people/saved",       icon: BookmarkCheck },
-  ]},
   { title: "Jobs", items: [
-    { label: "Find Jobs",    href: "/dashboard/jobs",          icon: Search },
-    { label: "Post Jobs",    href: "/dashboard/jobs/post",     icon: PlusCircle },
-    { label: "Posted Jobs",  href: "/dashboard/jobs/posted",   icon: Briefcase },
-    { label: "Draft",        href: "/dashboard/jobs/posted/drafts", icon: FileText },
-    { label: "Applications", href: "/dashboard/applications",  icon: Upload },
-    { label: "Saved jobs",   href: "/dashboard/jobs/saved",    icon: Bookmark },
+    { label: "Find Jobs",          href: "/dashboard/jobs",                icon: Search },
+    { label: "Post Jobs",          href: "/dashboard/jobs/posted",         icon: Briefcase },
+    { label: "Find Professionals", href: "/dashboard/find-professionals",  icon: User },
+    { label: "Applications",       href: "/dashboard/applications",        icon: Upload },
   ]},
-  { title: "Property Listings", items: [
-    { label: "Browse Properties", href: "/properties",             icon: Building2 },
-    { label: "Add Property",      href: "/dashboard/properties/new", icon: PlusCircle },
-    { label: "My Properties",     href: "/dashboard/properties/listings", icon: House },
-    { label: "Fee Payments",      href: "/dashboard/properties/purchases", icon: CreditCard },
-    { label: "Transactions",      href: "/dashboard/properties/transactions", icon: Handshake },
-    { label: "Inquiries",         href: "/dashboard/properties/inquiries", icon: Inbox },
-    { label: "Saved Properties",  href: "/dashboard/properties/saved", icon: Bookmark },
-    { label: "SOWR Program",      href: "/properties/sowr", icon: Sparkles },
-  ]},
-  { title: "Marketplace", items: [
-    { label: "View Marketplace", href: "/exhibition-hub",           icon: Package },
-    { label: "Saved Product",    href: "/dashboard/products/saved", icon: Bookmark },
-    { label: "Showcase Product", href: "/dashboard/my-products",    icon: Store },
-  ]},
-  { title: "Exhibitor", items: [
-    { label: "Add Product",    href: "/dashboard/add-product",    icon: Plus },
-    { label: "My Products",    href: "/dashboard/my-products",    icon: Package },
-    { label: "Company Profile", href: "/dashboard/company",       icon: Store },
-    { label: "Plans & Billing", href: "/dashboard/plans/exhibitor", icon: CreditCard },
-  ]},
-  secondary,
 ];
+
+/** Property Listings tabs — reveals with the user's progress. */
+function propertyListingGroup(listerVerified: boolean, hasPropertyListing: boolean): Group {
+  return {
+    title: "Property Listings",
+    items: [
+      { label: "Browse Properties", href: "/properties",                    icon: Building2 },
+      { label: "My Properties",     href: "/dashboard/properties/listings", icon: House },
+      ...(listerVerified ? ([{ label: "Fee Payments", href: "/dashboard/properties/purchases", icon: CreditCard }] as Item[]) : []),
+      ...(hasPropertyListing ? ([
+        { label: "Inquiries",         href: "/dashboard/properties/inquiries",     icon: Inbox },
+        { label: "Transactions",      href: "/dashboard/properties/transactions",  icon: Handshake },
+        { label: "Saved Properties",  href: "/dashboard/properties/saved",         icon: Bookmark },
+      ] as Item[]) : []),
+    ],
+  };
+}
+
+/** One Exhibition Hub section — the buyer path (View Marketplace) plus the
+ *  seller path, which unlocks at Showcase Product → subscription → catalog. */
+function exhibitionHubGroup(exhibitorUnlocked: boolean, hasSavedProduct: boolean): Group {
+  const items: Item[] = [];
+  if (exhibitorUnlocked) {
+    items.push({ label: "My Products", href: "/dashboard/my-products", icon: Package });
+    items.push({ label: "View Marketplace", href: "/exhibition-hub", icon: Boxes });
+    if (hasSavedProduct) items.push({ label: "Saved Products", href: "/dashboard/products/saved", icon: Bookmark });
+  } else {
+    // Showcase Product walks a new user through guidelines → plans → add form;
+    // once they become an exhibitor the tab is replaced by My Products, whose
+    // page carries the Add Product button.
+    items.push({ label: "Showcase Product", href: "/dashboard/add-product", icon: Store });
+    items.push({ label: "View Marketplace", href: "/exhibition-hub", icon: Package });
+  }
+  return { title: "Exhibition Hub", items };
+}
 
 function initials(name: string) {
   return name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "NM";
@@ -145,16 +155,33 @@ function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapse
   );
 }
 
-function SidebarInner({ collapsed, exhibitionEnabled, propertiesEnabled, onNavigate }: { collapsed: boolean; exhibitionEnabled: boolean; propertiesEnabled: boolean; onNavigate?: () => void }) {
+function SidebarInner({
+  collapsed, exhibitionEnabled, propertiesEnabled,
+  exhibitorUnlocked, hasSavedProduct, listerVerified, hasPropertyListing, hasSubmittedApplication,
+  onNavigate,
+}: {
+  collapsed: boolean; exhibitionEnabled: boolean; propertiesEnabled: boolean;
+  exhibitorUnlocked: boolean; hasSavedProduct: boolean; listerVerified: boolean;
+  hasPropertyListing: boolean; hasSubmittedApplication: boolean; onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
-  // The super-admin Exhibition Hub availability toggle decides whether members
-  // see the Exhibition Hub doorways. Off = withheld from the sidebar; on = shown.
-  const nav = navGroups.filter((g) =>
-    (exhibitionEnabled || g.title !== "Marketplace") &&
-    (propertiesEnabled || g.title !== "Property Listings"),
+  // Applications belongs only to users who have submitted one; Post Jobs opens
+  // the merged Posted Jobs screen (Active / Drafts / Closed tabs). Property
+  // Listings and Exhibition Hub tabs reveal progressively (super-admin toggles
+  // withhold their whole journey when off — routes stay reachable).
+  const baseGroups = navGroups.map((g) =>
+    g.title === "Jobs"
+      ? { ...g, items: g.items.filter((i) => hasSubmittedApplication || i.label !== "Applications") }
+      : g,
   );
+  const nav = [
+    ...baseGroups,
+    ...(propertiesEnabled ? [propertyListingGroup(listerVerified, hasPropertyListing)] : []),
+    ...(exhibitionEnabled ? [exhibitionHubGroup(exhibitorUnlocked, hasSavedProduct)] : []),
+    secondary,
+  ];
   const name = user?.name || "My Account";
   const email = user?.email || "";
   // Only the single best (longest) prefix match is active, so e.g.
@@ -300,7 +327,14 @@ function SidebarInner({ collapsed, exhibitionEnabled, propertiesEnabled, onNavig
   );
 }
 
-export function DashboardSidebar({ exhibitionEnabled, propertiesEnabled }: { exhibitionEnabled: boolean; propertiesEnabled: boolean }) {
+export function DashboardSidebar({
+  exhibitionEnabled, propertiesEnabled,
+  exhibitorUnlocked, hasSavedProduct, listerVerified, hasPropertyListing, hasSubmittedApplication,
+}: {
+  exhibitionEnabled: boolean; propertiesEnabled: boolean;
+  exhibitorUnlocked: boolean; hasSavedProduct: boolean; listerVerified: boolean;
+  hasPropertyListing: boolean; hasSubmittedApplication: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -339,7 +373,16 @@ export function DashboardSidebar({ exhibitionEnabled, propertiesEnabled }: { exh
             <button onClick={() => { if (collapsed) { setCollapsed(false); } else { setCollapsed(true); setHovered(false); } }} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label={collapsed ? "Pin sidebar open" : "Collapse sidebar"}>{collapsed ? <PanelLeft size={18} /> : <PanelLeftClose size={18} />}</button>
           </div>
         )}
-        <SidebarInner collapsed={!expanded} exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} />
+        <SidebarInner
+          collapsed={!expanded}
+          exhibitionEnabled={exhibitionEnabled}
+          propertiesEnabled={propertiesEnabled}
+          exhibitorUnlocked={exhibitorUnlocked}
+          hasSavedProduct={hasSavedProduct}
+          listerVerified={listerVerified}
+          hasPropertyListing={hasPropertyListing}
+          hasSubmittedApplication={hasSubmittedApplication}
+        />
       </aside>
 
       {/* mobile top bar */}
@@ -380,7 +423,17 @@ export function DashboardSidebar({ exhibitionEnabled, propertiesEnabled }: { exh
                 <Link href="/" onClick={() => setMobileOpen(false)} aria-label="Nomarc home"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /></Link>
                 <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
               </div>
-              <SidebarInner collapsed={false} exhibitionEnabled={exhibitionEnabled} propertiesEnabled={propertiesEnabled} onNavigate={() => setMobileOpen(false)} />
+              <SidebarInner
+                collapsed={false}
+                exhibitionEnabled={exhibitionEnabled}
+                propertiesEnabled={propertiesEnabled}
+                exhibitorUnlocked={exhibitorUnlocked}
+                hasSavedProduct={hasSavedProduct}
+                listerVerified={listerVerified}
+                hasPropertyListing={hasPropertyListing}
+                hasSubmittedApplication={hasSubmittedApplication}
+                onNavigate={() => setMobileOpen(false)}
+              />
             </motion.aside>
           </div>
         )}

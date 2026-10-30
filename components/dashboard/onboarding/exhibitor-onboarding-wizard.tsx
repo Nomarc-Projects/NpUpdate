@@ -39,6 +39,39 @@ const PRODUCT_CATEGORIES = [
   "Safety (PPE)",
 ];
 
+export type GuidelineSection = { title: string; items: [string, string][] };
+
+/** Single source of the guideline copy — rendered here and by the Add Product
+ *  guidelines step so the two never drift. */
+export const EXHIBITOR_GUIDELINE_SECTIONS: GuidelineSection[] = [
+  {
+    title: "Profile & Catalog Requirements (The Basics)",
+    items: [
+      ["Accurate Identity", "Your company name, headquarters, and operational details must accurately reflect your legally registered business entity."],
+      ["Clear Product Specifications", "When listing products or heavy machinery, provide accurate technical specifications, material grades, and variations. Vague or deceptive descriptions are prohibited."],
+      ["Verifiable Credentials", "Any professional certifications you highlight on your company profile (e.g., ISO 9001:2015, SONCAP) must be current and verifiable."],
+      ["Inventory & Fulfillment Transparency", "Ensure your product availability statuses (e.g., “In Stock”) are kept up-to-date. If you are a supplier handling high-volume procurement, realistically represent your output capacity."],
+    ],
+  },
+  {
+    title: "Prohibited Content & Practices",
+    items: [
+      ["Counterfeit & Substandard Materials", "Listing counterfeit construction materials, uncertified heavy machinery, or materials that fail to meet recognized regional safety standards is strictly prohibited."],
+      ["Misrepresentation", "Do not misrepresent your company's size, primary industry, manufacturing capabilities, or identity."],
+      ["Bait-and-Switch Tactics", "Advertising materials at artificially low prices to attract quote requests, or delivering lower-tier materials than what was listed on your profile, will not be tolerated."],
+      ["Spam & Unsolicited Outreach", "Do not use the platform directory or messaging tools to spam professionals with irrelevant sales pitches or duplicate promotional messages."],
+    ],
+  },
+  {
+    title: "Trust, Verification & Enforcement",
+    items: [
+      ["Mandatory Identity Verification", "To fully activate your exhibitor profile and build instant credibility, you must submit legitimate business documents (CAC Certificate, CAC Status Report, TIN, and Valid Primary Contact ID) for Tier 2 review."],
+      ["Catalog Suspensions", "The platform administration reserves the right to review, edit, hide, or suspend any product listing or company profile that violates these guidelines."],
+      ["Account Action", "Serious violations, such as fraud, uploading forged CAC/TIN documents, or repeated reports of substandard materials, will result in the immediate revocation of your Trust Badge, removal of your product catalog, and permanent account closure."],
+    ],
+  },
+];
+
 /**
  * 4-step exhibitor onboarding: guidelines → business identity (name, address,
  * size, type, about, categories) → documents (logo, registration number, CAC
@@ -164,23 +197,9 @@ export function ExhibitorOnboardingWizard() {
                       <p>By setting up an exhibitor profile and listing products, you agree to maintain these practices.</p>
                     </div>
 
-                    <GuideSection title="Profile & Catalog Requirements (The Basics)" items={[
-                      ["Accurate Identity", "Your company name, headquarters, and operational details must accurately reflect your legally registered business entity."],
-                      ["Clear Product Specifications", "When listing products or heavy machinery, provide accurate technical specifications, material grades, and variations. Vague or deceptive descriptions are prohibited."],
-                      ["Verifiable Credentials", "Any professional certifications you highlight on your company profile (e.g., ISO 9001:2015, SONCAP) must be current and verifiable."],
-                      ["Inventory & Fulfillment Transparency", "Ensure your product availability statuses (e.g., “In Stock”) are kept up-to-date. If you are a supplier handling high-volume procurement, realistically represent your output capacity."],
-                    ]} />
-                    <GuideSection title="Prohibited Content & Practices" items={[
-                      ["Counterfeit & Substandard Materials", "Listing counterfeit construction materials, uncertified heavy machinery, or materials that fail to meet recognized regional safety standards is strictly prohibited."],
-                      ["Misrepresentation", "Do not misrepresent your company's size, primary industry, manufacturing capabilities, or identity."],
-                      ["Bait-and-Switch Tactics", "Advertising materials at artificially low prices to attract quote requests, or delivering lower-tier materials than what was listed on your profile, will not be tolerated."],
-                      ["Spam & Unsolicited Outreach", "Do not use the platform directory or messaging tools to spam professionals with irrelevant sales pitches or duplicate promotional messages."],
-                    ]} />
-                    <GuideSection title="Trust, Verification & Enforcement" items={[
-                      ["Mandatory Identity Verification", "To fully activate your exhibitor profile and build instant credibility, you must submit legitimate business documents (CAC Certificate, CAC Status Report, TIN, and Valid Primary Contact ID) for Tier 2 review."],
-                      ["Catalog Suspensions", "The platform administration reserves the right to review, edit, hide, or suspend any product listing or company profile that violates these guidelines."],
-                      ["Account Action", "Serious violations, such as fraud, uploading forged CAC/TIN documents, or repeated reports of substandard materials, will result in the immediate revocation of your Trust Badge, removal of your product catalog, and permanent account closure."],
-                    ]} />
+                    {EXHIBITOR_GUIDELINE_SECTIONS.map((section) => (
+                      <GuideSection key={section.title} title={section.title} items={section.items} />
+                    ))}
 
                     <label className="mt-7 flex items-start gap-2.5 text-[13px] text-[#3d3d3d] dark:text-white/70">
                       <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#ffd716]" />

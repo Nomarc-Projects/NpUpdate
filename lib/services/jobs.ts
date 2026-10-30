@@ -242,6 +242,23 @@ export async function deleteJob(jobId: string) {
   revalidatePath("/dashboard/jobs");
 }
 
+/** Whether the user has submitted at least one application. Powers the
+ *  progressive reveal of the Applications dashboard entry — a brand-new job
+ *  seeker has nothing there yet. Drafts don't count; "applies" means sent. */
+export async function hasSubmittedApplication(): Promise<boolean> {
+  try {
+    const uid = await requireUserId();
+    const rows = await db
+      .select({ id: application.id })
+      .from(application)
+      .where(and(eq(application.applicantUserId, uid), eq(application.draft, false)))
+      .limit(1);
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export async function getJobApplicants(jobId: string): Promise<{ jobTitle: string; applicants: Applicant[] } | null> {
   const uid = await requireUserId();
   const [j] = await db.select().from(job).where(and(eq(job.id, jobId), eq(job.ownerUserId, uid))).limit(1);

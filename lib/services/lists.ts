@@ -33,6 +33,19 @@ export async function getMyLists(): Promise<ListWithCount[]> {
   return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString(), updatedAt: r.updatedAt.toISOString() }));
 }
 
+/** IDs of a given item type the user has added to ANY of their lists. Powers
+ *  the Find Professionals "Saved" tab — the bookmark on that page saves to
+ *  lists, unlike the products/jobs bookmarks which write saved_item. */
+export async function getMyListedItemIds(itemType: "professional" | "company"): Promise<string[]> {
+  const uid = await requireUserId();
+  const res = await db.execute(sql`
+    SELECT DISTINCT ${listItem.itemId} AS item_id
+    FROM ${listItem} JOIN ${list} ON ${list.id} = ${listItem.listId}
+    WHERE ${list.userId} = ${uid} AND ${listItem.itemType} = ${itemType}
+  `);
+  return (res.rows as { item_id: string }[]).map((r) => r.item_id);
+}
+
 export async function createList(name: string, description?: string): Promise<string> {
   const uid = await requireUserId();
   const clean = name.trim();

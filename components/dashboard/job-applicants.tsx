@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Users, X, FileText, Link as LinkIcon, Linkedin, MessageSquare, Search } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Briefcase, GraduationCap, Loader2, Users, X, FileText, Link as LinkIcon, Linkedin, MessageSquare, Search } from "lucide-react";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { setApplicationStatus, type Applicant } from "@/lib/services/jobs";
+import { getProfessionalDetail, type ProDetail } from "@/lib/services/directory";
 import { r2Url } from "@/lib/r2-public";
 
 const APPLICATION_STAGES = ["applied", "shortlisted", "interview", "offer", "hired", "rejected"] as const;
@@ -54,6 +55,9 @@ export function JobApplicants({ jobId, jobTitle, applicants = [] }: { jobId: str
   const [filter, setFilter] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [, start] = useTransition();
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<ProDetail | null>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   const q = query.trim().toLowerCase();
   const visible = list.filter((a) =>
@@ -61,6 +65,12 @@ export function JobApplicants({ jobId, jobTitle, applicants = [] }: { jobId: str
     (!q || `${a.name} ${a.headline}`.toLowerCase().includes(q)),
   );
   const countFor = (s: string) => (s === "all" ? list.length : list.filter((a) => a.status === s).length);
+
+  function openProfile(id: string) {
+    setProfileId(id); setProfile(null); setProfileLoading(true);
+    getProfessionalDetail(id).then((d) => setProfile(d)).catch(() => { setProfileId(null); toast.error("Couldn't load profile"); })
+      .finally(() => setProfileLoading(false));
+  }
 
   const changeStatus = (id: string, label: string) => {
     const stage = labelToStage(label);
@@ -123,6 +133,7 @@ export function JobApplicants({ jobId, jobTitle, applicants = [] }: { jobId: str
               <div className="mt-3 flex items-center justify-between gap-3 flex-wrap">
                 <div className="w-[170px]"><SelectMenu value={STAGE_LABEL[a.status]} options={STAGE_OPTIONS} onChange={(l) => changeStatus(a.id, l)} /></div>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => openProfile(a.userId)} className="px-4 py-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-medium text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">View profile</button>
                   <button onClick={() => setActive(a)} className="px-4 py-1.5 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-medium text-[#1e1e1e] dark:text-white hover:bg-[#f7f7f7] dark:hover:bg-white/5 transition-colors">View application</button>
                   <button onClick={() => router.push(`/dashboard/messages?to=${a.userId}`)} className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><MessageSquare size={14} /> Message</button>
                 </div>
@@ -133,6 +144,60 @@ export function JobApplicants({ jobId, jobTitle, applicants = [] }: { jobId: str
           )}
         </>
       )}
+
+      {/* applicant profile slide-over */}
+      <AnimatePresence>
+        {profileId && (
+          <div className="fixed inset-0 z-[90]">
+            <motion.div className="absolute inset-0 bg-black/40" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setProfileId(null)} />
+            <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 280 }}
+              className="absolute right-0 top-0 h-full w-full max-w-[460px] bg-white dark:bg-[#1e1e1e] shadow-2xl flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#ececec] dark:border-white/10">
+                <h3 className="text-base font-bold text-[#1e1e1e] dark:text-white">Applicant profile</h3>
+                <button onClick={() => setProfileId(null)} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={18} /></button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {profileLoading || !profile ? (
+                  <div className="flex items-center justify-center py-20 text-[#9a9a9a]"><Loader2 className="animate-spin" size={22} /></div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={profile.avatarUrl || r2Url("site/photo-1494790108377-be9c29b29330.jpg")} alt={profile.name} className="w-12 h-12 rounded-full object-cover" />
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5"><p className="text-sm font-bold text-[#1e1e1e] dark:text-white">{profile.name}</p>{profile.verified && <BadgeCheck size={15} className="text-[#0369a1] flex-shrink-0" />}</div>
+                        <p className="text-[12px] text-[#9a9a9a] truncate">{[profile.headline, profile.location].filter(Boolean).join(" • ")}</p>
+                        {profile.availability && <p className="text-[11px] font-medium text-[#16803c] dark:text-[#4ade80]">{profile.availability}</p>}
+                      </div>
+                    </div>
+                    <button onClick={() => router.push(`/dashboard/messages?to=${profile.id}`)} className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#ffd716] text-[#1e1e1e] text-[13px] font-semibold hover:bg-[#e6c114] transition-colors"><MessageSquare size={15} /> Message {profile.name.split(" ")[0] || "them"}</button>
+                    {profile.about && <section><h4 className="text-[12.5px] font-bold text-[#1e1e1e] dark:text-white mb-1.5">About</h4><p className="text-[13px] leading-relaxed text-[#6b6b6b] dark:text-white/60">{profile.about}</p></section>}
+                    {profile.experience.length > 0 && (
+                      <section><h4 className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#1e1e1e] dark:text-white mb-1.5"><Briefcase size={13} /> Experience</h4>
+                        <ul className="space-y-1.5">{profile.experience.slice(0, 5).map(([role, span], i) => (
+                          <li key={i} className="rounded-lg bg-[#fafafa] dark:bg-white/[0.03] px-3 py-2 text-[12.5px]"><span className="font-medium text-[#1e1e1e] dark:text-white/85">{role}</span><span className="ml-2 text-[#9a9a9a]">{span}</span></li>
+                        ))}</ul>
+                      </section>
+                    )}
+                    {profile.education.length > 0 && (
+                      <section><h4 className="flex items-center gap-1.5 text-[12.5px] font-bold text-[#1e1e1e] dark:text-white mb-1.5"><GraduationCap size={13} /> Education</h4>
+                        <ul className="space-y-1.5">{profile.education.slice(0, 4).map(([school, span], i) => (
+                          <li key={i} className="rounded-lg bg-[#fafafa] dark:bg-white/[0.03] px-3 py-2 text-[12.5px]"><span className="font-medium text-[#1e1e1e] dark:text-white/85">{school}</span><span className="ml-2 text-[#9a9a9a]">{span}</span></li>
+                        ))}</ul>
+                      </section>
+                    )}
+                    {profile.skills.length > 0 && (
+                      <section><h4 className="text-[12.5px] font-bold text-[#1e1e1e] dark:text-white mb-1.5">Skills</h4>
+                        <div className="flex flex-wrap gap-1.5">{profile.skills.map((skill) => <span key={skill} className="rounded-full border border-[#e3e3e3] dark:border-white/10 px-2.5 py-1 text-[11px] text-[#6b6b6b] dark:text-white/70">{skill}</span>)}</div>
+                      </section>
+                    )}
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* application slide-over */}
       <AnimatePresence>
