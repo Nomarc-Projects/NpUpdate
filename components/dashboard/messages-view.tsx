@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, MessageSquare, ArrowLeft, ArrowDown, Loader2, Check, CheckCheck, Clock, ExternalLink, UserPlus, FileText, Download, MoreVertical, Info, Wifi, X } from "lucide-react";
 import { NomarcAvatar } from "@/components/ui/avatar";
-import { getThread, sendMessage, archiveConversation, type ConvoSummary, type ChatThread, type ChatMessage, type MessageType } from "@/lib/services/messaging";
+import { getThread, markConversationRead, sendMessage, archiveConversation, type ConvoSummary, type ChatThread, type ChatMessage, type MessageType } from "@/lib/services/messaging";
 import { enqueue, dequeue, getPending } from "@/lib/offline-queue";
 import { RichBubbleContent } from "./rich-bubble";
 import { DocumentPicker, MediaPicker, CameraCapture, VoiceRecorder, ContactPicker, PollBuilder, EventBuilder } from "./chat-attachments";
@@ -103,6 +103,9 @@ export function MessagesView({ conversations = [], initialActiveId, people = [] 
     try {
       const t = await getThread(id);
       setThread(t);
+      // An open thread IS the reading surface — clear its unread state and
+      // nudge the sidebar badges immediately (they poll every 15s otherwise).
+      markConversationRead(id).then(() => window.dispatchEvent(new Event("nm-unread-changed"))).catch(() => {});
     } catch { /* ignore poll errors */ }
     finally { if (withSpinner) setLoading(false); }
   }, []);

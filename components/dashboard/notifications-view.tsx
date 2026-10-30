@@ -19,12 +19,12 @@ export function NotificationsView({ notifications = [] }: { notifications?: Noti
   const anyUnread = list.some((n) => !n.read);
 
   const open = (n: NotificationRow) => {
-    if (!n.read) { setList((l) => l.map((x) => (x.id === n.id ? { ...x, read: true } : x))); markNotificationRead(n.id).then(() => router.refresh()).catch(() => {}); }
+    if (!n.read) { setList((l) => l.map((x) => (x.id === n.id ? { ...x, read: true } : x))); markNotificationRead(n.id).then(() => { router.refresh(); window.dispatchEvent(new Event("nm-unread-changed")); }).catch(() => {}); }
     if (n.href) router.push(n.href);
   };
   const markAll = () => {
     setList((l) => l.map((x) => ({ ...x, read: true })));
-    markAllNotificationsRead().then(() => router.refresh()).catch(() => toast.error("Failed"));
+    markAllNotificationsRead().then(() => { router.refresh(); window.dispatchEvent(new Event("nm-unread-changed")); }).catch(() => toast.error("Failed"));
   };
   const remove = (id: string) => {
     const prev = list; setList((l) => l.filter((x) => x.id !== id));

@@ -143,7 +143,7 @@ function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapse
       </span>
       {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
       {!collapsed && item.badge && (
-        <span className="flex-shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-[#ef4444] text-white text-[11px] font-bold flex items-center justify-center">{item.badge}</span>
+        <span className="flex-shrink-0 min-w-[24px] h-5 px-1.5 rounded-full bg-[#ef4444] text-white text-[11px] font-bold flex items-center justify-center">{item.badge > 9 ? "9+" : item.badge}</span>
       )}
       {/* collapsed tooltip */}
       {collapsed && (
@@ -207,7 +207,15 @@ function SidebarInner({
     };
     tick();
     const t = setInterval(tick, 15000);
-    return () => { alive = false; clearInterval(t); };
+    // Reading surfaces (Messages thread, notification list) broadcast this —
+    // re-tick right away so the badge drops without waiting for the poll.
+    const onUnreadChange = () => tick();
+    window.addEventListener("nm-unread-changed", onUnreadChange);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      window.removeEventListener("nm-unread-changed", onUnreadChange);
+    };
   }, [pathname]);
   const badgeFor = (href: string) =>
     href === "/dashboard/messages" && unread > 0 ? unread

@@ -186,6 +186,25 @@ functions" into review habit; tsc can't catch it.
 
 ---
 
+## 2026-10-30 — Live unread badges on the sidebar
+
+**Changed** — Sidebar badges now behave as true unread counters: opening a
+thread in Messages marks that conversation read (`markConversationRead` — the
+first writer of message.read_at) and broadcasts `nm-unread-changed`, on which
+the sidebar re-polls instantly instead of waiting for its 15s cycle; the
+notification actions in the dashboard header and notifications page broadcast
+the same event; and badge values cap at "9+" instead of pushing the pill
+wider.
+
+**Why** — The Messages badge never cleared because nothing wrote read_at;
+the rest is polish for the same badge system.
+
+**Verified** — `npm run type-check` passed; CI build gate watched after push.
+
+**Follow-ups** — None known.
+
+---
+
 ## 2026-10-29 — Add exhibitor delivery coverage to products
 
 **Changed** — Added nationwide, selected-states and pickup-only delivery choices

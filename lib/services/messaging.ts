@@ -1,6 +1,6 @@
 "use server";
 
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, ne, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { conversation, conversationParticipant, message } from "@/lib/db/schema";
@@ -205,6 +205,25 @@ export async function archiveConversation(conversationId: string, archived: bool
   await db.update(conversationParticipant).set({ archived })
     .where(and(eq(conversationParticipant.conversationId, conversationId), eq(conversationParticipant.userId, uid)));
   revalidatePath("/dashboard/messages");
+}
+
+/**
+ * Marks every incoming message of a conversation as read for the current
+ * participant. Called as the active thread is viewed (MessagesView reloads the
+ * open thread every few seconds, so calling this alongside is idempotent — the
+ * update only touches rows where read_at is still NULL). Without this the
+ * sidebar's unread badge never cleared, since nothing ever wrote read_at.
+ */
+export async function markConversationRead(conversationId: string): Promise<void> {
+  const uid = await requireUserId();
+  await assertParticipant(conversationId, uid);
+  await db.update(message).set({ readAt: new Date() }).where(
+    and(
+      eq(message.conversationId, conversationId),
+      ne(message.senderUserId, uid),
+      isNull(message.readAt),
+    ),
+  );
 }
 
 export async function getUnreadCount(): Promise<number> {

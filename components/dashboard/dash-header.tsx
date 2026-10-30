@@ -63,13 +63,13 @@ function NotificationBell({ count }: { count: number }) {
 
   async function handleMarkAllRead() {
     setNotes((prev) => prev.map((n) => ({ ...n, read: true })));
-    await markAllNotificationsRead().catch(() => {});
+    await markAllNotificationsRead().then(() => window.dispatchEvent(new Event("nm-unread-changed"))).catch(() => {});
   }
 
   async function handleClick(n: NotificationRow) {
     if (!n.read) {
       setNotes((prev) => prev.map((x) => x.id === n.id ? { ...x, read: true } : x));
-      markNotificationRead(n.id).catch(() => {});
+      markNotificationRead(n.id).then(() => window.dispatchEvent(new Event("nm-unread-changed"))).catch(() => {});
     }
     if (n.href) { setOpen(false); window.location.href = n.href; }
   }
