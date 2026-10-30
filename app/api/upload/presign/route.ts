@@ -54,17 +54,20 @@ export async function POST(req: Request) {
   if (frozen) return frozen;
 
   const { kind = "doc", contentType = "", size = 0 } = await req.json().catch(() => ({}));
+  // Recorded blobs arrive as "audio/webm;codecs=opus" etc. — compare and sign
+  // the BASE type, or every voice note fails the allow-list check.
+  const mime = String(contentType).split(";")[0].trim().toLowerCase();
   const isPrivate = PRIVATE_KINDS.has(kind);
   if (isPrivate ? !r2PrivateConfigured : !r2Configured) {
     return NextResponse.json({ error: "Uploads are not configured yet." }, { status: 503 });
   }
 
   const allowed = RULES[kind] ?? RULES.doc;
-  if (!allowed.includes(contentType)) return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+  if (!allowed.includes(mime)) return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
   if (typeof size === "number" && size > MAX_BYTES) return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 400 });
 
   // Key is namespaced by user id, so ownership is verifiable from the key alone.
-  const key = `${kind}/${uid}/${Date.now()}-${slug()}.${EXT[contentType] ?? "bin"}`;
+  const key = `${kind}/${uid}/${Date.now()}-${slug()}.${EXT[mime] ?? "bin"}`;
 
   if (isPrivate) {
     // No publicUrl — private objects are only ever read via an ownership-checked
@@ -81,6 +84,6 @@ export async function POST(req: Request) {
     forcePathStyle,
     credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID!, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY! },
   });
-  const uploadUrl = await getSignedUrl(s3, new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key, ContentType: contentType }), { expiresIn: 60 });
+  const uploadUrl = await getSignedUrl(s3, new PutObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key, ContentType: mime }), { expiresIn: 60 });
   return NextResponse.json({ uploadUrl, publicUrl: publicUrl(key), key });
 }

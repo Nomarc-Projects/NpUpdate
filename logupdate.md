@@ -219,6 +219,31 @@ itself is unchanged.
 
 ---
 
+## 2026-10-30 — Fix voice notes rejected as unsupported
+
+**Changed** — Voice notes no longer fail with "Unsupported file type":
+browsers stamp recordings with a codec suffix ("audio/webm;codecs=opus"),
+which the upload allow-lists compared verbatim. The presign route now
+normalizes the reported type to its base MIME before the check and signs the
+PUT with the same base type; upload-client strips the suffix for both the
+presign body and the PUT header so the signature matches; and the
+/api/upload fallback gained the missing chat kind (image + audio) so voice
+notes survive the fallback path too.
+
+**Why** — The recorder on Chrome/Android emits the suffixed type, so every
+voice note was rejected server-side; iOS (audio/mp4) worked, which is why it
+looked device-specific.
+
+**Verified** — `npm run type-check` passed. Playback renders through the
+existing audio bubble. Cross-device playback (webm recorded on desktop
+played in iOS Safari) still needs a transcode layer and remains out of
+scope — same-device record→send→play works on both.
+
+**Follow-ups** — Optional server-side transcode if cross-device playback
+matters.
+
+---
+
 ## 2026-10-29 — Add exhibitor delivery coverage to products
 
 **Changed** — Added nationwide, selected-states and pickup-only delivery choices
