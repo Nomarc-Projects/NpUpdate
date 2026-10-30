@@ -8,7 +8,7 @@ import { useTheme } from "@/components/theme";
 import { useEffect } from "react";
 import {
   Pencil, ChevronRight, UserCog, Mail, Lock, Sparkles, FileText, Bell, ShieldCheck, Sun, Moon,
-  Trash2, User, GraduationCap, type LucideIcon,
+  Trash2, User, GraduationCap, Building2, type LucideIcon,
 } from "lucide-react";
 import { saveProfile } from "@/lib/services/profile";
 import { cn } from "@/lib/utils";
@@ -84,6 +84,12 @@ export function SettingsHub({ name, email, avatarUrl, availability, planLabel, r
     { label: "Personal profile", sub: "Photo, bio, occupation", href: "/dashboard/profile", icon: User },
     { label: "Qualifications & expertise", sub: "Experience, skills, education", href: "/dashboard/profile?tab=qualifications", icon: GraduationCap },
     { label: "Verification", sub: "Identity & business documents", href: "/dashboard/profile?tab=verification", icon: ShieldCheck },
+    // The sidebar no longer carries the Company Profile link, so Settings is
+    // its only entry point — on this phone layout too. Exhibitors only: the
+    // page edits the exhibitor company profile.
+    ...(role === "exhibitor"
+      ? [{ label: "Company Profile", sub: "Your public showroom info", href: "/dashboard/company", icon: Building2 }]
+      : []),
   ];
   const account: Row[] = [
     { label: "Account information", sub: "Name, phone, contact person", href: "/dashboard/settings/account?tab=info", icon: UserCog },

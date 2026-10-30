@@ -205,6 +205,20 @@ the rest is polish for the same badge system.
 
 ---
 
+## 2026-10-30 — Company Profile lives only in Settings
+
+**Changed** — Verified the sidebar no longer links Company Profile (removed
+with the Exhibitor group in the progressive-nav commit) and added a Company
+Profile row to the phone-side Settings hub for exhibitors, which previously
+only reached the page from the now-removed sidebar link.
+
+**Why** — One entry point for the same destination; Settings is it.
+
+**Verified** — `npm run type-check` passed; the /dashboard/company route
+itself is unchanged.
+
+---
+
 ## 2026-10-29 — Add exhibitor delivery coverage to products
 
 **Changed** — Added nationwide, selected-states and pickup-only delivery choices
