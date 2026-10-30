@@ -5,8 +5,9 @@ import { db } from "@/lib/db/client";
 import { exhibitorGuidelineAcceptance } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 
-/** The version of the guideline copy shown in the onboarding wizard. */
-export const EXHIBITOR_GUIDELINE_VERSION = "2026-07-10";
+/** The version of the guideline copy shown in the onboarding wizard. Module
+ *  local (never exported) — "use server" files may only export async funcs. */
+const EXHIBITOR_GUIDELINE_VERSION = "2026-07-10";
 
 /**
  * Whether the current user has accepted the exhibitor guidelines. Users who

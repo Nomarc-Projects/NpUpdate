@@ -165,6 +165,27 @@ fields; smoke-test the funnels once deployed.
 
 ---
 
+## 2026-10-30 — Fix broken production image build
+
+**Changed** — Made the guideline-version string in
+`lib/services/exhibitor-onboarding.ts` module-local instead of exported.
+The file is a `"use server"` boundary, which may only export async
+functions; the exported constant broke the Turbopack build
+(and docker builds) while `tsc --noEmit` stayed green.
+
+**Why** — The exported const means the member dashboard image could no
+longer be built, which is the actual root cause of the failing Dokploy
+deploy seen on 2026-10-30 (build error surfaced in CI and locally
+through Dokploy's Dockerfile build).
+
+**Verified** — `npm run type-check` passed; the full gate is the pushed
+CI build job (watching for a green `Build image`).
+
+**Follow-ups** — Bake "repo-only exports of use-server files are async
+functions" into review habit; tsc can't catch it.
+
+---
+
 ## 2026-10-29 — Add exhibitor delivery coverage to products
 
 **Changed** — Added nationwide, selected-states and pickup-only delivery choices
