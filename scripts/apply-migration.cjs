@@ -1,17 +1,21 @@
-// Apply a single drizzle SQL migration file to CockroachDB.
-// Usage: doppler run --project nomarc --config prd -- node scripts/apply-migration.cjs drizzle/0002_profile_extras.sql
+// Apply a single drizzle SQL migration file to PostgreSQL.
+// Usage: doppler run --project nomarc_projects --config prd -- node scripts/apply-migration.cjs drizzle/0064_product_lead_time.sql
 // DATABASE_URL is injected by `doppler run` and never printed.
 const fs = require("node:fs");
 const path = require("node:path");
 const { Pool } = require("pg");
 
 function resolveSSL() {
+  const dburl = process.env.DATABASE_URL || "";
+  if (dburl.startsWith("postgres://") || !dburl.includes("sslmode=verify-full")) {
+    return undefined;
+  }
   const envCert = process.env.COCKROACH_CA_CERT || process.env.COCKROACH_CERT;
   if (envCert && envCert.includes("BEGIN CERTIFICATE")) return { ca: envCert, rejectUnauthorized: true };
   try {
     return { ca: fs.readFileSync(path.join(process.cwd(), "certs", "cockroach-ca.crt"), "utf8"), rejectUnauthorized: true };
   } catch {
-    return { rejectUnauthorized: true };
+    return undefined;
   }
 }
 

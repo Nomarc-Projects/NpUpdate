@@ -18,6 +18,19 @@ Format:
 
 ---
 
+## 2026-11-05 — Exhibitor product edit/create resilience and error transparency
+
+**Changed** — `lib/services/products.ts` & `components/dashboard/exhibitor/product-form.tsx`:
+- `updateProduct` and `createProduct` now dynamically strip missing optional database columns (`delivery_mode`, `delivery_states`, `lead_time_value`, `lead_time_unit`) and retry when updating/inserting products on databases that haven't applied migrations `0064` or `0066`.
+- `updateProduct` now returns `{ success: true } | { success: false, error: string }` instead of throwing unhandled exceptions across the Server Action boundary, preventing Next.js production builds from redacting validation and migration errors into opaque "An error occurred in the Server Components render" digests.
+- `ProductForm` captures the structured result, surfaces descriptive error toasts, and isolates `saveVariants` within its own try/catch block so variant failures do not crash the primary product save.
+
+**Why** — Exhibitors updating products were blocked by the generic Next.js production error whenever the underlying database lacked migration `0066` or any server-side validation error occurred.
+
+**Follow-ups** — Apply migrations `0064_product_lead_time.sql` and `0066_product_delivery.sql` on the VPS database via Doppler so delivery options and lead times persist.
+
+---
+
 ## 2026-10-29 — Require lister verification before property listings
 
 **Changed** — Add Property now checks lister status first: unverified or

@@ -139,12 +139,12 @@ export default function AdminSettingsPage() {
 
         {/* ── 1. Platform ──────────────────────────────── */}
         <Card id="platform" icon={Globe} title="Platform" desc="Site URL, deployment, and database" defaultOpen>
-          <Row icon={Globe} label="Site URL" desc="Primary domain served to users" value="www.nomarcprojects.com" />
-          <Row icon={Server} label="Vercel deployment" desc="Auto-deploys from main branch"
-            badge={{ text: "Live", color: "bg-[#dcfce7] text-[#16803c]" }} value="www.nomarcprojects.com" />
-          <Row icon={Database} label="CockroachDB" desc="Managed cluster — Drizzle ORM"
+          <Row icon={Globe} label="Site URL" desc="Primary domain served to users" value="nomarcprojects.com" />
+          <Row icon={Server} label="VPS deployment" desc="Docker Swarm on Dokploy VPS"
+            badge={{ text: "Live", color: "bg-[#dcfce7] text-[#16803c]" }} value="nomarcprojects.com" />
+          <Row icon={Database} label="PostgreSQL" desc="Dokploy Postgres — Drizzle ORM"
             badge={{ text: "Healthy", color: "bg-[#dcfce7] text-[#16803c]" }} value="Connected" />
-          <Row icon={HardDrive} label="Secrets manager" desc="All env vars synced via Doppler" value="nomarc / prd"
+          <Row icon={HardDrive} label="Secrets manager" desc="All env vars synced via Doppler" value="nomarc_projects / prd"
             badge={{ text: "Synced", color: "bg-[#dcfce7] text-[#16803c]" }} />
         </Card>
 
@@ -288,11 +288,10 @@ export default function AdminSettingsPage() {
 
         {/* ── 9. Storage ───────────────────────────────── */}
         <Card id="storage" icon={Cloud} title="Storage" desc="File uploads, media, and object storage">
-          <Row icon={Cloud} label="Cloudflare R2" desc="Object storage for uploads, attachments, and media"
-            badge={{ text: "R2_ACCOUNT_ID set", color: "bg-[#fff3cd] text-[#b45309]" }} />
-          <Row icon={Database} label="R2 Access Key" desc="R2_ACCESS_KEY_ID in Doppler prd config" value="Pending" />
-          <Row icon={Database} label="R2 Bucket" desc="Bucket name for production assets" value="nomarc-assets" />
-          <Row icon={Database} label="Public URL" desc="CDN URL for serving uploaded files" value="Not configured" />
+          <Row icon={Cloud} label="MinIO Storage" desc="S3-compatible object storage for uploads and media"
+            badge={{ text: "Connected", color: "bg-[#dcfce7] text-[#16803c]" }} />
+          <Row icon={Database} label="Public media URL" desc="Traefik reverse proxy to MinIO (:9000)" value="media.nomarcprojects.com" />
+          <Row icon={Database} label="Asset buckets" desc="Public & private document buckets" value="nomarc-assets, nomarc-private" />
         </Card>
 
         {/* ── 10. Backups & Data ────────────────────────── */}
@@ -339,12 +338,12 @@ export default function AdminSettingsPage() {
         {/* ── 12. Service Health ────────────────────────── */}
         <Card id="health" icon={Activity} title="Service Health" desc="Status of external services and integrations">
           {[
-            { label: "Vercel (Frontend)", status: "Operational", ok: true },
-            { label: "CockroachDB", status: "Connected", ok: true },
+            { label: "Dokploy (VPS)", status: "Operational", ok: true },
+            { label: "PostgreSQL", status: "Connected", ok: true },
+            { label: "MinIO (Storage)", status: "Connected", ok: true },
             { label: "Doppler (Secrets)", status: "Synced", ok: true },
             { label: "Resend (Email)", status: "Configured", ok: true },
             { label: "Paystack", status: "Pending keys", ok: false },
-            { label: "Cloudflare R2", status: "Partial (account ID set)", ok: false },
             { label: "Google OAuth", status: "Not configured", ok: false },
           ].map((s) => (
             <div key={s.label} className="flex items-center justify-between py-2.5 border-b border-[#f5f5f5] dark:border-white/5 last:border-0">

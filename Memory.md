@@ -16,7 +16,7 @@ non-trivial work.
 | Build | `npm run type-check` ✅, `npm run build` ✅ |
 | Lint | ❌ `npm run lint` crashes — no ESLint config file |
 | Deploy | VPS + Dokploy (Traefik, `nomarcapp` Swarm service) |
-| DB | CockroachDB (single cluster = production, no dev DB) |
+| DB | PostgreSQL (Dokploy VPS container :5432, migrated from CockroachDB) |
 | Storage | MinIO at `https://media.nomarcprojects.com` (Traefik → :9000) |
 | Test suite | none (see `TESTING.md`) |
 

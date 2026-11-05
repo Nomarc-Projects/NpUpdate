@@ -56,8 +56,13 @@ function isMissingLeadTimeColumns(error: unknown): boolean {
   return cause !== error && isMissingLeadTimeColumns(cause);
 }
 
-function withoutLeadTime<T extends { leadTimeValue: unknown; leadTimeUnit: unknown }>(values: T) {
+function withoutLeadTime<T extends Record<string, any>>(values: T) {
   const { leadTimeValue: _leadTimeValue, leadTimeUnit: _leadTimeUnit, ...compatible } = values;
+  return compatible;
+}
+
+function withoutDelivery<T extends Record<string, any>>(values: T) {
+  const { deliveryMode: _deliveryMode, deliveryStates: _deliveryStates, ...compatible } = values;
   return compatible;
 }
 
@@ -153,6 +158,83 @@ async function assertCategoryRegistered(companyId: string, category: string | nu
   }
 }
 
+async function insertProductRow(v: Record<string, any>, availability?: string): Promise<string> {
+  try {
+    const [row] = await db.insert(product).values(v).returning({ id: product.id });
+    return row.id;
+  } catch (error) {
+    const missingDelivery = isMissingDeliveryColumns(error);
+    const missingLeadTime = isMissingLeadTimeColumns(error);
+    if (!missingDelivery && !missingLeadTime) throw error;
+    if (missingLeadTime && availability === "made_to_order") {
+      throw new Error(LEAD_TIME_MIGRATION_ERROR);
+    }
+
+    let fallback = v;
+    if (missingDelivery) fallback = withoutDelivery(fallback);
+    if (missingLeadTime) fallback = withoutLeadTime(fallback);
+
+    try {
+      const [row] = await db.insert(product).values(fallback).returning({ id: product.id });
+      return row.id;
+    } catch (fallbackError) {
+      const secondMissingDelivery = isMissingDeliveryColumns(fallbackError);
+      const secondMissingLeadTime = isMissingLeadTimeColumns(fallbackError);
+      if (secondMissingDelivery || secondMissingLeadTime) {
+        if (secondMissingLeadTime && availability === "made_to_order") {
+          throw new Error(LEAD_TIME_MIGRATION_ERROR);
+        }
+        let minimal = fallback;
+        if (secondMissingDelivery) minimal = withoutDelivery(minimal);
+        if (secondMissingLeadTime) minimal = withoutLeadTime(minimal);
+        const [row] = await db.insert(product).values(minimal).returning({ id: product.id });
+        return row.id;
+      }
+      throw fallbackError;
+    }
+  }
+}
+
+async function updateProductRow(
+  id: string,
+  companyId: string,
+  patch: Record<string, any>,
+  availability?: string,
+): Promise<void> {
+  try {
+    await db.update(product).set(patch).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+  } catch (error) {
+    const missingDelivery = isMissingDeliveryColumns(error);
+    const missingLeadTime = isMissingLeadTimeColumns(error);
+    if (!missingDelivery && !missingLeadTime) throw error;
+    if (missingLeadTime && availability === "made_to_order") {
+      throw new Error(LEAD_TIME_MIGRATION_ERROR);
+    }
+
+    let fallback = patch;
+    if (missingDelivery) fallback = withoutDelivery(fallback);
+    if (missingLeadTime) fallback = withoutLeadTime(fallback);
+
+    try {
+      await db.update(product).set(fallback).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+    } catch (fallbackError) {
+      const secondMissingDelivery = isMissingDeliveryColumns(fallbackError);
+      const secondMissingLeadTime = isMissingLeadTimeColumns(fallbackError);
+      if (secondMissingDelivery || secondMissingLeadTime) {
+        if (secondMissingLeadTime && availability === "made_to_order") {
+          throw new Error(LEAD_TIME_MIGRATION_ERROR);
+        }
+        let minimal = fallback;
+        if (secondMissingDelivery) minimal = withoutDelivery(minimal);
+        if (secondMissingLeadTime) minimal = withoutLeadTime(minimal);
+        await db.update(product).set(minimal).where(and(eq(product.id, id), eq(product.companyId, companyId)));
+      } else {
+        throw fallbackError;
+      }
+    }
+  }
+}
+
 export async function createProduct(input: ProductInput, draft = false): Promise<string> {
   const uid = await requireUserId();
   if (!input.name?.trim()) throw new Error("Product name is required");
@@ -171,76 +253,57 @@ export async function createProduct(input: ProductInput, draft = false): Promise
   if (status === "active" && input.availability === "made_to_order") assertLeadTime(input);
 
   const v = { ...values(companyId, input), status, draft: status === "draft" };
-  let productId: string;
-  try {
-    const [row] = await db.insert(product).values(v).returning({ id: product.id });
-    productId = row.id;
-  } catch (error) {
-    if (isMissingDeliveryColumns(error)) throw new Error(DELIVERY_MIGRATION_ERROR);
-    if (!isMissingLeadTimeColumns(error)) throw error;
-    if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
-    try {
-      const [row] = await db.insert(product).values(withoutLeadTime(v)).returning({ id: product.id });
-      productId = row.id;
-    } catch (fallbackError) {
-      if (isMissingDeliveryColumns(fallbackError)) throw new Error(DELIVERY_MIGRATION_ERROR);
-      throw fallbackError;
-    }
-  }
+  const productId = await insertProductRow(v, input.availability);
   bump();
   return productId;
 }
 
-export async function updateProduct(id: string, input: ProductInput): Promise<void> {
-  const uid = await requireUserId();
-  assertDelivery(input);
-  const companyId = await ensureCompany(uid);
-  const [existing] = await db
-    .select({ status: product.status, category: product.category })
-    .from(product)
-    .where(and(eq(product.id, id), eq(product.companyId, companyId)))
-    .limit(1);
-  if (!existing) throw new Error("Product not found");
+export type UpdateProductResult = { success: true } | { success: false; error: string };
 
-  const nextStatus = (input.status ?? existing.status) as ProductStatus;
-  const nextCategory = input.category?.trim() || null;
-  const activating = nextStatus === "active" && existing.status !== "active";
-  const categoryChanged = nextCategory !== (existing.category ?? null);
-
-  // Made-to-order listings must always carry a lead time; editing a legacy row
-  // with no lead time will therefore be blocked until the exhibitor adds one.
-  if (nextStatus === "active" && input.availability === "made_to_order") assertLeadTime(input);
-
-  // Publishing, or moving a live listing into another shop, must respect the
-  // plan caps exactly like create/setProductStatus — the edit form is just
-  // another typeable entry point.
-  if (activating) await assertCanPublish();
-  if (nextStatus === "active" && (activating || categoryChanged)) {
-    await assertCategoryRegistered(companyId, nextCategory);
-  }
-
-  const v = values(companyId, input);
-  const patch = {
-    ...v,
-    // Only touch status when the caller actually asked to change it; the edit
-    // drawer omits it, so editing a draft keeps it a draft.
-    ...(input.status ? { status: input.status, draft: input.status === "draft" } : {}),
-    updatedAt: new Date(),
-  };
+export async function updateProduct(id: string, input: ProductInput): Promise<UpdateProductResult> {
   try {
-    await db.update(product).set(patch).where(and(eq(product.id, id), eq(product.companyId, companyId)));
-  } catch (error) {
-    if (isMissingDeliveryColumns(error)) throw new Error(DELIVERY_MIGRATION_ERROR);
-    if (!isMissingLeadTimeColumns(error)) throw error;
-    if (input.availability === "made_to_order") throw new Error(LEAD_TIME_MIGRATION_ERROR);
-    try {
-      await db.update(product).set(withoutLeadTime(patch)).where(and(eq(product.id, id), eq(product.companyId, companyId)));
-    } catch (fallbackError) {
-      if (isMissingDeliveryColumns(fallbackError)) throw new Error(DELIVERY_MIGRATION_ERROR);
-      throw fallbackError;
+    const uid = await requireUserId();
+    assertDelivery(input);
+    const companyId = await ensureCompany(uid);
+    const [existing] = await db
+      .select({ status: product.status, category: product.category })
+      .from(product)
+      .where(and(eq(product.id, id), eq(product.companyId, companyId)))
+      .limit(1);
+    if (!existing) return { success: false, error: "Product not found" };
+
+    const nextStatus = (input.status ?? existing.status) as ProductStatus;
+    const nextCategory = input.category?.trim() || null;
+    const activating = nextStatus === "active" && existing.status !== "active";
+    const categoryChanged = nextCategory !== (existing.category ?? null);
+
+    // Made-to-order listings must always carry a lead time; editing a legacy row
+    // with no lead time will therefore be blocked until the exhibitor adds one.
+    if (nextStatus === "active" && input.availability === "made_to_order") assertLeadTime(input);
+
+    // Publishing, or moving a live listing into another shop, must respect the
+    // plan caps exactly like create/setProductStatus — the edit form is just
+    // another typeable entry point.
+    if (activating) await assertCanPublish();
+    if (nextStatus === "active" && (activating || categoryChanged)) {
+      await assertCategoryRegistered(companyId, nextCategory);
     }
+
+    const v = values(companyId, input);
+    const patch = {
+      ...v,
+      // Only touch status when the caller actually asked to change it; the edit
+      // drawer omits it, so editing a draft keeps it a draft.
+      ...(input.status ? { status: input.status, draft: input.status === "draft" } : {}),
+      updatedAt: new Date(),
+    };
+    await updateProductRow(id, companyId, patch, input.availability);
+    bump();
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Couldn't save product";
+    return { success: false, error: message };
   }
-  bump();
 }
 
 /** The scalar fields an owner can edit, owner-gated. The signed-in user must

@@ -355,8 +355,22 @@ export function ProductForm({ mode, product, allowedCategories = [], limits = nu
 
     try {
       if (editing && product) {
-        await updateProduct(product.id, input);
-        await saveVariants(product.id);
+        const result = await updateProduct(product.id, input);
+        if (!result.success) {
+          if (/upgrade/i.test(result.error)) {
+            toast.error(result.error, { action: { label: "Upgrade", onClick: () => router.push("/dashboard/plans/exhibitor") } });
+          } else {
+            toast.error(result.error);
+          }
+          return;
+        }
+        try {
+          await saveVariants(product.id);
+        } catch (variantError) {
+          toast.error(variantError instanceof Error ? `Product updated, but variants could not be saved: ${variantError.message}` : "Product updated, but variants could not be saved");
+          router.refresh();
+          return;
+        }
         toast.success("Changes saved");
         router.refresh();
       } else {
