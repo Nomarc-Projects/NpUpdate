@@ -160,7 +160,7 @@ async function assertCategoryRegistered(companyId: string, category: string | nu
 
 async function insertProductRow(v: Record<string, any>, availability?: string): Promise<string> {
   try {
-    const [row] = await db.insert(product).values(v).returning({ id: product.id });
+    const [row] = await db.insert(product).values(v as typeof product.$inferInsert).returning({ id: product.id });
     return row.id;
   } catch (error) {
     const missingDelivery = isMissingDeliveryColumns(error);
@@ -175,7 +175,7 @@ async function insertProductRow(v: Record<string, any>, availability?: string): 
     if (missingLeadTime) fallback = withoutLeadTime(fallback);
 
     try {
-      const [row] = await db.insert(product).values(fallback).returning({ id: product.id });
+      const [row] = await db.insert(product).values(fallback as typeof product.$inferInsert).returning({ id: product.id });
       return row.id;
     } catch (fallbackError) {
       const secondMissingDelivery = isMissingDeliveryColumns(fallbackError);
@@ -187,7 +187,7 @@ async function insertProductRow(v: Record<string, any>, availability?: string): 
         let minimal = fallback;
         if (secondMissingDelivery) minimal = withoutDelivery(minimal);
         if (secondMissingLeadTime) minimal = withoutLeadTime(minimal);
-        const [row] = await db.insert(product).values(minimal).returning({ id: product.id });
+        const [row] = await db.insert(product).values(minimal as typeof product.$inferInsert).returning({ id: product.id });
         return row.id;
       }
       throw fallbackError;
