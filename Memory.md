@@ -136,8 +136,10 @@ deliberately synced.
 
 **2026-11-16 update:** `VPS_Nomarc` now carries the 2026-11-14 work
 (`7bfe195`: voice-note transcode + local dev DB) on top of the build fix.
-`main` still builds green but lacks that work; making it lockstep requires a
-force-push of `main` to `7bfe195` — operator's call.
+
+**2026-11-16 update 2:** `main` was force-pushed to match `VPS_Nomarc`
+(`a18b6a6`, including the `/backup` console) — the branches are in lockstep;
+the divergence noted above is resolved.
 
 **D-018 · The `/backup` console is the sanctioned way to move the database.**
 Super-admin only (Better Auth session with `role === "super_admin"`, checked in
