@@ -21,11 +21,15 @@ export function localPathFor(key: string, isPrivate = false) {
   return path.join(dir, safeKey);
 }
 
-export async function uploadObjectLocal(key: string, body: Buffer | Uint8Array, _contentType: string) {
+export async function uploadObjectLocal(key: string, body: Buffer | Uint8Array, contentType: string) {
   await ensureDirs();
   const p = localPathFor(key, false);
   await fs.mkdir(path.dirname(p), { recursive: true });
   await fs.writeFile(p, body);
+  // Remember the real type: the extension can't tell audio/webm from
+  // video/webm, and the serving route needs the exact value to play the file
+  // under `X-Content-Type-Options: nosniff`.
+  if (contentType) await fs.writeFile(`${p}.mime`, contentType, "utf8");
   return publicUrl(key);
 }
 
@@ -33,6 +37,29 @@ export async function deleteObjectLocal(key: string) {
   try {
     await fs.unlink(localPathFor(key, false));
   } catch {}
+  try {
+    await fs.unlink(`${localPathFor(key, false)}.mime`);
+  } catch {}
+}
+
+/** Absolute path of a public object (null when the key escapes the upload dir). */
+export function publicPathFor(key: string) {
+  return localPathFor(key, false);
+}
+
+/** Read a public object's bytes server-side (e.g. to transcode it). */
+export async function getObjectLocal(key: string): Promise<Buffer> {
+  return fs.readFile(publicPathFor(key));
+}
+
+/** Stored MIME for a public object, when the upload recorded one. */
+export async function objectMimeLocal(key: string): Promise<string | null> {
+  try {
+    const mime = (await fs.readFile(`${localPathFor(key, false)}.mime`, "utf8")).trim();
+    return mime || null;
+  } catch {
+    return null;
+  }
 }
 
 export function keyFromUrlLocal(url: string): string | null {

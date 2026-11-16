@@ -4,43 +4,31 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getCurrentUserId } from "@/lib/server-user";
 import { frozenResponse } from "@/lib/maintenance-gate";
 import { storageConfigured as r2Configured, storagePrivateConfigured as r2PrivateConfigured, publicUrl, privateUploadUrl } from "@/lib/storage";
+import {
+  AUDIO_MIMES, DOC_MIMES, IMAGE_MIMES, VIDEO_MIMES,
+  extensionForMime, isAudioMime, normalizeMime,
+} from "@/lib/media-types";
 
 export const runtime = "nodejs";
 
 const MAX_BYTES = 25 * 1024 * 1024; // 25MB ceiling for direct uploads
-const IMAGE = ["image/png", "image/jpeg", "image/webp", "image/gif"];
-const VIDEO = ["video/mp4", "video/webm", "video/quicktime"];
-const AUDIO = ["audio/webm", "audio/mp4", "audio/ogg", "audio/wav", "audio/mpeg"];
-const DOCS = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-powerpoint", "application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/zip"];
-const EXT: Record<string, string> = {
-  "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif",
-  "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov",
-  "audio/webm": "webm", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/wav": "wav", "audio/mpeg": "mp3",
-  "application/pdf": "pdf", "application/msword": "doc",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.ms-excel": "xls",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": "xlsx",
-  "application/vnd.ms-powerpoint": "ppt",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "application/zip": "zip",
-};
-const RULES: Record<string, string[]> = {
+const RULES: Record<string, readonly string[]> = {
   // Product galleries take short clips as well as stills. Video is only viable
   // on this presigned path — the /api/upload fallback stays images-only, since a
   // clip won't fit inside a serverless request body.
-  avatar: IMAGE, logo: IMAGE, project: IMAGE, product: [...IMAGE, ...VIDEO],
-  property: IMAGE,
-  resume: ["application/pdf"], doc: [...IMAGE, "application/pdf"],
-  chat: [...IMAGE, ...VIDEO, ...AUDIO, ...DOCS],
+  avatar: IMAGE_MIMES, logo: IMAGE_MIMES, project: IMAGE_MIMES, product: [...IMAGE_MIMES, ...VIDEO_MIMES],
+  property: IMAGE_MIMES,
+  resume: ["application/pdf"], doc: [...IMAGE_MIMES, "application/pdf"],
+  chat: [...IMAGE_MIMES, ...VIDEO_MIMES, ...AUDIO_MIMES, ...DOC_MIMES],
   // Helm documents: contracts, BOQs, spec sheets, drawings, site photos.
   // These go to the PRIVATE bucket and never receive a public URL.
-  helm: [...IMAGE, "application/pdf", "application/vnd.ms-excel",
+  helm: [...IMAGE_MIMES, "application/pdf", "application/vnd.ms-excel",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
   // Property ownership documents (deeds, C of O, survey plans…). Private
   // bucket only, same as Helm: no public URL is ever minted.
-  property_doc: [...IMAGE, "application/pdf", "application/msword",
+  property_doc: [...IMAGE_MIMES, "application/pdf", "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
 };
 /** Kinds whose bytes must never be publicly addressable. */
@@ -56,23 +44,30 @@ export async function POST(req: Request) {
   const { kind = "doc", contentType = "", size = 0 } = await req.json().catch(() => ({}));
   // Recorded blobs arrive as "audio/webm;codecs=opus" etc. — compare and sign
   // the BASE type, or every voice note fails the allow-list check.
-  const mime = String(contentType).split(";")[0].trim().toLowerCase();
+  const mime = normalizeMime(contentType);
   const isPrivate = PRIVATE_KINDS.has(kind);
   if (isPrivate ? !r2PrivateConfigured : !r2Configured) {
     return NextResponse.json({ error: "Uploads are not configured yet." }, { status: 503 });
   }
 
   const allowed = RULES[kind] ?? RULES.doc;
-  if (!allowed.includes(mime)) return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
+  // Chat accepts any audio container. The explicit AUDIO_MIMES list is the
+  // shape we know how to name, but a browser is free to record e.g. audio/aac;
+  // rejecting an otherwise valid voice note over an unlisted container is worse
+  // than storing it with a generic extension.
+  const allowedMime = allowed.includes(mime) || (kind === "chat" && isAudioMime(mime));
+  if (!allowedMime) return NextResponse.json({ error: "Unsupported file type" }, { status: 400 });
   if (typeof size === "number" && size > MAX_BYTES) return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 400 });
 
   // Key is namespaced by user id, so ownership is verifiable from the key alone.
-  const key = `${kind}/${uid}/${Date.now()}-${slug()}.${EXT[mime] ?? "bin"}`;
+  const key = `${kind}/${uid}/${Date.now()}-${slug()}.${extensionForMime(mime) ?? "bin"}`;
 
   if (isPrivate) {
     // No publicUrl — private objects are only ever read via an ownership-checked
-    // presigned GET (lib/r2.ts privateDownloadUrl).
-    return NextResponse.json({ uploadUrl: await privateUploadUrl(key, contentType), key, private: true });
+    // presigned GET (lib/r2.ts privateDownloadUrl). Sign the normalized type:
+    // signing the raw header while the client sends the base type (or vice
+    // versa) fails the S3 signature check.
+    return NextResponse.json({ uploadUrl: await privateUploadUrl(key, mime), key, private: true });
   }
 
   // Use R2_ENDPOINT for MinIO compatibility; falls back to Cloudflare if not set

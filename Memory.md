@@ -102,6 +102,38 @@ Certificates are HTML print views, publicly verifiable by number at
 separate from the transaction, and open from `/properties/sowr`. Listing-fee
 payments are reconciled in `/admin/properties/fees`.
 
+**D-015 · Voice notes are transcoded to AAC/M4A server-side.** iOS Safari has no
+WebM/Ogg decoder, so a note recorded on Chrome/Android is silent on an iPhone.
+After upload, the client asks `/api/upload/transcode` for a converted copy;
+the server reads the object back, runs ffmpeg (`@ffmpeg-installer/ffmpeg`, or
+`FFMPEG_PATH`), and stores `<key>.m4a`. The original is kept, and any failure
+(same binary missing, bad input) falls back to the original recording so a send
+never fails. This is a *forward fix only*: notes already stored as WebM stay
+WebM until a backfill is run. See `lib/audio-transcode.ts`.
+
+**D-016 · Local development uses an embedded Postgres, built from
+`lib/db/schema.ts`, not from `drizzle/*.sql`.** `embedded-postgres` provides real
+Postgres binaries without Docker or root; `npm run db:start` runs it on
+`127.0.0.1:55432` with data in `.localdb/`, and `.env.local` points
+`DATABASE_URL` there, so `npm run dev` cannot reach production. `db:migrate`
+uses `drizzle-kit push` because the migration chain is incomplete: fourteen
+tables (`announcement`, `review`, `service`, `blog_post`, `bt_*`, …) exist in
+the schema but in no migration file, and `0011` fails on a fresh cluster with
+`relation "announcement" does not exist`. Better Auth's tables are created
+afterwards with its own migration API. A fresh environment built from
+`drizzle/*.sql` alone will be broken until that drift is captured in a
+migration (tracked in T-012).
+
+**D-017 · Dokploy deploys build from GitHub, not from this machine.** The
+deployable source of truth is `Nomarc-Projects/NpUpdate` (branches `main` and
+`VPS_Nomarc`). This machine's repo has its own fresh lineage and no remote, so
+nothing here reaches production until it is synced to GitHub. The Docker build
+type-checks (Turbopack), so a type error fails the whole deploy even when the
+Dockerfile looks fine — run `npx tsc --noEmit` and a real `next build` against
+the GitHub tree before pushing. `main` and `VPS_Nomarc` have diverged again
+(2026-11-16); fix commits go to `VPS_Nomarc` first, `main` only when
+deliberately synced.
+
 **D-011 · Property listing fee = flat + full-value bracket rate.** Charged once,
 in NGN, after admin approval and before publish. The bracket rate applies to
 the whole normalised value (not progressive); values below ₦100,000 pay the flat
@@ -140,8 +172,8 @@ lockstep by pushing `VPS_Nomarc` to both.
 | T-008 | **P2** | `/app/uploads` local fallback coexists with S3 | `STORAGE_BACKEND=local` is a supported fallback; make sure prod never silently falls back (it degrades URL shape). |
 | T-009 | **P3** | `.env.vps` is a local-storage template | Easy to mistake for production config. Consider renaming to `.env.local.example`. |
 | T-010 | **P2** | `.env.example` is incomplete | Omits `DATABASE_URL`, all `R2_*`, `SMTP_*`, `INTERNAL_API_KEY`, `MAIL_DRAIN_SECRET`, `JWT_SECRET`, etc. `ENV.md` is the complete list until this is fixed. |
-| T-011 | **P1** | Local dev cannot reach the DB | `.env` `DATABASE_URL` = stale Cockroach Cloud (`nomarc-production-32243…cloud`) → `password authentication failed for user nomarc` (all pages 500). Live DB is self-hosted Cockroach `root@mydb.nomarcprojects.com:26257/nomarcdb?sslmode=disable`, **firewalled** (26257 refused from outside). Run SQL on the VPS; fix local `.env` or tunnel to make `npm run dev` usable. |
-| T-012 | **P2** | Migrations applied by hand, no ledger | `drizzle/0063_plan_trial.sql` had to be applied manually on 2026-10-15 because prod was missing it while the deployed build already selected `trial_ends_at`. Nothing records which migrations a cluster has applied, so drift recurs. |
+| T-011 | **Resolved** | Local dev could not reach the DB | `.env` `DATABASE_URL` pointed at a stale Cockroach Cloud host and live is firewalled. Fixed 2026-11-14: `npm run db:start` runs a loopback Postgres and `.env.local` points at it (D-016). |
+| T-012 | **P2** | Migrations applied by hand, no ledger | `drizzle/0063_plan_trial.sql` had to be applied manually on 2026-10-15 because prod was missing it while the deployed build already selected `trial_ends_at`. Nothing records which migrations a cluster has applied, so drift recurs. A local rebuild on 2026-11-14 found **14 tables in `lib/db/schema.ts` with no `CREATE TABLE` in any migration** (`announcement`, `review`, `service`, `blog_post`, `bt_*`, `crm_lead`, `payment_transaction`, …); `0011` fails on a fresh cluster. Local dev sidesteps this by pushing the schema (D-016), but a fresh deployment from migrations alone would still be broken. |
 | T-015 | **P2** | Nomarc Projects transaction flow is manual and shallow | Buyer transactions are sale/bulk-land only, completed by an admin after offline payment; SOWR membership is not linked to a purchase. Lease/rent transaction completion and live provider testing are not implemented. Certificates are publicly verifiable but carry no legal title. |
 | T-013 | **P1** | Provider webhooks are not landing; paid orders stay `pending` | GBG SALES LTD had 4 `exhibitor/monthly/₦205,000/seerbit` rows all `pending` while the customer held a receipt. Root cause is unverified — check the Seerbit/Paystack callback URL and webhook signature handling; `configuredProviders()` / `PAYMENT_PROVIDER` may be unset in prod. Until fixed, payments rely on `reconcilePending` or the admin repair tool (`logupdate.md` 2026-10-15). |
 

@@ -42,22 +42,23 @@ export async function someMutation(input: Validated): Promise<Result>
 | --- | --- | --- | --- | --- |
 | 1 | `/api/auth/[...all]` | * | Better Auth | All auth endpoints (sign-in/up, OAuth, session, verification). Never customise ad-hoc — configure via Better Auth options. |
 | 2 | `/api/upload/presign` | `POST` | session | Body `{ kind, contentType, size }` → `{ uploadUrl, publicUrl, key }`. `kind` ∈ `avatar, logo, project, product, resume, doc, chat, helm`. Validates MIME + 25MB. `helm` returns `{ uploadUrl, key, private: true }` (no public URL). `503` if storage unconfigured. |
-| 3 | `/api/upload` | `POST` | session | multipart `file` + `kind`. Server-side fallback, **4MB** cap, images/PDF only → `{ url }`. |
+| 3 | `/api/upload` | `POST` | session | multipart `file` + `kind`. Server-side fallback, **4MB** cap; `chat` accepts images and any `audio/*` container → `{ url, key }`. |
 | 4 | `/api/upload/local-private` | `PUT` | signed params | Local-storage private PUT fallback (key/contentType/expires). |
 | 5 | `/api/upload/local-private/download` | `GET` | signed params | Local-storage private GET with `sig`. |
-| 6 | `/api/uploads/[...path]` | `GET` | public | Serves `uploads/<path>` from disk. Strips `..`, immutable cache headers, `404` on miss. |
-| 7 | `/api/payments/[provider]/webhook` | `POST` | signature | Paystack (HMAC-SHA512), Flutterwave (secret hash), SeerBit. Must return **401**, never 404, for a bad signature — a 404 means settlement is being lost silently. |
-| 8 | `/api/payments/reconcile` | `POST` | `x-api-key` / `Authorization: Bearer` vs `INTERNAL_API_KEY` | Drains the retry queue + reconciles pending settlements → `{ retried, reconciled }`. |
-| 9 | `/api/email/drain` | `POST`, `GET` | `x-drain-secret` vs `MAIL_DRAIN_SECRET` | Campaign queue drain/inspection. Shared-secret auth (no session) because the caller is a worker. |
-| 10 | `/api/email/open` | `GET` | none | 1×1 GIF pixel; params `c` (campaign), `u` (recipient). **Always returns the image**, even if recording fails. |
-| 11 | `/api/email/click` | `GET` | none | Redirects to the tracked link, records the click, honours unsubscribe. |
-| 12 | `/api/email/unsubscribe` | `GET` | signed token `t` | One-click unsubscribe. Safety comes from the signed token, not a session. |
-| 13 | `/api/helm` | `POST` | session + entitlement | Chat relay to Helm (`aiConsultant` entitlement, plan-gated). `403` → upgrade prompt, `503` → backend not configured (UI shows coming-soon), quota → soft stop/upgrade prompt. |
-| 14 | `/api/helm/documents` | `GET`, `POST`, `DELETE` | session + ownership | Private doc registration/listing/deletion against the private bucket. Ownership is enforced here (presign namespaces keys by user id). |
-| 15 | `/api/helm/proposal` | `POST` | session + entitlement | Proposal synthesis through Helm. |
-| 16 | `/api/guide` | `POST` | none + rate limit | Public site assistant. Body `{ message }` (≤2000 chars) → assistant reply. `429` rate limited, `502` provider unavailable. |
-| 17 | `/api/promotions/track` | `POST` | none (by necessity) | `{ type, id }` impression/click tracking. Validates UUID, filters bots, de-duplicates; always `200`-ish so tracking never breaks the page. |
-| 18 | `/api/templates/download` | `GET` | session | Authenticated download of bundled contract/BOQ/programme templates. |
+| 6 | `/api/uploads/[...path]` | `GET` | public | Serves local-storage uploads from disk (also reachable as `/uploads/<path>` via the `next.config.ts` rewrite). Strips `..`, sends the stored Content-Type, honours `Range` (`206`), immutable cache headers, `404` on miss. |
+| 7 | `/api/upload/transcode` | `POST` | session | Body `{ key }` (must be the caller's own `chat/<uid>/…`) → `{ url, key, mimeType, transcoded }`. Converts WebM/Ogg/Opus/FLAC to AAC/M4A so voice notes play on iOS; keeps the original object. `503` when no ffmpeg is available, `404` when the object is missing. |
+| 8 | `/api/payments/[provider]/webhook` | `POST` | signature | Paystack (HMAC-SHA512), Flutterwave (secret hash), SeerBit. Must return **401**, never 404, for a bad signature — a 404 means settlement is being lost silently. |
+| 9 | `/api/payments/reconcile` | `POST` | `x-api-key` / `Authorization: Bearer` vs `INTERNAL_API_KEY` | Drains the retry queue + reconciles pending settlements → `{ retried, reconciled }`. |
+| 10 | `/api/email/drain` | `POST`, `GET` | `x-drain-secret` vs `MAIL_DRAIN_SECRET` | Campaign queue drain/inspection. Shared-secret auth (no session) because the caller is a worker. |
+| 11 | `/api/email/open` | `GET` | none | 1×1 GIF pixel; params `c` (campaign), `u` (recipient). **Always returns the image**, even if recording fails. |
+| 12 | `/api/email/click` | `GET` | none | Redirects to the tracked link, records the click, honours unsubscribe. |
+| 13 | `/api/email/unsubscribe` | `GET` | signed token `t` | One-click unsubscribe. Safety comes from the signed token, not a session. |
+| 14 | `/api/helm` | `POST` | session + entitlement | Chat relay to Helm (`aiConsultant` entitlement, plan-gated). `403` → upgrade prompt, `503` → backend not configured (UI shows coming-soon), quota → soft stop/upgrade prompt. |
+| 15 | `/api/helm/documents` | `GET`, `POST`, `DELETE` | session + ownership | Private doc registration/listing/deletion against the private bucket. Ownership is enforced here (presign namespaces keys by user id). |
+| 16 | `/api/helm/proposal` | `POST` | session + entitlement | Proposal synthesis through Helm. |
+| 17 | `/api/guide` | `POST` | none + rate limit | Public site assistant. Body `{ message }` (≤2000 chars) → assistant reply. `429` rate limited, `502` provider unavailable. |
+| 18 | `/api/promotions/track` | `POST` | none (by necessity) | `{ type, id }` impression/click tracking. Validates UUID, filters bots, de-duplicates; always `200`-ish so tracking never breaks the page. |
+| 19 | `/api/templates/download` | `GET` | session | Authenticated download of bundled contract/BOQ/programme templates. |
 
 ---
 

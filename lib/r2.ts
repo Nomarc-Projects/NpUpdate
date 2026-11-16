@@ -57,6 +57,13 @@ export function keyFromUrl(url: string): string | null {
   return url.slice(publicBase.length + 1);
 }
 
+/** Read a public object's bytes server-side (e.g. to transcode it). */
+export async function getObject(key: string): Promise<Buffer> {
+  const res = await client().send(new GetObjectCommand({ Bucket: bucket!, Key: key }));
+  const bytes = await res.Body!.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
 /* ── private bucket (Helm documents) ────────────────────────────────────── */
 
 function privateClient() {

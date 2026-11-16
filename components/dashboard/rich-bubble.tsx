@@ -59,7 +59,7 @@ function AudioBubble({ m }: { m: ChatMessage }) {
         <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${m.mine ? "bg-[#1e1e1e]/15" : "bg-[#f97316]/15"}`}>
           <Play size={14} className={m.mine ? "text-[#1e1e1e]" : "text-[#f97316]"} />
         </div>
-        <audio src={m.attachmentUrl!} controls className="flex-1 h-8 [&::-webkit-media-controls-panel]:bg-transparent" />
+        <audio src={m.attachmentUrl!} controls preload="metadata" aria-label="Voice message" className="flex-1 h-8 [&::-webkit-media-controls-panel]:bg-transparent" />
       </div>
       {meta?.duration != null && <p className={`text-[11px] ${m.mine ? "text-[#1e1e1e]/50" : "text-[#9a9a9a]"}`}>Voice message · {fmtDuration(meta.duration)}</p>}
     </div>

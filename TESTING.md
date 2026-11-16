@@ -123,7 +123,23 @@ real DB (the dev DB **is production** — see §6).
 
 ## 6. Data safety while testing
 
-**`DATABASE_URL` in this repo points at production.** Therefore:
+**Development runs against a local database, not production.** `.env.local`
+points `DATABASE_URL` at the loopback Postgres that `npm run db:start` manages
+(data in `.localdb/`, gitignored). Next loads `.env.local` ahead of `.env`, and
+`scripts/db-migrate.cjs` refuses any non-loopback host.
+
+```bash
+npm run db:start && npm run db:migrate && npm run db:seed
+npm run dev
+```
+
+That gives you the seeded accounts (`pro@`, `exhibitor@`, `buyer@`, `admin@`,
+`superadmin@nomarc.test`, all `Password123!`), local-disk uploads under
+`uploads/`, and no way to reach the live cluster. `npm run db:reset` wipes and
+rebuilds it.
+
+If you deliberately point a local app at production, everything below still
+applies:
 
 - Never hand-run destructive SQL (`DELETE`, `TRUNCATE`, `DROP`, bulk `UPDATE`).
 - Never test payments against live keys; use demo mode

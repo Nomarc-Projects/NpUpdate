@@ -23,7 +23,7 @@
 
 | Variable | Template | Notes |
 | --- | --- | --- |
-| `DATABASE_URL` | `postgresql://user:pass@host:26257/db?sslmode=disable` | **REQUIRED.** CockroachDB. In this repo's dev env it points at **production** — `npm run dev` writes live rows. |
+| `DATABASE_URL` | `postgresql://user:pass@host:26257/db?sslmode=disable` | **REQUIRED.** Deployment: CockroachDB. Local dev: the loopback Postgres written by `npm run db:start` (see §2b). |
 | `COCKROACH_CA_CERT` | cert PEM or blank | CA contents (contains `BEGIN CERTIFICATE`). Falls back to committed `certs/cockroach-ca.crt`. |
 | `COCKROACH_CERT` | cert PEM or blank | Alias for the same intent. |
 | `AUTH_SECRET` | `openssl rand -hex 32` | Better Auth session secret. |
@@ -59,6 +59,8 @@ UPLOAD_DIR=/app/uploads             # local-storage fallback target
 PRIVATE_UPLOAD_DIR=/app/uploads/private
 UPLOADS_PUBLIC_URL=                 # base for local-storage public URLs
 NEXT_PUBLIC_UPLOADS_URL=/uploads
+FFMPEG_PATH=                        # optional; defaults to the bundled
+                                    # @ffmpeg-installer binary, then PATH
 ```
 
 **Critical:** `R2_ENDPOINT` is embedded in presigned PUT URLs that the
@@ -69,6 +71,35 @@ For Cloudflare R2 leave `R2_ENDPOINT` **unset** — the SDK falls back to
 
 `lib/storage/index.ts` selects local disk when `STORAGE_BACKEND=local`,
 `R2_ACCOUNT_ID` is missing, or `R2_ENDPOINT=local`.
+
+### 2b. Local database (development only)
+
+`npm run db:start` runs a real PostgreSQL cluster from `embedded-postgres` —
+no Docker, no root, no OS packages. It listens on loopback only and stores data
+in `.localdb/` (gitignored). The connection string is written to `.env.local`,
+which Next loads ahead of `.env`.
+
+```bash
+# .env.local (generated; do not copy to a deployment)
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/nomarc
+STORAGE_BACKEND=local
+UPLOAD_DIR=./uploads
+PRIVATE_UPLOAD_DIR=./uploads/private
+NEXT_PUBLIC_UPLOADS_URL=/uploads
+```
+
+Optional overrides for the scripts (not needed by default):
+
+| Variable | Default | Notes |
+| --- | --- | --- |
+| `LOCAL_DB_PORT` | `55432` | Port; non-standard so it cannot collide with an installed Postgres. |
+| `LOCAL_DB_DIR` | `.localdb` | Data + log + pid file location. |
+| `LOCAL_DB_NAME` | `nomarc` | Database name. |
+| `LOCAL_DB_USER` / `LOCAL_DB_PASSWORD` | `postgres` / `postgres` | Loopback-only credentials. |
+
+`npm run db:migrate` applies `lib/db/schema.ts` with `drizzle-kit push`, then
+creates Better Auth's tables through its migration API. It refuses a
+non-loopback `DATABASE_URL` unless `ALLOW_REMOTE_MIGRATE=1` is set.
 
 ---
 

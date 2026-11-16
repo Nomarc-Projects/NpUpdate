@@ -5,16 +5,16 @@ logic, lives here. It is a **Next.js 16 App Router** application that talks
 directly to CockroachDB through Drizzle server actions; there is no API tier
 between the two.
 
-> **The single most important thing to know:** `npm run dev` reads and writes
-> the **production database**. See [Working against production](#working-against-production)
-> before you run anything.
+> **The single most important thing to know:** `npm run dev` uses the **local
+> database** created by `npm run db:start`, never the live one. See
+> [Local database](#local-database) before you run anything.
 
 ---
 
 ## Contents
 
 - [Stack](#stack)
-- [Working against production](#working-against-production)
+- [Local database](#local-database)
 - [Directory reference](#directory-reference)
 - [How a request flows](#how-a-request-flows)
 - [Data layer](#data-layer)
@@ -53,24 +53,56 @@ Node is pinned to `22.x` in `engines`. The deployed Vercel project runs `24.x`.
 
 ---
 
-## Working against production
+## Local database
 
-`frontend/.env` contains a `DATABASE_URL` pointing at the **same CockroachDB
-cluster** as the Doppler `prd` config. There is no separate development
-database.
+Development runs against a **local PostgreSQL** cluster that the repo manages
+for you. It needs no Docker, no root and no OS packages: `embedded-postgres`
+ships real Postgres binaries and the scripts below run them on loopback only.
 
-Consequences, all of which have bitten before:
+```bash
+npm run db:start      # first run initialises the cluster; data lives in .localdb/
+npm run db:migrate    # create the schema from lib/db/schema.ts + Better Auth tables
+npm run db:seed       # test accounts, marketplace rows, quiz
+npm run dev
+```
 
-- `npm run dev` mutates live data. Signing up, placing an order, or toggling a
-  setting locally is a **production write**.
-- Never "just try it" to see what a mutation does. Read the service function
-  instead.
-- Seed and reset scripts (`scripts/seed-*.ts`, `scripts/dev-reset`) are
-  destructive against real rows.
+`db:start` prints the connection string (default
+`postgres://postgres:postgres@127.0.0.1:55432/nomarc`). It is written to
+`.env.local`, which Next loads ahead of `.env`, so `npm run dev` cannot reach the
+live CockroachDB cluster. `.localdb/` and `uploads/` are gitignored.
 
-If you need a scratch database, point `DATABASE_URL` at your own CockroachDB
-instance and apply `drizzle/*.sql` in order. Nothing in the code assumes the
-shared cluster.
+| Command | What it does |
+| --- | --- |
+| `npm run db:start` / `db:stop` | Background Postgres on `127.0.0.1:55432`; safe to re-run. |
+| `npm run db:status` / `db:url` | Is it up, and what is its URL. |
+| `npm run db:migrate` | `drizzle-kit push` from `lib/db/schema.ts` + Better Auth's own tables. |
+| `npm run db:seed` | Accounts above, then `seed-buyer`, `seed`, `seed-quiz`. |
+| `npm run db:reset` | Stop, delete `.localdb/`, start, migrate. **Destroys local data.** |
+
+Test accounts all use the password `Password123!`:
+`pro@nomarc.test`, `exhibitor@nomarc.test`, `buyer@nomarc.test`,
+`admin@nomarc.test`, `superadmin@nomarc.test`.
+
+**Why `db:migrate` pushes the schema instead of replaying `drizzle/*.sql`:** the
+deployed database was built by applying those files by hand (see
+[Memory.md](Memory.md) T-012), and it drifted. Fourteen tables the app queries —
+`announcement`, `review`, `service`, `blog_post`, the `bt_*` tables, … — exist in
+`lib/db/schema.ts` but in no migration file, and `0011` already fails on a fresh
+cluster (`UPDATE "announcement"`). `lib/db/schema.ts` is the only complete
+definition, so that is what the local database is built from. Better Auth's
+tables (`user`, `session`, `account`, `verification`) are created afterwards via
+its migration API.
+
+### Pointing at production by mistake
+
+`scripts/db-migrate.cjs` refuses any non-loopback `DATABASE_URL` unless
+`ALLOW_REMOTE_MIGRATE=1` is set. Nothing in `npm run db:*` reads the live
+credentials in `.env.vps`; only `next dev` reads `.env.local`, and that file is
+generated with a loopback URL.
+
+If you deliberately point a local app at production (not recommended), remember
+that sign-ups, orders and settings toggles become **real writes**. Seed and
+reset scripts are destructive against real rows.
 
 ---
 
@@ -398,9 +430,13 @@ Next.js reads `frontend/.env`; the repo-root `.env` is **not** read by the app.
 ## Commands
 
 ```bash
-npm run dev          # dev server; WRITES TO PRODUCTION
+npm run dev          # dev server against the local database
 npm run build        # production build; the real verification step
 npm run start        # serve a production build
 npm run lint         # eslint
 npm run type-check   # tsc --noEmit (necessary, not sufficient)
+npm run db:start     # local Postgres (loopback only)
+npm run db:migrate   # schema from lib/db/schema.ts + Better Auth tables
+npm run db:seed      # test accounts and sample rows
+npm run db:reset     # wipe and rebuild the local database
 ```

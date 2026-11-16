@@ -10,6 +10,10 @@ node_modules/
 .vercel
 tsconfig.tsbuildinfo
 
+# Local development database (embedded-postgres) and local uploads
+.localdb/
+uploads/
+
 # Doppler
 .doppler.yaml
 

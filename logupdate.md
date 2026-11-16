@@ -18,6 +18,183 @@ Format:
 
 ---
 
+## 2026-11-16 — Unbroke the failing Dokploy deploy
+
+**Changed** — Pushed `a5bca5d` to GitHub `Nomarc-Projects/NpUpdate`
+`VPS_Nomarc` (built and verified from a clean clone of that branch first):
+- `lib/services/products.ts` — the 82f3ee2b refactor (2026-11-05) passed
+  `Record<string, any>` into `db.insert(product).values(v)` at three sites;
+  drizzle's insert type rejects it, so Turbopack's build-time type check
+  failed the Docker build with "No overload matches this call" (`tsc
+  --noEmit` shows the same TS2769). Fixed by casting to
+  `typeof product.$inferInsert`; the runtime column-fallback logic is
+  unchanged.
+- `Dockerfile` — `RUN NODE_OPTIONS=--max-old-space-size=4096 npm run build`
+  restored to `RUN npm run build`: the builder stage already sets
+  `NODE_OPTIONS` from the `NODE_MAX_OLD_SPACE_SIZE` arg, so the hardcoded
+  value only disabled the build-arg override.
+
+**Why** — Dokploy builds from the GitHub repo; this machine's repo has a
+fresh lineage (only 3 commits, no remote) and was never pushed, so the
+2026-11-14 voice-note work is NOT deployed. The GitHub branch has been
+failing since 2026-11-05; the operator's 2026-11-14 Dockerfile edits
+treated it as an OOM but the reproducible failure was the type error.
+`main` (273c616) type-checks and builds clean, so it was left untouched —
+the two branches are diverged again (main has only the Dockerfile edit;
+D-010's lockstep rule is not being followed).
+
+**Verified** — On a clean clone of GitHub `VPS_Nomarc`: `tsc --noEmit`
+failed → clean after the fix; `next build` failed → "Compiled
+successfully" after the fix (peak RSS ~3.0 GB, 27–32 s). `main` builds
+green as-is (peak ~2.8 GB). SSH to the VPS (67.223.117.182) is denied for
+root/lw with the local key, so Dokploy's own build log was not read.
+
+**Follow-ups** — (a) Redeploy in Dokploy and confirm; if it still fails,
+read the build log (likely OOM on a small VPS — `NODE_MAX_OLD_SPACE_SIZE`
+build arg is now usable). (b) The 2026-11-14 commits (voice-note AAC
+transcode, local dev DB) exist only on this machine; getting them onto
+GitHub is a separate sync the operator performs. (c) Agent.md's `fullbuild`
+remote repo no longer exists (404 even authenticated).
+
+---
+
+## 2026-11-14 — Local Postgres for development (no Docker, no production)
+
+**Changed** — `npm run dev` now uses a real PostgreSQL cluster on loopback
+instead of the live CockroachDB database:
+- `embedded-postgres` (devDependency) supplies the Postgres binaries; nothing
+  is installed system-wide and no root is needed.
+- `scripts/dev-db.cjs` implements `db:start`, `db:stop`, `db:status`, `db:url`
+  and `db:reset`. It listens on `127.0.0.1:55432`, keeps data in `.localdb/`
+  (gitignored), and writes a pid file so stop/status are reliable.
+- `scripts/db-migrate.cjs` builds the schema with `drizzle-kit push` from
+  `lib/db/schema.ts`, then `scripts/db-auth-init.ts` creates Better Auth's
+  tables through `getMigrations(auth.options)`. It refuses a non-loopback
+  `DATABASE_URL` unless `ALLOW_REMOTE_MIGRATE=1`.
+- `scripts/db-seed.cjs` loads `.env.local` and runs `seed-auth`, `seed-buyer`,
+  `seed`, `seed-quiz` (previously they needed `doppler run`).
+- `.env.local` (gitignored) is generated with a loopback `DATABASE_URL`,
+  fresh auth/JWT secrets, `STORAGE_BACKEND=local`, `UPLOAD_DIR=./uploads` and
+  localhost URLs. Next loads it ahead of `.env`, so a stale production
+  `DATABASE_URL` in `.env` is not used.
+- `scripts/seed-auth.ts` no longer fails when the sibling `plans/` directory
+  does not exist; writing `test-users.md` is best-effort.
+
+**Why** — Local development had no database it could use: the committed
+`.env` pointed at a dead Cockroach Cloud host and the live cluster is
+firewalled (T-011). Additionally, replaying `drizzle/*.sql` cannot build a
+working schema: `0011` fails with `relation "announcement" does not exist`,
+because fourteen tables in `lib/db/schema.ts` (including `announcement`,
+`review`, `service`, `blog_post` and the `bt_*` tables) appear in no migration
+file. The schema is the only complete definition, so the local database is
+built from it (D-016, T-012).
+
+**Verified** — On a clean `.localdb`: `db:reset` initialises Postgres, pushes
+101 tables / 1055 columns / 140 indexes, then creates `user`, `session`,
+`account`, `verification` and `rateLimit`. `db:seed` creates all five accounts
+(`pro@`, `exhibitor@`, `buyer@`, `admin@`, `superadmin@nomarc.test`, password
+`Password123!`) plus 12 products, 8 orders, 3 quote requests and the quiz.
+
+**Follow-ups** — Migrations still cannot build a fresh deployment database;
+capturing the 14-table drift in a migration is the real fix (T-012). Adding a
+column to `lib/db/schema.ts` needs `npm run db:reset` (or a manual push) until
+local schema is tracked.
+
+---
+
+## 2026-11-14 — Voice notes: transcode WebM/Ogg to AAC so iPhones can play them
+
+**Changed** — Voice notes recorded on Chrome/Android (WebM/Opus) or Firefox
+(Ogg) are now converted to AAC/M4A, which is the only container iOS Safari can
+decode:
+- `lib/audio-transcode.ts` runs ffmpeg on a temp file (seekable output ⇒ proper
+  `moov`/`+faststart` MP4, which Safari needs), drops video/cover art, encodes
+  AAC at 64 kbit/s, sanity-checks the `ftyp` header, and returns `null` — never
+  throws — when the binary is missing or the input is unusable.
+- `/api/upload/transcode` accepts only the caller's own `chat/<uid>/…` key,
+  reads the object back from storage (`getObject`), converts it, and stores
+  `<key>.m4a`. The original is kept as a fallback. `503` when no ffmpeg exists.
+- `uploadVoiceNote()` in `lib/upload-client.ts` uploads as before and then asks
+  for the converted copy, falling back to the original URL on any failure, so a
+  send never fails because conversion did.
+- Both recorders (inline bar and the attachment modal) call it and store the
+  returned MIME type in message metadata.
+- ffmpeg ships as `@ffmpeg-installer/ffmpeg` (static build, no OS packages);
+  `FFMPEG_PATH` overrides it. `next.config.ts` externalises the package and
+  adds `outputFileTracingIncludes`, so the 67MB binary actually lands in
+  `.next/standalone` (verified).
+- Local-storage playback: `/uploads/:path*` now rewrites to
+  `/api/uploads/:path*` so the route's explicit `Content-Type` + `Range`
+  handling applies where no reverse proxy serves the folder.
+
+**Why** — The 2026-11-14 MIME fix made recording and sending work, but a WebM
+note is silent on iOS: the container is valid, the decoder is absent. AAC/MP4
+is playable on every target, and converting at send time is the only place the
+server can guarantee it.
+
+**Verified** — `npx tsc --noEmit` and `npx next build` both pass on Node 22.
+Manual checks with the bundled binary: a 3s Opus/WebM converts to a 3.02s
+AAC-LC MP4 (`ffprobe`: `aac (LC), 48000 Hz, 64 kb/s`), invalid input returns
+`null` instead of throwing, and a local storage round-trip
+(upload → `getObject` → byte-identical) works with the `.mime` sidecar. The
+built standalone server answers `/uploads/…m4a` with `audio/mp4`, `.webm` with
+`audio/webm`, `404` for a missing key, and `206` + `Content-Range` for
+`Range: bytes=0-99`.
+
+**Follow-ups** — Notes already stored as WebM stay WebM; a backfill script would
+need to walk `chat/` objects and convert them. Image size grows by ~68MB
+(`.next/standalone` is now ~216MB). ffmpeg only converts on the chat audio path;
+video attachments are untouched.
+
+---
+
+## 2026-11-14 — Voice notes: accept every recorder container, fix playback headers
+
+**Changed** — Finished the voice-note fix from 2026-10-30. The earlier patch
+normalized codec-suffixed types, but two paths still produced "Unsupported file
+type":
+- A recording whose `Blob.type` is empty (some Android WebViews) travelled to
+  `/api/upload/presign` as `application/octet-stream` and failed the allow-list.
+  `lib/upload-client.ts` now recovers the base type from the file extension, and
+  both upload routes do the same when the multipart part has no usable type.
+- The recorder hardcoded `audio/webm` → `audio/mp4`, so platforms that only
+  offer Ogg (or only a codec-qualified WebM) either threw in the constructor or
+  produced a type outside the list. `lib/audio-recorder.ts` probes
+  `audio/webm;codecs=opus`, `audio/webm`, `audio/ogg;codecs=opus`, `audio/ogg`
+  and `audio/mp4`, falls back to the browser default, and never stamps an empty
+  type on the finished Blob.
+- Chat now accepts any `audio/*` container (normalized) in both routes, so an
+  unlisted but valid container is stored rather than rejected.
+- `/api/uploads/[...path]` now sends an explicit `Content-Type` and honours
+  `Range` (`206`), which iOS needs before it will play an audio element under
+  the app's `X-Content-Type-Options: nosniff`; the audio bubble preloads
+  metadata. Local uploads write a `<key>.mime` sidecar, so the route serves the
+  recorded type instead of guessing from the extension (`.webm` is both audio
+  and video), and it resolves files through `UPLOAD_DIR` like the writer does
+  rather than hardcoding `<cwd>/uploads`.
+- `uploadFile` no longer aborts on a presign rejection: it still tries the
+  server-side fallback, whose filename-based inference may recover the type.
+  (The old `/allowed|type|large/i` guard also matched `TypeError`, so CORS
+  failures skipped the fallback entirely.)
+
+**Why** — The report persisted because the remaining failure was a missing/empty
+MIME, not a codec suffix. Fixing the type at the source (recorder + client) and
+accepting any audio container closes the whole class instead of enumerating one
+more string.
+
+**Verified** — `npm run type-check` passes, and `npm run build` passes end to end
+on Node 22 (`Compiled successfully`, TypeScript clean). The build logs a
+pre-existing Turbopack NFT tracing warning from `next.config.ts` and
+`BetterAuthError: default secret` because this sandbox has no env file; neither
+affects the exit code. Manual record→send→play on Chrome/Android and Safari/iOS
+still needs a smoke test.
+
+**Follow-ups** — Cross-device playback of WebM on iOS Safari still needs a
+transcode step; this change guarantees same-device playback and no longer
+rejects valid recordings.
+
+---
+
 ## 2026-11-05 — Exhibitor product edit/create resilience and error transparency
 
 **Changed** — `lib/services/products.ts` & `components/dashboard/exhibitor/product-form.tsx`:

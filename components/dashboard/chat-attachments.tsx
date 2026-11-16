@@ -8,7 +8,9 @@ import {
   Mic, Square, Pause, Play, Plus, Trash2, MapPin, Clock,
   Calendar, type LucideIcon,
 } from "lucide-react";
-import { uploadFile } from "@/lib/upload-client";
+import { uploadFile, uploadVoiceNote } from "@/lib/upload-client";
+import { pickAudioRecorderMime, recordedAudioType } from "@/lib/audio-recorder";
+import { extensionForMime, normalizeMime } from "@/lib/media-types";
 import { getProfessionals } from "@/lib/services/directory";
 import type { MessageType } from "@/lib/services/messaging";
 import { r2Url } from "@/lib/r2-public";
@@ -239,6 +241,7 @@ export function CameraCapture({ onSend, onClose }: { onSend: SendFn; onClose: ()
 export function VoiceRecorder({ onSend, onClose }: { onSend: SendFn; onClose: () => void }) {
   const mediaRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const requestedMimeRef = useRef<string | undefined>(undefined);
   const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
   const [state, setState] = useState<"idle" | "recording" | "paused" | "done">("idle");
   const [secs, setSecs] = useState(0);
@@ -254,12 +257,16 @@ export function VoiceRecorder({ onSend, onClose }: { onSend: SendFn; onClose: ()
   async function start() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4" });
+      const requested = pickAudioRecorderMime();
+      requestedMimeRef.current = requested;
+      const mr = requested
+        ? new MediaRecorder(stream, { mimeType: requested })
+        : new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       mr.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        const b = new Blob(chunksRef.current, { type: mr.mimeType });
+        const b = new Blob(chunksRef.current, { type: recordedAudioType(mr.mimeType, requestedMimeRef.current) });
         setBlob(b);
         setAudioUrl(URL.createObjectURL(b));
         setState("done");
@@ -268,7 +275,7 @@ export function VoiceRecorder({ onSend, onClose }: { onSend: SendFn; onClose: ()
       mr.start(250);
       setState("recording");
       startTimer();
-    } catch { setError("Microphone access denied."); }
+    } catch { setError("Couldn't start recording — check microphone access."); }
   }
 
   function pause() { mediaRef.current?.pause(); setState("paused"); stopTimer(); }
@@ -280,10 +287,13 @@ export function VoiceRecorder({ onSend, onClose }: { onSend: SendFn; onClose: ()
     if (!blob) return;
     setUploading(true);
     try {
-      const ext = blob.type.includes("webm") ? "webm" : "m4a";
-      const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: blob.type });
-      const url = await uploadFile(file, "chat");
-      onSend("", { type: "audio", attachmentUrl: url, metadata: { duration: secs, mimeType: blob.type } });
+      const type = normalizeMime(blob.type) || "audio/webm";
+      const ext = extensionForMime(type) ?? "webm";
+      const file = new File([blob], `voice-${Date.now()}.${ext}`, { type });
+      // Returns an AAC copy when the recording is WebM/Ogg (iOS can't decode
+      // those), so the bubble plays on every device.
+      const { url, mimeType } = await uploadVoiceNote(file);
+      onSend("", { type: "audio", attachmentUrl: url, metadata: { duration: secs, mimeType } });
       onClose();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Upload failed"); }
     finally { setUploading(false); }

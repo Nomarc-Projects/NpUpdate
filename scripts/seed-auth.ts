@@ -44,10 +44,20 @@ async function main() {
     }
   }
 
+  // Local and demo accounts must be able to open the dashboard immediately:
+  // the app gates it behind a verified email address, and no seed run sends
+  // mail. Mark them verified (and re-assert the role for rows that already
+  // existed, so a re-seed repairs a half-created account).
+  for (const u of users) {
+    await db.execute(
+      sql`UPDATE "user" SET "emailVerified" = true, role = ${u.role} WHERE email = ${u.email}`,
+    );
+  }
+
   const md = `# Nomarc — Test Users (dummy accounts)
 
-These seeded accounts exist in CockroachDB (Better Auth) for local + live testing.
-Re-seed with: \`cd frontend && doppler run -p nomarc -c dev -- npx tsx scripts/seed-auth.ts\`
+These seeded accounts exist in the configured database (Better Auth) for local + live testing.
+Re-seed with: \`npm run db:seed -- seed-auth\`
 
 | Role | Email | Password |
 |------|-------|----------|
@@ -57,9 +67,17 @@ ${users.map((u) => `| ${u.role} | \`${u.email}\` | \`${u.password}\` |`).join("\
 > (professional vs exhibitor) and chrome. Do not use these credentials in prod
 > for real data.
 `;
+  // Best-effort: the note is a convenience, and writing it must never fail a
+  // seed run (the `plans/` directory is a sibling checkout that a fresh clone
+  // does not have).
   const out = path.join(process.cwd(), "..", "plans", "test-users.md");
-  fs.writeFileSync(out, md);
-  console.log(`\nWrote credentials → ${out}`);
+  try {
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, md);
+    console.log(`\nWrote credentials → ${out}`);
+  } catch (e) {
+    console.log(`\n(Could not write ${out}: ${e instanceof Error ? e.message : e})`);
+  }
   process.exit(0);
 }
 

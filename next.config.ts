@@ -110,13 +110,30 @@ const nextConfig: NextConfig = {
       { source: "/dashboard/products", destination: "/exhibition-hub", permanent: false },
     ];
   },
+  async rewrites() {
+    return [
+      // Local-storage uploads are addressed as /uploads/<key> (the value
+      // NEXT_PUBLIC_UPLOADS_URL defaults to). On hosts where no reverse proxy
+      // serves that path from disk, hand it to the route handler — which sends
+      // the real Content-Type and answers Range requests, both of which are
+      // required for audio/video playback on iOS. A proxy that already serves
+      // /uploads wins before Next is reached, so this changes nothing there.
+      { source: "/uploads/:path*", destination: "/api/uploads/:path*" },
+    ];
+  },
   reactStrictMode: true,
   poweredByHeader: false,
   // Externalize only the server-side DB packages so Better Auth's optional
   // SQLite dialects aren't bundled. NOTE: do NOT externalize "better-auth"
   // itself — that would also externalize better-auth/react (useSession) and
   // break SSR (React resolves to null → "useRef of null" at prerender).
-  serverExternalPackages: ["@better-auth/kysely-adapter", "kysely", "pg"],
+  serverExternalPackages: ["@better-auth/kysely-adapter", "kysely", "pg", "@ffmpeg-installer/ffmpeg"],
+  // The packaged ffmpeg binary is resolved at runtime through a dynamic path,
+  // so file tracing cannot see it. Without this the standalone bundle ships
+  // without a binary and every voice note silently stays WebM (silent on iOS).
+  outputFileTracingIncludes: {
+    "/api/upload/transcode": ["./node_modules/@ffmpeg-installer/**"],
+  },
   images: {
     // The configured R2 bucket, plus the legacy one still named by older rows.
     remotePatterns: mediaHosts.map((host) => ({

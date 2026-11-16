@@ -22,6 +22,12 @@ export async function deleteObject(key: string) {
   return r2.deleteObject(key);
 }
 
+/** Read a public object's bytes server-side (e.g. to transcode it). */
+export async function getObject(key: string): Promise<Buffer> {
+  if (useLocal) return local.getObjectLocal(key);
+  return r2.getObject(key);
+}
+
 export function keyFromUrl(url: string): string | null {
   if (useLocal) return local.keyFromUrlLocal(url);
   return r2.keyFromUrl(url);
