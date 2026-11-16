@@ -78,6 +78,7 @@ live CockroachDB cluster. `.localdb/` and `uploads/` are gitignored.
 | `npm run db:migrate` | `drizzle-kit push` from `lib/db/schema.ts` + Better Auth's own tables. |
 | `npm run db:seed` | Accounts above, then `seed-buyer`, `seed`, `seed-quiz`. |
 | `npm run db:reset` | Stop, delete `.localdb/`, start, migrate. **Destroys local data.** |
+| `npm run db:restore` | Load a `/backup` dump file. Refuses non-loopback targets unless `ALLOW_REMOTE_RESTORE=1`, and refuses populated databases unless `--force`. |
 
 Test accounts all use the password `Password123!`:
 `pro@nomarc.test`, `exhibitor@nomarc.test`, `buyer@nomarc.test`,
@@ -255,6 +256,32 @@ doppler run -p nomarc -c prd -- node scripts/apply-migration.cjs drizzle/0044_jo
   live database.
 - Applying out of order, or skipping one, will leave the schema inconsistent
   with `schema.ts` in ways type-checking cannot see.
+
+---
+
+## Backup and restore
+
+`/backup` is a super-admin console (not linked anywhere, `noindex`, excluded
+from robots) that downloads the **entire application database** — schema and
+data — as one self-contained `.sql` file, so the deployment can move to a new
+server without external tooling: the slim runtime image has no `pg_dump`.
+
+- **Access.** The login screen posts to Better Auth's standard
+  `/api/auth/sign-in/email`; both the page and the download route independently
+  require a live session with `role === "super_admin"` (assigned only by
+  `scripts/make-super-admin.cjs`). The route is POST-only and same-origin
+  checked, so no link, crawler or cross-site form can trigger it.
+- **The dump** (`lib/db/backup.ts`) streams with constant memory: schema DDL
+  generated from the live database's own `information_schema` (so the file
+  matches its data), inserts read through one `REPEATABLE READ READ ONLY`
+  snapshot with keyset pagination, foreign keys added after the data,
+  sequence positions, all duplicate-tolerant. Works on PostgreSQL and
+  CockroachDB. Secrets (auth/JWT/R2/SMTP) are not in the database — carry the
+  deployment env over separately.
+- **Restore on the new server:** `psql "$DATABASE_URL" -f nomarc-backup-….sql`
+  into an **empty** database, or `npm run db:restore -- nomarc-backup-….sql`
+  (one implicit transaction; guard-railed against remote/populated targets).
+  Round-trip verified: source and restored databases are hash-identical.
 
 ---
 
@@ -439,4 +466,5 @@ npm run db:start     # local Postgres (loopback only)
 npm run db:migrate   # schema from lib/db/schema.ts + Better Auth tables
 npm run db:seed      # test accounts and sample rows
 npm run db:reset     # wipe and rebuild the local database
+npm run db:restore   # load a /backup dump into DATABASE_URL (guard-railed)
 ```

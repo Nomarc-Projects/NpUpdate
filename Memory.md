@@ -134,6 +134,27 @@ the GitHub tree before pushing. `main` and `VPS_Nomarc` have diverged again
 (2026-11-16); fix commits go to `VPS_Nomarc` first, `main` only when
 deliberately synced.
 
+**2026-11-16 update:** `VPS_Nomarc` now carries the 2026-11-14 work
+(`7bfe195`: voice-note transcode + local dev DB) on top of the build fix.
+`main` still builds green but lacks that work; making it lockstep requires a
+force-push of `main` to `7bfe195` — operator's call.
+
+**D-018 · The `/backup` console is the sanctioned way to move the database.**
+Super-admin only (Better Auth session with `role === "super_admin"`, checked in
+both the page and the POST-only, same-origin `/api/backup/download` route).
+`lib/db/backup.ts` streams one self-contained `.sql` — schema from the live
+database's `information_schema` (not `drizzle/*.sql`), data from a single
+`REPEATABLE READ READ ONLY` snapshot with keyset pagination, FKs after data,
+duplicate-tolerant everywhere — because the runtime image has no `pg_dump` and
+the runtime DB can be Postgres or CockroachDB. Restore with
+`npm run db:restore -- file.sql` into an **empty** database (guard-railed
+against remote/populated targets; one implicit transaction). The dump pool
+passes date/time and json columns through as raw text — the default JS `Date`
+parse would truncate timestamps to milliseconds and the round trip would
+silently lose data (this was caught by the hash-compare verification, not by
+row counts, which all matched). Secrets are not in the dump; carry Dokploy env
+over separately.
+
 **D-011 · Property listing fee = flat + full-value bracket rate.** Charged once,
 in NGN, after admin approval and before publish. The bracket rate applies to
 the whole normalised value (not progressive); values below ₦100,000 pay the flat

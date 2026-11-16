@@ -18,6 +18,79 @@ Format:
 
 ---
 
+## 2026-11-16 — Added the `/backup` console (super-admin DB dump + restore)
+
+**Changed** — New `/backup` page: unauthenticated visitors get a sign-in screen
+that posts to Better Auth's `/api/auth/sign-in/email`; only a live session with
+`role === "super_admin"` gets the console (unauthorized sessions see a clear
+"not authorized" panel with the `make-super-admin` hint). The console shows
+database stats (engine/version, host, tables, row and size estimates from
+`pg_stat`) and one button that streams the full dump via the new POST route
+`/api/backup/download` (`lib/db/backup.ts`): schema DDL generated from the live
+database's `information_schema` shape, every table's data read through one
+`REPEATABLE READ READ ONLY` snapshot (keyset pagination on single-PK tables,
+LIMIT/OFFSET otherwise), foreign keys created after the data, sequence
+positions, `ANALYZE` — all `IF NOT EXISTS`/duplicate-tolerant, so it restores
+into an empty database on Postgres or CockroachDB. The route is super_admin +
+same-origin checked server-side, POST-only, `maxDuration 3600`, and streams
+with constant memory (the runtime image has no `pg_dump`). New
+`scripts/db-restore.cjs` + `npm run db:restore` loads the file as a single
+implicit transaction, refusing non-loopback `DATABASE_URL` unless
+`ALLOW_REMOTE_RESTORE=1` and populated databases unless `--force`. Robots
+disallow `/backup`; docs updated (README "Backup and restore", API.md route 19,
+Memory D-018).
+
+**Why** — Server migrations previously meant ad-hoc `pg_dump` from a shell the
+VPS runtime doesn't have; switching Dokploy servers had no clean data path.
+
+**Verified** — Locally (embedded Postgres, 106 tables): signed-out download →
+401; exhibitor session → 403; super admin → 200 with a ~115 KB dump; cross-site
+`Origin` → 403. Round-trip restored the dump into a scratch database
+(`nomarc_restore_test`): 106/106 table row counts match and MD5 hashes of all
+27 populated tables are identical. Three real bugs were caught and fixed by
+that verification: `information_schema.check_constraints` emits NOT NULL
+"checks" with unquoted identifiers (`accountId` folds to lowercase → restore
+error) — now sourced from `pg_get_constraintdef` with proper quoting; the JS
+`Date` default parser truncates timestamps to milliseconds — the dump pool now
+passes date/time/json OIDs through as raw text (scoped override, app parsing
+untouched); and a `.cjs` require-resolution slip. `tsc --noEmit` and
+`next build` green (`/backup`, `/api/backup/download` both dynamic).
+
+**Follow-ups** — Sync to GitHub `VPS_Nomarc` so the redeploy includes it.
+First real-credentials test in production: `14eter@gmail.com` must exist with
+`role = super_admin` (promote via `scripts/make-super-admin.cjs` if needed).
+Large production dumps not yet exercised against CockroachDB-specific
+behaviour.
+
+---
+
+**Changed** — Pushed `7bfe195` to GitHub `Nomarc-Projects/NpUpdate`
+`VPS_Nomarc` on top of the unbreak-fix (`a5bca5d`): all 31 files that
+differed between this machine's tree and the GitHub branch — the voice-note
+recorder/MIME fix, the AAC transcode path (`lib/audio-transcode.ts`,
+`/api/upload/transcode`, ffmpeg tracing in `next.config.ts`), the local dev
+database tooling (`scripts/db-*.cjs`, `embedded-postgres`), and the doc set.
+
+**Why** — Dokploy builds from GitHub; the operator's 2026-11-14 commits
+existed only on this machine, so a successful deploy would have shipped
+the 2026-11-05 code without them. This machine's tree is a content
+superset of GitHub `VPS_Nomarc` (zero files exist only on GitHub), so the
+sync is `git checkout machine/main -- <31 files>` and nothing needed
+deleting.
+
+**Verified** — On a clean clone of `VPS_Nomarc` after the sync: `npm ci`
+(installs the two new packages), `tsc --noEmit`, and `next build` all
+pass; the ffmpeg binary lands in `.next/standalone` via
+`outputFileTracingIncludes`. Peak RSS ~3.0 GB.
+
+**Left alone** — `main` (273c616) builds clean as-is and was not touched:
+its only unique commit is the Dockerfile tweak `VPS_Nomarc` already has,
+and making it lockstep means force-pushing `main` to `7bfe195`
+(D-010's rule, but an escalation boundary). The two branches are
+content-divergent until the operator decides.
+
+---
+
 ## 2026-11-16 — Unbroke the failing Dokploy deploy
 
 **Changed** — Pushed `a5bca5d` to GitHub `Nomarc-Projects/NpUpdate`

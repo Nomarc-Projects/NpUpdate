@@ -14,7 +14,8 @@
     "db:url": "node scripts/dev-db.cjs url",
     "db:migrate": "node scripts/db-migrate.cjs",
     "db:seed": "node scripts/db-seed.cjs",
-    "db:reset": "node scripts/dev-db.cjs reset"
+    "db:reset": "node scripts/dev-db.cjs reset",
+    "db:restore": "node scripts/db-restore.cjs"
   },
   "engines": {
     "node": "22.x"

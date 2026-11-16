@@ -8,8 +8,11 @@ import { attachDbRetry } from "./retry";
 /**
  * Drizzle client on the SAME CockroachDB Better Auth uses. SSL/CA resolution
  * mirrors lib/auth.ts (env cert → committed cert → system CAs).
+ *
+ * Exported for `lib/db/backup.ts`, which opens its own pool so a long dump
+ * cannot starve the app's 5-connection pool.
  */
-function resolveSSL() {
+export function resolveSSL() {
   const dburl = process.env.DATABASE_URL || "";
   if (dburl.startsWith("postgres://") || !dburl.includes("sslmode=verify-full")) {
     return undefined;

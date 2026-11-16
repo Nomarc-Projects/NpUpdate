@@ -5,7 +5,7 @@ Two surfaces exist:
 1. **Server actions** in `lib/services/*` — the primary interface. Pages call
    them directly; they are not HTTP-discoverable and have no URL. Treat them
    as the app's internal API (see §1).
-2. **Route handlers** in `app/api/*` — 18 handlers, reserved for callbacks,
+2. **Route handlers** in `app/api/*` — 19 handlers, reserved for callbacks,
    webhooks, binary responses, pixels and third-party proxies (see §2).
 
 **General rules**
@@ -58,6 +58,7 @@ export async function someMutation(input: Validated): Promise<Result>
 | 16 | `/api/helm/proposal` | `POST` | session + entitlement | Proposal synthesis through Helm. |
 | 17 | `/api/guide` | `POST` | none + rate limit | Public site assistant. Body `{ message }` (≤2000 chars) → assistant reply. `429` rate limited, `502` provider unavailable. |
 | 18 | `/api/promotions/track` | `POST` | none (by necessity) | `{ type, id }` impression/click tracking. Validates UUID, filters bots, de-duplicates; always `200`-ish so tracking never breaks the page. |
+| 19 | `/api/backup/download` | `POST` | super_admin + same-origin | Streams the full database dump (`schema + data`, `.sql`) from `lib/db/backup.ts` with `content-disposition` filename. `401` signed out, `403` non-super or cross-origin. POST-only; no link/prefetch can trigger it. UI at `/backup` (page also gates on the same session role). |
 | 19 | `/api/templates/download` | `GET` | session | Authenticated download of bundled contract/BOQ/programme templates. |
 
 ---
