@@ -199,15 +199,14 @@ export function PlansView({ demoMode = false, unavailable = false, professionalE
                         </button>
                       )}
                       <button
-                        disabled={isCurrent || !!t.comingSoon || busy === t.plan || (isOnFree && t.plan !== "free") || ladder.disabled}
+                        disabled={isCurrent || !!t.comingSoon || busy === t.plan || ladder.disabled}
                         onClick={() => choose(t.plan, ladder.role, ladder.current)}
                         className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed ${
                           isCurrent ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
                           : t.comingSoon || ladder.disabled ? "bg-[#f0f0f0] dark:bg-white/10 text-[#9a9a9a]"
-                          : isOnFree && t.plan !== "free" ? "bg-[#e3e3e3] dark:bg-white/10 text-[#9a9a9a]"
                           : "bg-[#ffd716] text-[#1e1e1e] hover:bg-[#e6c114]"
                         }`}>
-                        {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : ladder.disabled ? "Unavailable" : t.plan === "free" ? "Switch to Free" : `Choose ${PLAN_LABEL[t.plan]}`}
+                        {busy === t.plan ? "Updating…" : isCurrent ? "Your plan" : t.comingSoon ? <span className="inline-flex items-center gap-1.5"><Lock size={13} /> Coming soon</span> : ladder.disabled ? "Unavailable" : t.plan === "free" ? "Switch to Free" : isOnFree ? `Subscribe to ${PLAN_LABEL[t.plan]}` : `Choose ${PLAN_LABEL[t.plan]}`}
                       </button>
                     </div>
                   </div>

@@ -237,22 +237,32 @@ export default function ExhibitorPlansPage() {
                         </button>
                       )}
                       <button
-                        disabled={busy === plan || isOnFree}
+                        disabled={busy === plan}
                         onClick={async () => {
+                          if (!isExhibitor) {
+                            toast.error("Complete your exhibitor registration before subscribing.");
+                            router.push("/dashboard/my-products");
+                            return;
+                          }
+                          setBusy(plan);
                           try {
                             const res = await startCheckout(plan, cycle);
                             if (res.checkoutUrl) {
                               window.location.href = res.checkoutUrl;
+                              return;
                             } else if (res.demo) {
                               router.push("/dashboard/plans/receipt");
+                              return;
                             }
                           } catch (e) {
                             toast.error(e instanceof Error ? e.message : "Couldn't start checkout");
+                          } finally {
+                            setBusy(null);
                           }
                         }}
                         className={buttonStyles}
                       >
-                        {isOnFree ? "Subscribe" : "Pay Now"}
+                        {busy === plan ? "Processing…" : isOnFree ? "Subscribe" : "Pay Now"}
                       </button>
                     </div>
                   </div>
