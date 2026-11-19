@@ -24,10 +24,17 @@ export function ExhibitorGuidelinesStep() {
     if (!agreed || busy) return;
     setBusy(true);
     try {
-      await acceptExhibitorGuidelines();
+      const result = await acceptExhibitorGuidelines();
+      if (!result.success) {
+        toast.error(result.error);
+        setBusy(false);
+        return;
+      }
       toast.success("Guidelines accepted — choose a plan to open your showroom.");
       router.push("/dashboard/plans/exhibitor");
     } catch (error) {
+      // Safety net for transport failures — the action itself now returns
+      // errors as values, so this shouldn't be the redacted server error.
       toast.error(error instanceof Error ? error.message : "Could not record your acceptance");
       setBusy(false);
     }
