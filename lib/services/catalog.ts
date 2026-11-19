@@ -19,7 +19,7 @@ async function requireJobBoard(): Promise<void> {
   if (!can(viewer, "jobBoard")) throw new Error("Forbidden — a professional profile is required");
 }
 
-export type JobCard = { id: string; title: string; company: string; location: string; desc: string; tags: string[]; salary: string; time: string; ownerUserId: string; recruiterName: string };
+export type JobCard = { id: string; title: string; company: string; location: string; desc: string; tags: string[]; salary: string; time: string; ownerUserId: string; recruiterName: string; applyMethod: "nomarc" | "url" | "email"; applyTarget: string | null };
 export type AvailabilityKey = "in_stock" | "made_to_order" | "rentable";
 export type ProductCard = {
   id: string; name: string; supplier: string; location: string; avail: string; tags: string[]; img: string;
@@ -100,6 +100,10 @@ function toJobCard(j: typeof job.$inferSelect): JobCard {
     time: ago(j.createdAt),
     ownerUserId: j.ownerUserId,
     recruiterName: j.recruiterName ?? "",
+    // Legacy rows may have NULL/unknown values here — treat them as the
+    // original Nomarc application flow.
+    applyMethod: j.applyMethod === "url" || j.applyMethod === "email" ? j.applyMethod : "nomarc",
+    applyTarget: j.applyTarget ?? null,
   };
 }
 
