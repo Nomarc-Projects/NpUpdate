@@ -13,6 +13,7 @@ import { startCheckout } from "@/lib/services/billing";
 import { startTrial } from "@/lib/services/trial";
 import { toast } from "sonner";
 import { useViewer } from "@/lib/use-viewer";
+import { can } from "@/lib/entitlements";
 
 const CYCLES: { key: BillingCycle; label: string }[] = [
   { key: "monthly", label: "Monthly" },
@@ -57,6 +58,7 @@ export default function ExhibitorPlansPage() {
   const [busy, setBusy] = useState<ExhibitorPlan | null>(null);
   const current = viewer.plan;
   const isOnFree = current === "free";
+  const isExhibitor = can(viewer, "exhibitorDashboard");
 
   useEffect(() => {
     setMounted(true);
@@ -74,11 +76,21 @@ export default function ExhibitorPlansPage() {
   const isDark = resolvedTheme === "dark";
 
   async function startTrialForPlan(plan: ExhibitorPlan) {
+    if (!isExhibitor) {
+      toast.error("Complete your exhibitor registration to start a 14-day trial.");
+      router.push("/dashboard/my-products");
+      return;
+    }
     setBusy(plan);
     try {
       const res = await startTrial(plan);
       if ("error" in res) {
-        toast.error(res.error);
+        if (res.error.includes("Complete the exhibitor setup")) {
+          toast.error("Complete your exhibitor registration to start a 14-day trial.");
+          router.push("/dashboard/my-products");
+        } else {
+          toast.error(res.error);
+        }
         setBusy(null);
         return;
       }
@@ -99,6 +111,19 @@ export default function ExhibitorPlansPage() {
           <h2 className="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight">
             Subscription Plan
           </h2>
+          {!isExhibitor && (
+            <div className="mt-4 rounded-2xl border border-[#f0e3a0] bg-[#fff9e0] px-4 py-3 text-left dark:border-[#4a3f12] dark:bg-[#2a240f]">
+              <p className="text-sm font-semibold text-[#1e1e1e] dark:text-white">Complete exhibitor registration to start your 14-day trial</p>
+              <p className="mt-1 text-[13px] text-[#6b6b6b] dark:text-white/65">New users need an exhibitor profile before applying for a trial. Set up your exhibitor registration first, then come back here to choose a plan.</p>
+              <button
+                type="button"
+                onClick={() => router.push("/dashboard/my-products")}
+                className="mt-3 inline-flex items-center justify-center rounded-xl bg-[#ffd716] px-4 py-2 text-[13px] font-semibold text-[#1e1e1e] hover:bg-[#f2ca10] transition-colors"
+              >
+                Complete Exhibitor Registration
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-center mb-12">
@@ -201,10 +226,14 @@ export default function ExhibitorPlansPage() {
                       {isOnFree && (
                         <button
                           disabled={busy === plan}
-                          onClick={() => startTrialForPlan(plan)}
+                          onClick={() => isExhibitor ? startTrialForPlan(plan) : router.push("/dashboard/my-products")}
                           className="w-full py-2.5 rounded-xl text-xs font-semibold transition-colors disabled:cursor-not-allowed bg-[#16a34a] text-white hover:bg-[#15803d]"
                         >
-                          {busy === plan ? "Starting…" : <span className="inline-flex items-center justify-center gap-1.5"><Clock size={12} /> Start 14-day trial</span>}
+                          {busy === plan
+                            ? "Starting…"
+                            : isExhibitor
+                              ? <span className="inline-flex items-center justify-center gap-1.5"><Clock size={12} /> Start 14-day trial</span>
+                              : "Complete exhibitor registration"}
                         </button>
                       )}
                       <button
