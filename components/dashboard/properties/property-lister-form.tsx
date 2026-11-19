@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { BadgeCheck, Clock3, XCircle } from "lucide-react";
 import { Field, inputClass } from "@/components/ui/modal";
-import { FileUpload } from "@/components/ui/file-upload";
+import { FileUpload, type UploadItem } from "@/components/ui/file-upload";
 import { LISTER_TYPES } from "@/lib/constants/property";
 import { uploadPrivateFile } from "@/lib/upload-client";
 import { saveListerProfile, submitListerVerification } from "@/lib/services/property-listers";
@@ -31,6 +31,18 @@ const STATUS = {
   unverified: { label: "Not verified", icon: Clock3, className: "bg-[#f4f4f4] text-[#6b6b6b] dark:bg-white/5 dark:text-white/60" },
 } as const;
 
+function uploadedKey(items: UploadItem[]) {
+  return items.find((i) => !i.error && i.url && !i.url.startsWith("blob:"))?.url ?? "";
+}
+
+function hasPendingUpload(items: UploadItem[]) {
+  return items.some((i) => !i.error && i.progress < 100);
+}
+
+function hasUploadError(items: UploadItem[]) {
+  return items.some((i) => !!i.error);
+}
+
 export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
   const router = useRouter();
   const [listerType, setListerType] = useState(initial?.listerType ?? "homeowner");
@@ -39,15 +51,42 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
   const [cacNumber, setCacNumber] = useState(initial?.cacNumber ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
-  const [cacDocumentKey, setCacDocumentKey] = useState(initial?.cacDocumentKey ?? "");
-  const [idDocumentKey, setIdDocumentKey] = useState(initial?.idDocumentKey ?? "");
+  // null = keep the initially saved document; [] or [item] = user-changed state.
+  const [cacItems, setCacItems] = useState<UploadItem[] | null>(null);
+  const [idItems, setIdItems] = useState<UploadItem[] | null>(null);
   const [busy, setBusy] = useState<"save" | "submit" | null>(null);
 
   const status = initial?.verificationStatus ?? "unverified";
   const meta = STATUS[status as keyof typeof STATUS] ?? STATUS.unverified;
   const isRealtor = listerType === "realtor";
+  const cacDocumentKey = cacItems === null ? (initial?.cacDocumentKey ?? "") : uploadedKey(cacItems);
+  const idDocumentKey = idItems === null ? (initial?.idDocumentKey ?? "") : uploadedKey(idItems);
+  const uploading = hasPendingUpload(cacItems ?? []) || hasPendingUpload(idItems ?? []);
+  const uploadFailed = hasUploadError(cacItems ?? []) || hasUploadError(idItems ?? []);
 
   async function run(submit: boolean) {
+    if (busy) return;
+    if (uploading) {
+      toast.error("Please wait for document uploads to finish.");
+      return;
+    }
+    if (uploadFailed) {
+      toast.error("Remove failed document uploads and try again.");
+      return;
+    }
+    if (submit) {
+      if (displayName.trim().length < 2) { toast.error("Add the name buyers should see."); return; }
+      if (phone.replace(/\D/g, "").length < 7) { toast.error("Add a contact phone number."); return; }
+      if (!idDocumentKey) { toast.error("Upload a government-issued ID."); return; }
+      if (isRealtor) {
+        if (!companyName.trim()) { toast.error("Add your agency or company name."); return; }
+        if (!cacNumber.trim()) { toast.error("Add your CAC registration number."); return; }
+        if (!cacDocumentKey) { toast.error("Upload your CAC certificate."); return; }
+      }
+    } else {
+      if (displayName.trim().length < 2) { toast.error("Add the name buyers should see."); return; }
+    }
+
     setBusy(submit ? "submit" : "save");
     try {
       const input = {
@@ -60,13 +99,12 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
         cacDocumentKey: cacDocumentKey || undefined,
         idDocumentKey: idDocumentKey || undefined,
       };
-      if (submit) {
-        await submitListerVerification(input);
-        toast.success("Submitted — we'll notify you when verification is done");
-      } else {
-        await saveListerProfile(input);
-        toast.success("Lister profile saved");
+      const result = submit ? await submitListerVerification(input) : await saveListerProfile(input);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
       }
+      toast.success(submit ? "Submitted — we'll notify you when verification is done" : "Lister profile saved");
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save your details");
@@ -120,8 +158,8 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div>
             <p className="mb-1.5 text-[11.5px] font-semibold text-[#6b6b6b] dark:text-white/60">CAC certificate {isRealtor ? "(required)" : "(optional)"}</p>
-            {cacDocumentKey && !initial?.cacDocumentKey ? null : initial?.cacDocumentKey ? (
-              <p className="mb-2 text-[11px] font-semibold text-[#1f7a3d] dark:text-[#4ade80]">Document on file</p>
+            {cacItems === null && initial?.cacDocumentKey ? (
+              <p className="mb-2 text-[11px] font-semibold text-[#1f7a3d] dark:text-[#4ade80]">Document on file — upload a new file to replace it</p>
             ) : null}
             <FileUpload
               accept="image/*,application/pdf"
@@ -129,37 +167,40 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
               maxItems={1}
               label="Upload CAC certificate"
               hint="PDF or image"
+              onChange={setCacItems}
               upload={(f) => uploadPrivateFile(f, "property_doc")}
-              onChange={(items) => {
-                const up = items.find((i) => !i.error && i.url && !i.url.startsWith("blob:"));
-                setCacDocumentKey(up?.url || initial?.cacDocumentKey || "");
-              }}
             />
           </div>
           <div>
             <p className="mb-1.5 text-[11.5px] font-semibold text-[#6b6b6b] dark:text-white/60">Government-issued ID (required)</p>
-            {initial?.idDocumentKey ? <p className="mb-2 text-[11px] font-semibold text-[#1f7a3d] dark:text-[#4ade80]">Document on file</p> : null}
+            {idItems === null && initial?.idDocumentKey ? (
+              <p className="mb-2 text-[11px] font-semibold text-[#1f7a3d] dark:text-[#4ade80]">Document on file — upload a new file to replace it</p>
+            ) : null}
             <FileUpload
               accept="image/*,application/pdf"
               maxSizeMB={15}
               maxItems={1}
               label="Upload ID"
               hint="PDF or image"
+              onChange={setIdItems}
               upload={(f) => uploadPrivateFile(f, "property_doc")}
-              onChange={(items) => {
-                const up = items.find((i) => !i.error && i.url && !i.url.startsWith("blob:"));
-                setIdDocumentKey(up?.url || initial?.idDocumentKey || "");
-              }}
             />
           </div>
         </div>
 
+        {uploading ? (
+          <p className="mt-4 text-[12px] font-medium text-[#8a6100] dark:text-amber-300">Uploading documents… please wait before saving or submitting.</p>
+        ) : null}
+        {uploadFailed ? (
+          <p className="mt-4 text-[12px] font-medium text-[#e5484d] dark:text-[#ff8a8d]">A document upload failed. Remove it and upload again.</p>
+        ) : null}
+
         <div className="mt-5 flex flex-wrap gap-2 border-t border-[#f0f0f0] pt-4 dark:border-white/10">
-          <button type="button" disabled={!!busy} onClick={() => run(false)} className="rounded-xl border border-[#e3e3e3] px-4 py-2.5 text-[12.5px] font-semibold text-[#1e1e1e] disabled:opacity-60 dark:border-white/15 dark:text-white">
+          <button type="button" disabled={!!busy || uploading} onClick={() => void run(false)} className="rounded-xl border border-[#e3e3e3] px-4 py-2.5 text-[12.5px] font-semibold text-[#1e1e1e] disabled:opacity-60 dark:border-white/15 dark:text-white">
             {busy === "save" ? "Saving…" : "Save details"}
           </button>
           {status !== "verified" && status !== "pending" && (
-            <button type="button" disabled={!!busy} onClick={() => run(true)} className="rounded-xl bg-[#1e1e1e] px-4 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60 dark:bg-white dark:text-[#1e1e1e]">
+            <button type="button" disabled={!!busy || uploading} onClick={() => void run(true)} className="rounded-xl bg-[#1e1e1e] px-4 py-2.5 text-[12.5px] font-bold text-white disabled:opacity-60 dark:bg-white dark:text-[#1e1e1e]">
               {busy === "submit" ? "Submitting…" : "Submit for verification"}
             </button>
           )}

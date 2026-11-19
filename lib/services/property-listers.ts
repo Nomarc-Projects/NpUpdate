@@ -20,6 +20,10 @@ export type ListerInput = {
   idDocumentKey?: string;
 };
 
+export type ListerActionResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
 function clean(value: string | undefined | null) {
   return value?.trim() || null;
 }
@@ -38,6 +42,11 @@ function validate(input: ListerInput, forReview: boolean) {
     if (!input.cacDocumentKey) throw new Error("Upload your CAC certificate");
   }
   if (forReview && !input.idDocumentKey) throw new Error("Upload a government-issued ID");
+}
+
+function errorMessage(e: unknown) {
+  if (e instanceof Error && e.message) return e.message;
+  return "Something went wrong. Please try again.";
 }
 
 async function upsertProfile(uid: string, input: ListerInput, submit: boolean) {
@@ -113,22 +122,31 @@ export async function getMyListerProfile() {
   return row ?? null;
 }
 
-export async function saveListerProfile(input: ListerInput) {
-  const uid = await requireUserId();
-  return upsertProfile(uid, input, false);
+export async function saveListerProfile(input: ListerInput): Promise<ListerActionResult> {
+  try {
+    const uid = await requireUserId();
+    await upsertProfile(uid, input, false);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
 }
 
-export async function submitListerVerification(input: ListerInput) {
-  const uid = await requireUserId();
-  const profile = await upsertProfile(uid, input, true);
-  await notify(uid, {
-    type: "property_lister_verification",
-    title: "Lister verification submitted",
-    body: "We are reviewing your lister profile and documents. You will be notified when it is done.",
-    href: "/dashboard/properties/new",
-  }).catch(() => {});
-  revalidatePath("/admin/properties/listers");
-  return profile;
+export async function submitListerVerification(input: ListerInput): Promise<ListerActionResult> {
+  try {
+    const uid = await requireUserId();
+    await upsertProfile(uid, input, true);
+    await notify(uid, {
+      type: "property_lister_verification",
+      title: "Lister verification submitted",
+      body: "We are reviewing your lister profile and documents. You will be notified when it is done.",
+      href: "/dashboard/properties/new",
+    }).catch(() => {});
+    revalidatePath("/admin/properties/listers");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
 }
 
 export type AdminListerRow = {

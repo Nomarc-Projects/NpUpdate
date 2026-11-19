@@ -213,7 +213,11 @@ export function FileUpload({
           }
         }
       } catch {
-        setItems((prev) => prev.map((it) => it.id === id ? { ...it, error: "Upload failed" } : it));
+        setItems((prev) => {
+          const next = prev.map((it) => it.id === id ? { ...it, error: "Upload failed" } : it);
+          onChange?.(next);
+          return next;
+        });
       }
     }
   }
