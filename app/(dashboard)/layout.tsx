@@ -13,12 +13,14 @@ import { DashTopBar } from "@/components/dashboard/dash-top-bar";
 import { SessionHydrator } from "@/components/session-hydrator";
 import { PresenceHeartbeat } from "@/components/dashboard/presence-heartbeat";
 import { TourProvider } from "@/components/tour/tour-provider";
+import { TermsAcceptanceGate } from "@/components/auth/terms-acceptance-gate";
 import { getUnreadNotificationCount } from "@/lib/services/notifications";
 import { hasSavedItems } from "@/lib/services/saved";
 import { getMyListerProfile } from "@/lib/services/property-listers";
 import { getOwnerPropertyStats } from "@/lib/services/properties";
 import { hasSubmittedApplication } from "@/lib/services/jobs";
 import { getExhibitionHub, getTools, getProperties } from "@/lib/services/platform-settings-read";
+import { getUserTermsAcceptanceStatus } from "@/lib/services/terms";
 
 // Dashboard is authenticated + session-driven — never statically prerender it.
 export const dynamic = "force-dynamic";
@@ -74,6 +76,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const from = h.get("x-nm-pathname") || "/dashboard";
     const q = new URLSearchParams({ email: session.user.email ?? "", redirect: from });
     redirect(`/verify-email?${q.toString()}`);
+  }
+
+  // Terms/Privacy acceptance gate: old users and users on an outdated terms
+  // version must accept before continuing. This blocks access until accepted.
+  const termsStatus = await getUserTermsAcceptanceStatus(session.user.id).catch(() => ({ accepted: false, version: null, acceptedAt: null }));
+  if (!termsStatus.accepted) {
+    return <TermsAcceptanceGate />;
   }
 
   // Viewer (impersonation-aware) drives the client role context + tour audience.

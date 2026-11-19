@@ -6,6 +6,8 @@ import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { SessionHydrator } from "@/components/session-hydrator";
 import { getAdminAlertCounts } from "@/lib/services/admin";
+import { TermsAcceptanceGate } from "@/components/auth/terms-acceptance-gate";
+import { getUserTermsAcceptanceStatus } from "@/lib/services/terms";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (!session) redirect("/login?redirect=/admin");
   if (role !== "admin" && role !== "super_admin") redirect("/dashboard");
+
+  const termsStatus = await getUserTermsAcceptanceStatus(session.user.id).catch(() => ({ accepted: false, version: null, acceptedAt: null }));
+  if (!termsStatus.accepted) {
+    return <TermsAcceptanceGate />;
+  }
 
   // Badge counts only decorate the top bar — never let them take the console
   // down, which is exactly how /admin broke before.

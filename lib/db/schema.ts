@@ -245,6 +245,17 @@ export const exhibitorGuidelineAcceptance = pgTable("exhibitor_guideline_accepta
   acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Explicit Terms/Privacy acceptance per user. Stores the accepted terms
+ * version and timestamp (date/time) for consent proof and re-prompting when
+ * the current terms version changes.
+ */
+export const userTermsAcceptance = pgTable("user_terms_acceptance", {
+  userId: text("user_id").primaryKey(),
+  termsVersion: text("terms_version").notNull(),
+  acceptedAt: timestamp("accepted_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const productVariant = pgTable("product_variant", {
   id: id(),
   productId: uuid("product_id").notNull().references(() => product.id, { onDelete: "cascade" }),

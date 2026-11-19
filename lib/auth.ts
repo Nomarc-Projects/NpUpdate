@@ -9,6 +9,7 @@ import { attachDbRetry } from "./db/retry";
 import { sendEmail, emailLayout, escapeHtml } from "./email/mailer";
 import { validatePassword } from "./password-policy";
 import { resolveSiteUrl, PRODUCTION_ORIGIN, stripTrailingSlash } from "@/lib/site-url";
+import { CURRENT_TERMS_VERSION, TERMS_ACCEPTED_COOKIE } from "@/lib/terms";
 
 /**
  * Better Auth server instance (Next.js, same-origin httpOnly cookies).
@@ -60,6 +61,33 @@ async function writeAuthAudit(userId: string, action: string, detail: Record<str
       [userId, action, userId, JSON.stringify(detail)],
     );
   } catch { /* audit is best-effort — never break the auth flow */ }
+}
+
+function cookieValueFromHeader(cookieHeader: string | null, name: string): string | null {
+  if (!cookieHeader) return null;
+  for (const part of cookieHeader.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === name) return decodeURIComponent(rest.join("=") || "");
+  }
+  return null;
+}
+
+async function maybeRecordTermsAcceptanceOnCreate(userId: string, ctx: unknown) {
+  try {
+    const request = (ctx as { request?: Request; headers?: Headers } | null)?.request;
+    const headers = request?.headers ?? (ctx as { headers?: Headers } | null)?.headers ?? null;
+    const cookieHeader = headers?.get("cookie") ?? null;
+    const agreed = cookieValueFromHeader(cookieHeader, TERMS_ACCEPTED_COOKIE);
+    if (agreed !== CURRENT_TERMS_VERSION) return;
+    await pool.query(
+      `INSERT INTO user_terms_acceptance (user_id, terms_version, accepted_at)
+       VALUES ($1, $2, now())
+       ON CONFLICT (user_id) DO UPDATE SET terms_version = EXCLUDED.terms_version, accepted_at = EXCLUDED.accepted_at`,
+      [userId, CURRENT_TERMS_VERSION],
+    );
+  } catch {
+    /* best-effort: dashboard gate will require acceptance if this misses */
+  }
 }
 
 const googleId = process.env.GOOGLE_CLIENT_ID;
@@ -378,6 +406,11 @@ export const auth = betterAuth({
       },
     },
     user: {
+      create: {
+        after: async (user, ctx) => {
+          await maybeRecordTermsAcceptanceOnCreate(user.id, ctx);
+        },
+      },
       update: {
         // `before` rather than `after`: the after-hook receives only the updated
         // row, so there is no previous value to compare against. The partial

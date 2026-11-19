@@ -18,6 +18,8 @@ import { isDisposableEmail } from "@/lib/block-disposable-email";
 import { stripEmailSpaces } from "@/lib/email-normalize";
 import { validatePassword } from "@/lib/password-policy";
 import { isEmailAvailable } from "@/lib/services/email-check";
+import { CURRENT_TERMS_VERSION, TERMS_ACCEPTED_COOKIE } from "@/lib/terms";
+import { acceptCurrentTerms } from "@/lib/services/terms";
 
 /** Person-name rule: letters/spaces/hyphens/apostrophes only, no digits, ≤ 50. */
 function validatePersonName(v: string, field: string): string | null {
@@ -67,12 +69,30 @@ function PrimaryWide({ children, ...props }: React.ButtonHTMLAttributes<HTMLButt
     </button>
   );
 }
-function GoogleButton({ callbackURL = "/dashboard" }: { callbackURL?: string }) {
+function setTermsAcceptedCookie() {
+  // Short-lived marker consumed by the auth server hook to persist acceptance
+  // at account creation time (including Google OAuth callback).
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TERMS_ACCEPTED_COOKIE}=${encodeURIComponent(CURRENT_TERMS_VERSION)}; Path=/; Max-Age=600; SameSite=Lax${secure}`;
+}
+
+function clearTermsAcceptedCookie() {
+  const secure = typeof window !== "undefined" && window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TERMS_ACCEPTED_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax${secure}`;
+}
+
+function GoogleButton({ callbackURL = "/dashboard", agreed }: { callbackURL?: string; agreed: boolean }) {
   const [loading, setLoading] = useState(false);
   async function handle() {
+    if (!agreed) {
+      toast.error("Please agree to the Terms and Privacy Policy to continue.");
+      return;
+    }
+    setTermsAcceptedCookie();
     setLoading(true);
     const { error } = await signIn.social({ provider: "google", callbackURL });
     if (error) {
+      clearTermsAcceptedCookie();
       setLoading(false);
       toast.error(error.message || "Google sign-up is not available yet.");
     }
@@ -81,7 +101,7 @@ function GoogleButton({ callbackURL = "/dashboard" }: { callbackURL?: string }) 
     <button
       type="button"
       onClick={handle}
-      disabled={loading}
+      disabled={loading || !agreed}
       className="w-full inline-flex items-center justify-center gap-2.5 rounded-lg bg-[#1e1e1e] text-white py-3 text-sm font-medium hover:bg-[#2a2a2a] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
     >
       {loading ? <Loader2 size={16} className="animate-spin" /> : <span className="w-4 h-4 rounded-full bg-white text-[#1e1e1e] text-[10px] font-bold flex items-center justify-center">G</span>}
@@ -159,10 +179,15 @@ function SignupFields() {
   const [email, setEmail] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!agreedToTerms) {
+      toast.error("Please agree to the Terms and Privacy Policy to continue.");
+      return;
+    }
     const firstErr = validatePersonName(firstName, "First name");
     if (firstErr) { toast.error(firstErr); return; }
     const surErr = validatePersonName(surname, "Surname");
@@ -175,12 +200,22 @@ function SignupFields() {
     if (emailErr) { setLoading(false); toast.error(emailErr); return; }
     const name = `${firstName.trim()} ${surname.trim()}`;
     const em = email.trim();
+    // Mark terms agreement for server-side persistence at account creation.
+    setTermsAcceptedCookie();
     // Every account starts as a plain User — professional/exhibitor roles are
     // unlocked later, based on what they actually try to do in the dashboard.
     // The role is set server-side by the field's defaultValue and is deliberately
     // not accepted from the request body (see additionalFields.role in lib/auth.ts).
     const { error } = await signUp.email({ name, email: em, password: pwd });
-    if (error) { setLoading(false); toast.error(error.message || "Could not create account."); return; }
+    if (error) {
+      clearTermsAcceptedCookie();
+      setLoading(false);
+      toast.error(error.message || "Could not create account.");
+      return;
+    }
+    // Best-effort: if a session was established, persist acceptance immediately.
+    // The auth hook also records it on user creation when the cookie is present.
+    try { await acceptCurrentTerms(); } catch { /* hook/gate will enforce */ }
     // Send the verification OTP and take them to the verify-email screen.
     const { error: otpError } = await authClient.emailOtp.sendVerificationOtp({ email: em, type: "email-verification" });
     setLoading(false);
@@ -212,10 +247,25 @@ function SignupFields() {
       <Field label="Confirm Password">
         <PasswordConfirmInput passwordToMatch={pwd} value={confirm} onChange={setConfirm} />
       </Field>
-      <PrimaryWide type="submit" disabled={loading}>{loading ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <ArrowLabel>Create Account</ArrowLabel>}</PrimaryWide>
+
+      <label className="flex items-start gap-2.5 text-[13px] text-[#3d3d3d] dark:text-white/70 select-none">
+        <input
+          type="checkbox"
+          checked={agreedToTerms}
+          onChange={(e) => setAgreedToTerms(e.target.checked)}
+          className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[#ffd716]"
+        />
+        <span>
+          I agree to the{" "}
+          <Link href="/terms" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1e1e1e] underline hover:text-[#000] dark:text-white dark:hover:text-white/80">Terms</Link>
+          {" "}and{" "}
+          <Link href="/privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-[#1e1e1e] underline hover:text-[#000] dark:text-white dark:hover:text-white/80">Privacy Policy</Link>
+        </span>
+      </label>
+
+      <PrimaryWide type="submit" disabled={loading || !agreedToTerms}>{loading ? <><Loader2 size={16} className="animate-spin" /> Creating…</> : <ArrowLabel>Create Account</ArrowLabel>}</PrimaryWide>
       <div className="text-center text-xs text-[#b3b3b3]">Or</div>
-      <GoogleButton callbackURL={safeRedirect} />
-      <p className="text-center text-[11px] text-[#b3b3b3]">By creating an account you agree to our <Link href="/terms" className="font-medium text-[#6b6b6b] dark:text-white/60 underline hover:text-[#1e1e1e] dark:hover:text-white">Terms</Link> and <Link href="/privacy" className="font-medium text-[#6b6b6b] dark:text-white/60 underline hover:text-[#1e1e1e] dark:hover:text-white">Privacy Policy</Link>.</p>
+      <GoogleButton callbackURL={safeRedirect} agreed={agreedToTerms} />
     </form>
   );
 }
