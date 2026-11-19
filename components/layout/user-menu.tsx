@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LayoutGrid, User, Bell, Settings, LogOut, Palette, ChevronRight, Sun, Moon, Monitor, Check, type LucideIcon } from "lucide-react";
+import { LayoutGrid, User, Settings, LogOut, Palette, ChevronRight, Sun, Moon, Monitor, Check, type LucideIcon } from "lucide-react";
 import { useTheme } from "@/components/theme";
 import { useAuth, type AuthUser } from "@/lib/store/auth";
 import { signOut as authSignOut } from "@/lib/auth-client";
 import { animateThemeChange } from "@/lib/theme-transition";
 
 // "Profile" removed per the redesign — see components/dashboard/dash-top-bar.tsx.
+// Notifications moved to the dashboard top-bar bell.
 const items = [
-  { label: "Dashboard",        href: "/dashboard",            Icon: LayoutGrid },
-  { label: "Notifications",    href: "/dashboard/notifications", Icon: Bell },
-  { label: "Account Settings", href: "/dashboard/settings",   Icon: Settings },
+  { label: "Dashboard",        href: "/dashboard",          Icon: LayoutGrid },
+  { label: "Account Settings", href: "/dashboard/settings", Icon: Settings },
 ];
 
 const themeOptions: { value: "light" | "dark" | "system"; label: string; Icon: LucideIcon }[] = [

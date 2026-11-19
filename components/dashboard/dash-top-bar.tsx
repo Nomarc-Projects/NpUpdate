@@ -4,22 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, Settings, User, LayoutGrid, LogOut, ChevronDown, ArrowUpRight } from "lucide-react";
+import { Search, Settings, User, LayoutGrid, LogOut, ChevronDown, ArrowUpRight } from "lucide-react";
 import { useSession, signOut as authSignOut } from "@/lib/auth-client";
 import { NomarcAvatar } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { TourLauncher } from "@/components/tour/tour-launcher";
 import { CartButton } from "@/components/exhibition-hub/cart-button";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 import { useViewer } from "@/lib/use-viewer";
 import { PLAN_LABEL, getNextPlan } from "@/lib/entitlements";
 import { cn } from "@/lib/utils";
 
 // "Profile" was removed per the redesign — profile editing is reached through
 // Account Settings, so the dropdown no longer offers two routes to it.
+// Notifications moved to the top-bar bell.
 const MENU_ITEMS = [
-  { label: "Dashboard",        href: "/dashboard",               Icon: LayoutGrid },
-  { label: "Notifications",    href: "/dashboard/notifications", Icon: Bell },
-  { label: "Account Settings", href: "/dashboard/settings",      Icon: Settings },
+  { label: "Dashboard",        href: "/dashboard",          Icon: LayoutGrid },
+  { label: "Account Settings", href: "/dashboard/settings", Icon: Settings },
 ];
 
 function UpgradeButton() {
@@ -111,21 +112,7 @@ export function DashTopBar({ notificationCount = 0 }: { notificationCount?: numb
           /exhibition-hub/cart + /checkout routes all still exist, just unlinked. */}
 
       {/* Notification bell */}
-      <Link
-        href="/dashboard/notifications"
-        className="relative w-8 h-8 rounded-lg flex items-center justify-center text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white hover:bg-[#f5f5f5] dark:hover:bg-white/5 transition-colors"
-      >
-        <Bell size={16} />
-        {notificationCount > 0 && (
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute -top-0.5 -right-0.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-red-500 px-[3px] text-[9px] font-bold leading-none text-white ring-1 ring-white dark:ring-[#1e1e1e]"
-          >
-            {notificationCount > 99 ? "99+" : notificationCount}
-          </motion.span>
-        )}
-      </Link>
+      <NotificationBell initialCount={notificationCount} />
 
       {/* Profile dropdown */}
       <div className="relative" ref={menuRef}>

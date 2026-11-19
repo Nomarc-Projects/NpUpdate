@@ -6,7 +6,7 @@ import {
   LayoutGrid, Search, MessageSquare, Briefcase, Bookmark,
   Upload, User, BookmarkCheck, PlusCircle,
   Settings, LifeBuoy, PanelLeftClose, PanelLeft, LogOut, Menu, X,
-  Bell, Sun, Moon, Package, Store, Boxes, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Handshake,
+  Sun, Moon, Package, Store, Boxes, ArrowUpRight, Plus, CreditCard, Building2, House, Inbox, Handshake,
   type LucideIcon,
 } from "lucide-react";
 import { useTheme } from "@/components/theme";
@@ -19,10 +19,10 @@ import { NomarcMark } from "@/components/ui/nomarc-mark";
 import { useAuth } from "@/lib/store/auth";
 import { signOut as authSignOut } from "@/lib/auth-client";
 import { getUnreadCount } from "@/lib/services/messaging";
-import { getUnreadNotificationCount } from "@/lib/services/notifications";
 import { cn } from "@/lib/utils";
 import { useViewer } from "@/lib/use-viewer";
 import { PLAN_LABEL, getNextPlan } from "@/lib/entitlements";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
 
 /** Lucide icons plus our own glyphs (e.g. HelmIcon), which take the same props. */
 type NavIcon = LucideIcon | ((props: { className?: string; size?: number | string }) => React.ReactElement);
@@ -33,7 +33,6 @@ type Group = { title?: string; href?: string; items: Item[] };
 const secondary: Group = {
   title: undefined,
   items: [
-    { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
     { label: "Settings", href: "/dashboard/settings", icon: Settings },
     { label: "Support", href: "/dashboard/support", icon: LifeBuoy },
   ],
@@ -195,19 +194,17 @@ function SidebarInner({
     .sort((a, b) => b.length - a.length)[0];
   const isActive = (href: string) => href === activeHref;
 
-  // live unread counts → Messages + Notifications badges (polls)
+  // live unread count → Messages badge (polls)
   const [unread, setUnread] = useState(0);
-  const [notif, setNotif] = useState(0);
   const [query, setQuery] = useState("");
   useEffect(() => {
     let alive = true;
     const tick = () => {
       getUnreadCount().then((n) => alive && setUnread(n)).catch(() => {});
-      getUnreadNotificationCount().then((n) => alive && setNotif(n)).catch(() => {});
     };
     tick();
     const t = setInterval(tick, 15000);
-    // Reading surfaces (Messages thread, notification list) broadcast this —
+    // Reading surfaces (e.g. Messages thread) broadcast this —
     // re-tick right away so the badge drops without waiting for the poll.
     const onUnreadChange = () => tick();
     window.addEventListener("nm-unread-changed", onUnreadChange);
@@ -218,9 +215,7 @@ function SidebarInner({
     };
   }, [pathname]);
   const badgeFor = (href: string) =>
-    href === "/dashboard/messages" && unread > 0 ? unread
-    : href === "/dashboard/notifications" && notif > 0 ? notif
-    : undefined;
+    href === "/dashboard/messages" && unread > 0 ? unread : undefined;
 
   // Sidebar search: typing picks out the nav destination(s) that match. The
   // first match is auto-selected (highlighted) so pressing Enter walks straight
@@ -406,6 +401,7 @@ export function DashboardSidebar({
             <Sun size={16} className="dark:hidden" />
             <Moon size={16} className="hidden dark:block" />
           </button>
+          <NotificationBell buttonClassName="w-8 h-8" />
           <button
             onClick={() => setMobileOpen(true)}
             className="rounded-full"
