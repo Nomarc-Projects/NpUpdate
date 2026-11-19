@@ -31,25 +31,55 @@ function safeRedirect(raw: string | null, fallback = "/dashboard"): string {
   return raw;
 }
 
+/**
+ * Where the login page remembers the last email that signed in with
+ * "Remember me" ticked. Only the EMAIL is stored — the password is never
+ * persisted by us; the browser's own password manager fills it (which is why
+ * the email/password inputs below carry autocomplete="username" /
+ * autocomplete="current-password" and name attributes: without them browsers
+ * do not detect the form as a login form and never offer to save or fill).
+ */
+const REMEMBER_KEY = "nomarc.remembered-email";
+
+function rememberedEmail(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return localStorage.getItem(REMEMBER_KEY) ?? "";
+  } catch {
+    return ""; // storage blocked (private mode / disabled cookies) — start empty
+  }
+}
+
 function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = safeRedirect(searchParams.get("redirect"));
 
   const [show, setShow] = useState(false);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(rememberedEmail);
   const [password, setPassword] = useState("");
+  // Ticked by default to match Better Auth's own default: without an explicit
+  // `rememberMe` the session cookie survives the browser closing anyway, so an
+  // unticked box that actually meant something must be passed through.
+  const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    const { error, data } = await signIn.email({ email, password });
+    const { error, data } = await signIn.email({ email, password, rememberMe: remember });
     setLoading(false);
     if (error) {
       toast.error(error.message || "Invalid email or password.");
       return;
     }
+    // Only the email is remembered by us; the password stays with the browser's
+    // password manager. With the box unticked the stored email is cleared so
+    // the field starts empty next time.
+    try {
+      if (remember) localStorage.setItem(REMEMBER_KEY, email);
+      else localStorage.removeItem(REMEMBER_KEY);
+    } catch { /* storage unavailable — remembering the email is best-effort */ }
     toast.success("Welcome back!");
     // Admins land in the console unless an explicit redirect was requested.
     const role = (data?.user as { role?: string } | undefined)?.role;
