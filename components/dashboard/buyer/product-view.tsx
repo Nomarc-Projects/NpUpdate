@@ -20,6 +20,7 @@ import { Modal, Field, inputClass, GhostButton, PrimaryButton } from "@/componen
 import { DatePicker } from "@/components/ui/date-picker";
 import { StatusBadge } from "@/components/dashboard/kit/status-badge";
 import { EmptyState } from "@/components/dashboard/kit/empty-state";
+import { SELLER_UNAVAILABLE_MESSAGE } from "@/lib/services/seller-availability-rules";
 
 const TABS = ["Description", "Specifications", "Supplier", "Reviews"] as const;
 type Tab = (typeof TABS)[number];
@@ -133,6 +134,7 @@ export function ProductView({
   messagesHref = "/dashboard/messages",
   related = [],
   relatedHrefBase = "/dashboard/products",
+  sellerActive = true,
 }: {
   product: CatalogProduct;
   /** When false, patronize actions (buy / quote) route to signInHref instead. */
@@ -145,6 +147,8 @@ export function ProductView({
   /** "Related Products" rail — shared-tag ranked products, computed server-side. */
   related?: ProductCard[];
   relatedHrefBase?: string;
+  /** False once the seller's trial/plan has lapsed: listing stays readable, contact does not. */
+  sellerActive?: boolean;
 }) {
   const [active, setActive] = useState(0);
   const [variant, setVariant] = useState(product.variants[0]?.id ?? "");
@@ -167,8 +171,15 @@ export function ProductView({
 
   const price = product.variants.find((v) => v.id === variant)?.price ?? product.retailMin;
 
+  function sellerUnavailable(): boolean {
+    if (sellerActive) return false;
+    toast.error(SELLER_UNAVAILABLE_MESSAGE);
+    return true;
+  }
+
   // Guests must register before requesting a quote (patronizing requires an account).
   function openQuote() {
+    if (sellerUnavailable()) return;
     if (!signedIn) { router.push(signInHref); return; }
     setQuoteOpen(true);
   }
@@ -182,12 +193,14 @@ export function ProductView({
   }
 
   function messageSeller() {
+    if (sellerUnavailable()) return;
     if (!signedIn) { router.push(signInHref); return; }
     if (!product.vendorUserId) { toast.error("Seller messaging isn't available for this listing yet"); return; }
     router.push(`${messagesHref}?to=${product.vendorUserId}`);
   }
 
   async function sendQuote() {
+    if (sellerUnavailable()) return;
     setSending(true);
     try {
       await createQuoteRequest({ productId: product.id, quantity: rfq.quantity, requiredBy: reqBy, deliveryLocation: rfq.deliveryLocation, message: rfq.message });
@@ -396,7 +409,7 @@ export function ProductView({
                         </div>
                       ))}
                     </div>
-                    <button onClick={messageSeller} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">
+                    <button onClick={messageSeller} disabled={!sellerActive} title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-50 disabled:pointer-events-none">
                       <MessageCircle size={14} /> Message seller
                     </button>
                   </div>
@@ -500,7 +513,7 @@ export function ProductView({
             saved={saved} setSaved={toggleSave}
             share={share} shared={shared}
             onQuote={openQuote} onMessageSeller={messageSeller}
-            sellerHref={sellerHref}
+            sellerHref={sellerHref} sellerActive={sellerActive}
             rating={reviewStats.rating} ratingCount={reviewStats.count}
             vendorRating={vendorStats.rating}
           />
@@ -535,14 +548,18 @@ export function ProductView({
         </div>
         <button
           onClick={openQuote}
-          className="flex-shrink-0 px-3.5 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors"
+          disabled={!sellerActive}
+          title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE}
+          className="flex-shrink-0 px-3.5 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-50 disabled:pointer-events-none"
         >
           Quote
         </button>
         <motion.button
           onClick={messageSeller}
           whileTap={{ scale: 0.97 }}
-          className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors shadow-sm shadow-[#ffd716]/20"
+          disabled={!sellerActive}
+          title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE}
+          className="flex-1 min-w-0 inline-flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors shadow-sm shadow-[#ffd716]/20 disabled:opacity-50 disabled:pointer-events-none"
         >
           <MessageCircle size={16} /> Message seller
         </motion.button>
@@ -720,13 +737,13 @@ function RelatedRail({ items, hrefBase }: { items: ProductCard[]; hrefBase: stri
 }
 
 /* ── Desktop buy box ─────────────────────────────────────────────── */
-function DesktopBuyBox({ product, price, variant, setVariant, saved, setSaved, share, shared, onQuote, onMessageSeller, sellerHref, rating, ratingCount, vendorRating }: {
+function DesktopBuyBox({ product, price, variant, setVariant, saved, setSaved, share, shared, onQuote, onMessageSeller, sellerHref, sellerActive, rating, ratingCount, vendorRating }: {
   product: CatalogProduct; price: number;
   variant: string; setVariant: (v: string) => void;
   saved: boolean; setSaved: (v: boolean) => void;
   share: () => void; shared: boolean;
   onQuote: () => void; onMessageSeller: () => void;
-  sellerHref: string;
+  sellerHref: string; sellerActive: boolean;
   rating: number; ratingCount: number; vendorRating: number;
 }) {
   return (
@@ -809,16 +826,23 @@ function DesktopBuyBox({ product, price, variant, setVariant, saved, setSaved, s
             signed-out visitor to sign-up first). */}
         <div className="space-y-2">
           <motion.button onClick={onMessageSeller} whileTap={{ scale: 0.98 }}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors shadow-sm shadow-[#ffd716]/20">
+            disabled={!sellerActive} title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE}
+            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors shadow-sm shadow-[#ffd716]/20 disabled:opacity-50 disabled:pointer-events-none">
             <MessageCircle size={16} /> Message seller
           </motion.button>
           {/* A quote is an enquiry, not an on-site sale — it's how a buyer asks
               for bulk pricing, and it's what fills the exhibitor's Quote
               Requests inbox. */}
           <motion.button onClick={onQuote} whileTap={{ scale: 0.98 }}
-            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">
+            disabled={!sellerActive} title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE}
+            className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-50 disabled:pointer-events-none">
             <FileText size={15} /> Request quote
           </motion.button>
+          {!sellerActive && (
+            <p role="status" className="rounded-lg border border-[#f3e6b0] bg-[#fffdf2] px-3 py-2 text-[11.5px] leading-relaxed text-[#8a7400] dark:border-[#ffd716]/25 dark:bg-[#ffd716]/[0.06] dark:text-[#ffd716]">
+              {SELLER_UNAVAILABLE_MESSAGE}
+            </p>
+          )}
           <Link href={sellerHref}
             className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">
             <Store size={15} /> Seller profile
@@ -858,7 +882,7 @@ function DesktopBuyBox({ product, price, variant, setVariant, saved, setSaved, s
           </div>
         )}
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={onMessageSeller} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[12.5px] font-bold hover:bg-[#e6c114] transition-colors">
+          <button onClick={onMessageSeller} disabled={!sellerActive} title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE} className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[12.5px] font-bold hover:bg-[#e6c114] transition-colors disabled:opacity-50 disabled:pointer-events-none">
             <MessageCircle size={14} /> Message
           </button>
           <Link href={sellerHref} className="w-full inline-flex items-center justify-center py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[12.5px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors">Seller profile</Link>

@@ -50,15 +50,17 @@ export function BillingPanel({ paymentPlansEnabled = true }: { paymentPlansEnabl
     <div className="space-y-7">
       {/* Exhibitors are sent here by the upload gate, so their standing has to be
           the first thing on the page — not buried under professional plan copy. */}
-      {trial?.isExhibitor && !trial.subscribed && (
+      {trial?.isExhibitor && !trial.hasActivePlan && (
         <section className="rounded-xl border border-[#ffd716]/40 bg-[#fffdf2] p-4 dark:border-[#ffd716]/20 dark:bg-[#ffd716]/[0.06]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <h2 className="text-[14px] font-bold text-[#1e1e1e] dark:text-white">
-                No active exhibitor plan
+                {trial.trialEnded ? "Your 14-day trial has ended" : "No active exhibitor plan"}
               </h2>
               <p className="mt-1 text-[12.5px] leading-relaxed text-[#8a7400] dark:text-[#ffd716]">
-                Choose a plan to publish products to your showroom. Your drafts and account details are safe.
+                {trial.trialEnded
+                  ? "Subscribe to publish more products and receive buyer enquiries. Your existing products stay on the exhibition hub."
+                  : "Choose a plan to publish products to your showroom. Your drafts and account details are safe."}
               </p>
             </div>
             {paymentPlansEnabled && (

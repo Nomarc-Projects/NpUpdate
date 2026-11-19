@@ -21,6 +21,7 @@ import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
 import { JOB_OVERVIEW as OVERVIEW } from "@/lib/sample-jobs";
 import { EmptyState } from "@/components/dashboard/kit";
 import { cn } from "@/lib/utils";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 
 /* ─── Types ─────────────────────────────────────────────────────── */
 
@@ -646,11 +647,11 @@ export function JobsBrowse({
   }
 
   const q = query.trim().toLowerCase();
-  const loc = locationQuery.trim().toLowerCase();
+  const loc = locationQuery.trim();
   const filtered = data.filter((j) => {
     if (savedView && !savedIds.has(j.id)) return false;
-    if (q && !`${j.title} ${j.company} ${j.location} ${j.desc}`.toLowerCase().includes(q)) return false;
-    if (loc && !j.location.toLowerCase().includes(loc)) return false;
+    if (q && !(`${j.title} ${j.company} ${j.desc}`.toLowerCase().includes(q) || locationMatches(j.location, q))) return false;
+    if (loc && !locationMatches(j.location, loc)) return false;
     const tags = j.tags.map((t) => t.toLowerCase());
     if ((sel["Employment type"] ?? []).length && !(sel["Employment type"] ?? []).some((o) => tags.some((t) => t.includes(o.toLowerCase().split(" ")[0])))) return false;
     if ((sel["Work model"] ?? []).length && !(sel["Work model"] ?? []).some((o) => tags.includes(o.toLowerCase()))) return false;
@@ -666,6 +667,11 @@ export function JobsBrowse({
   });
 
   const sorted = [...filtered].sort((a, b) => {
+    // Location searches rank exact matches first, then word-start matches.
+    if (loc) {
+      const locDiff = locationMatchScore(a.location, loc) - locationMatchScore(b.location, loc);
+      if (locDiff !== 0) return locDiff;
+    }
     if (sortBy === "Top Salary") return salaryNum(b.salary) - salaryNum(a.salary);
     if (sortBy === "Most Recent") return recencyDays(a.time) - recencyDays(b.time);
     if (sortBy === "Company A–Z") return a.company.localeCompare(b.company);

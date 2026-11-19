@@ -5,6 +5,7 @@ import { Search, FileDown, ExternalLink, Landmark, Building2 } from "lucide-reac
 import { DataTable, CopyChip, SlideOverDrawer, ExportCsvDialog, type DataTableColumn } from "@/components/dashboard/kit";
 import { CATEGORIES_BY_KIND, CATALOGUE_KIND_LABEL, type CatalogueKind } from "@/lib/constants/catalogue-categories";
 import type { CatalogueEntry } from "@/lib/services/directory-catalogue";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 
 /** The Institutions / Ministries tab of the Directory. Entries are
  *  admin-curated, so rows are served server-side and filtered client-side. */
@@ -17,12 +18,18 @@ export function CatalogueDirectory({ kind, rows }: { kind: CatalogueKind; rows: 
   const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      if (query && !`${r.name} ${r.acronym} ${r.category} ${r.location}`.toLowerCase().includes(query.toLowerCase())) return false;
+    const result = rows.filter((r) => {
+      const ql = query.toLowerCase();
+      if (query && !(`${r.name} ${r.acronym} ${r.category}`.toLowerCase().includes(ql) || locationMatches(r.location, query))) return false;
       if (category && r.category !== category) return false;
-      if (location && !r.location.toLowerCase().includes(location.toLowerCase())) return false;
+      if (location && !locationMatches(r.location, location)) return false;
       return true;
     });
+    const rankBy = location.trim() ? location : query.trim();
+    if (rankBy) {
+      result.sort((a, b) => locationMatchScore(a.location, rankBy) - locationMatchScore(b.location, rankBy));
+    }
+    return result;
   }, [rows, query, category, location]);
 
   const open = rows.find((r) => r.id === openId);

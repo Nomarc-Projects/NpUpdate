@@ -4,7 +4,8 @@
 -- wizard) must be accepted before a new user is sent to subscription plans.
 -- One row per user; re-acceptance updates the version and timestamp.
 --
--- Apply: doppler run -p nomarc_projects -c prd -- node scripts/apply-migration.cjs drizzle/0067_exhibitor_guidelines.sql
+-- Apply on the VPS, with the same DATABASE_URL the app uses:
+--   DATABASE_URL='postgresql://…' node scripts/apply-migration.cjs drizzle/0067_exhibitor_guidelines.sql
 
 CREATE TABLE IF NOT EXISTS "exhibitor_guideline_acceptance" (
   "user_id" text PRIMARY KEY NOT NULL,

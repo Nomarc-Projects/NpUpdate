@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { getCompanyById, getCompanyRecommendations } from "@/lib/services/company";
 import { getOnboardingChecklist } from "@/lib/services/onboarding";
 import { pageMetadata } from "@/lib/og";
+import { isSellerActive } from "@/lib/services/seller-availability";
 import { ExhibitorView } from "@/components/dashboard/buyer/exhibitor-view";
 
 /**
@@ -36,14 +37,15 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
   const session = await auth.api.getSession({ headers: await headers() }).catch(() => null);
   const signedIn = !!session?.user;
 
-  const [recommendations, canRequestQuote] = await Promise.all([
+  const [recommendations, canRequestQuote, sellerActive] = await Promise.all([
     getCompanyRecommendations(id).catch(() => []),
     signedIn
       ? getOnboardingChecklist()
           .then((c) => c.items.find((i) => i.key === (c.role === "buyer" ? "profile" : "headline"))?.done ?? false)
           .catch(() => true)
       : Promise.resolve(true),
-  ]);
+    company.ownerUserId ? isSellerActive(company.ownerUserId).catch(() => true) : Promise.resolve(true),
+  ] as const);
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#111]">
@@ -57,6 +59,7 @@ export default async function PublicCompanyPage({ params }: { params: Promise<{ 
           productsBasePath="/exhibition-hub"
           messagesHref="/dashboard/messages"
           backHref="/exhibition-hub"
+          sellerActive={sellerActive}
         />
       </div>
     </div>

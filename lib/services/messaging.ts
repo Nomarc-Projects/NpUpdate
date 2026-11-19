@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { conversation, conversationParticipant, message } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
+import { isSellerActive } from "@/lib/services/seller-availability";
+import { SELLER_UNAVAILABLE_MESSAGE } from "@/lib/services/seller-availability-rules";
 
 export type ConvoSummary = {
   id: string; kind: string; otherId: string; name: string; avatarUrl: string; headline: string;
@@ -36,6 +38,7 @@ const clock = (d: Date) => d.toLocaleTimeString("en-US", { hour: "numeric", minu
 export async function getOrCreateDirectConversation(otherUserId: string): Promise<string> {
   const uid = await requireUserId();
   if (otherUserId === uid) throw new Error("You can't message yourself");
+  if (!(await isSellerActive(otherUserId))) throw new Error(SELLER_UNAVAILABLE_MESSAGE);
   const found = await db.execute(sql`
     SELECT c.id FROM conversation c
     JOIN conversation_participant a ON a.conversation_id = c.id AND a.user_id = ${uid}
@@ -164,6 +167,8 @@ export async function sendMessage(
       (SELECT count(*) FROM message WHERE conversation_id = ${conversationId} AND sender_user_id <> ${uid}) AS their_count
   `);
   const s = (stat.rows as { other_id: string | null; my_count: number; their_count: number }[])[0];
+  // Existing threads stay readable, but a lapsed seller cannot be messaged.
+  if (s?.other_id && !(await isSellerActive(s.other_id))) throw new Error(SELLER_UNAVAILABLE_MESSAGE);
   if (s?.other_id && Number(s.their_count) === 0 && Number(s.my_count) >= FIRST_CHAT_LIMIT) {
     let connected = false;
     try {

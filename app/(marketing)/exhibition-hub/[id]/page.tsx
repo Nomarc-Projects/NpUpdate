@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { getBrowseProductById, getProductsForBrowse, type ProductCard } from "@/lib/services/catalog";
 import { pickRelated } from "@/lib/product-adapter";
 import { pageMetadata } from "@/lib/og";
+import { isSellerActive } from "@/lib/services/seller-availability";
 import type { CatalogProduct } from "@/lib/sample-catalog";
 import { ProductView } from "@/components/dashboard/buyer/product-view";
 
@@ -36,6 +37,9 @@ export default async function HubProductPage({ params }: { params: Promise<{ id:
   let all: ProductCard[] = [];
   try { all = await getProductsForBrowse(); } catch { all = []; }
   const related = pickRelated(all, id, product.tags);
+  const sellerActive = product.vendorUserId
+    ? await isSellerActive(product.vendorUserId).catch(() => true)
+    : true;
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#111]">
@@ -50,6 +54,7 @@ export default async function HubProductPage({ params }: { params: Promise<{ id:
           messagesHref="/dashboard/messages"
           related={related}
           relatedHrefBase="/exhibition-hub"
+          sellerActive={sellerActive}
         />
       </div>
     </div>

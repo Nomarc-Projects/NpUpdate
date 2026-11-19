@@ -10,6 +10,7 @@ import {
 import { MySearchesMenu } from "@/components/dashboard/directory/my-searches-menu";
 import { getCompanyById, type CompanyCard, type CompanyDetail } from "@/lib/services/company";
 import { INDUSTRIES } from "@/lib/constants/industries";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 
 export function CompaniesDirectory({ rows }: { rows: CompanyCard[] }) {
   const router = useRouter();
@@ -25,13 +26,17 @@ export function CompaniesDirectory({ rows }: { rows: CompanyCard[] }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
+    const result = rows.filter((r) => {
       if (query && !`${r.name} ${r.industry ?? ""}`.toLowerCase().includes(query.toLowerCase())) return false;
       if (industry && r.industry !== industry) return false;
-      if (location && !(r.headquarters ?? "").toLowerCase().includes(location.toLowerCase())) return false;
+      if (location && !locationMatches(r.headquarters ?? "", location)) return false;
       if (size && r.companySize !== size) return false;
       return true;
     });
+    if (location.trim()) {
+      result.sort((a, b) => locationMatchScore(a.headquarters ?? "", location) - locationMatchScore(b.headquarters ?? "", location));
+    }
+    return result;
   }, [rows, query, industry, location, size]);
 
   useEffect(() => {

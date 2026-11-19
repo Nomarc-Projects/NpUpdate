@@ -10,6 +10,7 @@ import { SaveToList } from "@/components/dashboard/save-to-list";
 import { SelectMenu } from "@/components/ui/select-menu";
 import { cn } from "@/lib/utils";
 import { Pagination } from "@/components/ui/pagination";
+import { locationMatches } from "@/lib/location-search";
 
 const C_COL: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-2 lg:grid-cols-3", 4: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4", 5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" };
 const C_PER = ["12", "24", "48", "96"];
@@ -117,7 +118,11 @@ export function CompaniesView({ companies, initialQ, initialIndustry }: Props) {
 
   // Client-side filter on top of server-fetched data for instant feel
   const filtered = companies.filter((c) => {
-    const matchQ = !q || c.name.toLowerCase().includes(q.toLowerCase()) || (c.industry ?? "").toLowerCase().includes(q.toLowerCase()) || (c.headquarters ?? "").toLowerCase().includes(q.toLowerCase());
+    const ql = q.toLowerCase();
+    const matchQ = !q
+      || c.name.toLowerCase().includes(ql)
+      || (c.industry ?? "").toLowerCase().includes(ql)
+      || locationMatches(c.headquarters ?? "", q);
     const matchInd = !industry || (c.industry ?? "").toLowerCase().includes(industry.toLowerCase());
     return matchQ && matchInd;
   });

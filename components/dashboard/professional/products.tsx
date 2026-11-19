@@ -16,6 +16,7 @@ import { getBrowseProductById } from "@/lib/services/catalog";
 import type { ProductCard } from "@/lib/services/catalog";
 import type { CatalogProduct } from "@/lib/sample-catalog";
 import { cn } from "@/lib/utils";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 
 /** ProductCard enriched with the exhibitor's company id (resolved server-side
  *  in products/page.tsx by name-matching against getCompaniesForDirectory —
@@ -275,13 +276,19 @@ export function Products({ saved = false, initialSaved = [], items = [], canRequ
   const industryF = sel["Primary Industry"] ?? [];
   const list = products.filter((p) => {
     if (saved && !savedIds.has(p.id)) return false;
-    const hay = `${p.name} ${p.supplier} ${p.location} ${p.tags.join(" ")}`.toLowerCase();
-    if (q && !hay.includes(q)) return false;
+    if (q && !(`${p.name} ${p.supplier} ${p.tags.join(" ")}`.toLowerCase().includes(q) || locationMatches(p.location, q))) return false;
     if (tagsF.length && !tagsF.some((o) => p.tags.includes(o))) return false;
     if (availF.length && !availF.includes(p.avail)) return false;
-    if (locF.length && !locF.some((o) => p.location.toLowerCase().includes(o.toLowerCase()))) return false;
+    if (locF.length && !locF.some((o) => locationMatches(p.location, o))) return false;
     if (industryF.length && !industryF.some((o) => p.tags.some((t) => o.toLowerCase().includes(t.toLowerCase()) || t.toLowerCase().includes(o.toLowerCase().split(" ")[0])))) return false;
     return true;
+  }).sort((a, b) => {
+    // When a single location filter is chosen, rank exact/word-start matches first.
+    if (locF.length === 1) {
+      const diff = locationMatchScore(a.location, locF[0]) - locationMatchScore(b.location, locF[0]);
+      if (diff !== 0) return diff;
+    }
+    return 0;
   });
   const activeCount = Object.values(sel).reduce((n, a) => n + a.length, 0) + (q ? 1 : 0);
 

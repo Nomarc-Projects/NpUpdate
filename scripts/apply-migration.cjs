@@ -1,6 +1,7 @@
 // Apply a single drizzle SQL migration file to PostgreSQL.
-// Usage: doppler run --project nomarc_projects --config prd -- node scripts/apply-migration.cjs drizzle/0064_product_lead_time.sql
-// DATABASE_URL is injected by `doppler run` and never printed.
+// Usage: DATABASE_URL='postgresql://…' node scripts/apply-migration.cjs drizzle/0067_exhibitor_guidelines.sql
+// The connection string comes from the deployment environment (on the VPS, the
+// same DATABASE_URL the app runs with). It is never printed.
 const fs = require("node:fs");
 const path = require("node:path");
 const { Pool } = require("pg");
@@ -22,7 +23,7 @@ function resolveSSL() {
 (async () => {
   const file = process.argv[2];
   if (!file) { console.error("Usage: node scripts/apply-migration.cjs <path-to.sql>"); process.exit(1); }
-  if (!process.env.DATABASE_URL) { console.error("DATABASE_URL not set (run via `doppler run`)"); process.exit(1); }
+  if (!process.env.DATABASE_URL) { console.error("DATABASE_URL not set — export it from the VPS environment first"); process.exit(1); }
   const sql = fs.readFileSync(path.join(process.cwd(), file), "utf8");
   const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: resolveSSL(), max: 1 });
   try {

@@ -292,13 +292,12 @@ export function ExhibitorHome() {
   const upcoming: ActivityItem[] = [];
 
   /**
-   * Plan selection comes after account setup, so an exhibitor only reaches the
-   * upload form with an active paid plan. Known non-subscribers go straight to
-   * the pricing page; while the plan state is still loading we defer to the
-   * route, which re-checks server-side.
+   * A 14-day trial counts as access too — only users with neither a paid plan
+   * nor a trial go to the pricing page. While the state is still loading we
+   * defer to the route, which re-checks server-side.
    */
   function goToAddProduct() {
-    if (trial && !trial.subscribed) { router.push("/dashboard/plans/exhibitor"); return; }
+    if (trial && !trial.hasActivePlan) { router.push("/dashboard/plans/exhibitor"); return; }
     router.push("/dashboard/add-product");
   }
 

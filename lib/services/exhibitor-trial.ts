@@ -1,11 +1,11 @@
 "use server";
 
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { company, product, userRole } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { asExhibitorPlan, getNextPlan, PLAN_LABEL, type ExhibitorPlan } from "@/lib/entitlements";
-import { TRIAL_DAYS, type ExhibitorLimitSummary, type TrialState } from "@/lib/services/exhibitor-trial-rules";
+import { type ExhibitorLimitSummary, type TrialState } from "@/lib/services/exhibitor-trial-rules";
 import {
   EXHIBITOR_CATEGORY_CAP,
   getExhibitorTotalListingCap,
@@ -13,11 +13,10 @@ import {
 import { getActiveTrial } from "@/lib/services/trial";
 
 /**
- * Exhibitor publishing requires an active paid plan. Account setup (the
- * onboarding wizard) grants the exhibitor role; the plan is chosen and paid
- * for afterwards, and nothing can be published until it is. The 30-day trial
- * window is retained only to retire listings that predate this gate — it no
- * longer grants any publish allowance.
+ * Exhibitor publishing requires an active paid plan OR an active 14-day trial.
+ * Account setup (the onboarding wizard) grants the exhibitor role; "Start
+ * 14-day trial" activates the trial on the plans screen. A lapsed trial stops
+ * new publishing but deliberately leaves already-published products listed.
  *
  * The rule lives here alone. `createProduct`, `setProductStatus`, the catalog
  * UI and the billing panel all defer to `getTrialState()` — a second copy of
@@ -37,13 +36,13 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *
  * Also checks for active 14-day trial (trial_ends_at + trial_plan on user_role).
  */
-async function exhibitorPlan(uid: string): Promise<ExhibitorPlan> {
+export async function resolveExhibitorPlan(uid: string): Promise<ExhibitorPlan> {
   // Check for active trial first
   const trial = await getActiveTrial(uid, "exhibitor");
   if (trial) return trial.plan as ExhibitorPlan;
 
   const rows = await db
-    .select({ plan: userRole.plan, currentPeriodEnd: userRole.currentPeriodEnd })
+    .select({ plan: userRole.plan, currentPeriodEnd: userRole.currentPeriodEnd, trialEndsAt: userRole.trialEndsAt })
     .from(userRole)
     .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")));
   for (const r of rows) {
@@ -52,6 +51,10 @@ async function exhibitorPlan(uid: string): Promise<ExhibitorPlan> {
     // A null period end is a pre-0038 subscription — grandfathered. A past one
     // is lapsed, so it grants nothing until renewed.
     if (r.currentPeriodEnd && r.currentPeriodEnd.getTime() <= Date.now()) continue;
+    // A trial writes the plan slug but no period end. Once it lapses, its row
+    // looks like a grandfathered subscription unless the trial stamp rules it
+    // out — purchasing clears trialEndsAt, so this only rejects expired trials.
+    if (!r.currentPeriodEnd && r.trialEndsAt) continue;
     return p;
   }
   return "free";
@@ -60,65 +63,60 @@ async function exhibitorPlan(uid: string): Promise<ExhibitorPlan> {
 /**
  * Current publishing standing for the signed-in exhibitor.
  *
- * Also performs the expiry sweep: when the window has lapsed and there's no
- * subscription, that exhibitor's active products are flipped to draft. This is
- * done lazily on read rather than by a scheduled job — there is no cron in this
- * app, and read time is the only moment the state actually matters (someone is
- * looking at the catalogue). It is idempotent: once flipped, the UPDATE matches
- * nothing on later reads.
+ * Expiry is read lazily (there is no cron in this app). Products already
+ * published are intentionally NOT retired when the trial ends: they stay on
+ * the exhibition hub, while new publishing is blocked and buyer enquiries are
+ * disabled until the exhibitor subscribes.
  */
 export async function getTrialState(): Promise<TrialState> {
   const uid = await requireUserId();
 
   const [co] = await db
-    .select({ id: company.id, trialStartedAt: company.trialStartedAt, createdAt: company.createdAt })
+    .select({ id: company.id })
     .from(company)
     .where(eq(company.ownerUserId, uid))
     .limit(1);
 
   if (!co) {
-    return { isExhibitor: false, subscribed: false, plan: "free", inTrial: false, daysLeft: 0, publishedCount: 0, listingCap: 0, canPublish: false, reason: "not_exhibitor" };
+    return { isExhibitor: false, subscribed: false, hasActivePlan: false, trialEnded: false, plan: "free", inTrial: false, daysLeft: 0, publishedCount: 0, listingCap: 0, canPublish: false, reason: "not_exhibitor" };
   }
 
   // Check for active 14-day plan trial
   const trial = await getActiveTrial(uid, "exhibitor");
   const inPlanTrial = !!trial;
-  const plan = inPlanTrial ? (trial.plan as ExhibitorPlan) : await exhibitorPlan(uid);
+  const plan = inPlanTrial ? (trial.plan as ExhibitorPlan) : await resolveExhibitorPlan(uid);
   const subscribed = plan !== "free" && !inPlanTrial;
 
-  // Legacy 30-day company trial (for grandfathering old free listings)
-  const started = co.trialStartedAt ?? co.createdAt;
-  const elapsed = Date.now() - new Date(started).getTime();
-  const legacyDaysLeft = Math.max(0, Math.ceil((TRIAL_DAYS * DAY_MS - elapsed) / DAY_MS));
-  const inLegacyTrial = legacyDaysLeft > 0;
+  // A trial that ran out without a paid plan taking over — drives the
+  // "subscribe to continue" prompt. Purchasing clears trialEndsAt.
+  const [role] = await db
+    .select({ trialEndsAt: userRole.trialEndsAt })
+    .from(userRole)
+    .where(and(eq(userRole.userId, uid), eq(userRole.role, "exhibitor"), eq(userRole.status, "active")))
+    .limit(1);
+  const trialEnded = !inPlanTrial && !!role?.trialEndsAt && role.trialEndsAt.getTime() <= Date.now();
 
   const [pub] = await db
     .select({ n: count() })
     .from(product)
     .where(and(eq(product.companyId, co.id), eq(product.status, "active")));
-  let publishedCount = Number(pub?.n ?? 0);
+  const publishedCount = Number(pub?.n ?? 0);
 
-  // Lapsed and unpaid: retire the listings rather than leaving them live for free.
-  // But don't retire if user is in an active 14-day plan trial.
-  if (!subscribed && !inPlanTrial && !inLegacyTrial && publishedCount > 0) {
-    await db
-      .update(product)
-      .set({ status: "draft", draft: true, updatedAt: new Date() })
-      .where(and(eq(product.companyId, co.id), ne(product.status, "draft")));
-    publishedCount = 0;
-  }
-
-  // Publishing allowed if: subscribed OR in 14-day plan trial
-  const listingCap = (subscribed || inPlanTrial) ? getExhibitorTotalListingCap(plan) : 0;
+  // A 14-day trial grants the plan's full listing allowance. Losing that
+  // entitlement only blocks NEW listings — existing ones stay public.
+  const hasActivePlan = subscribed || inPlanTrial;
+  const listingCap = hasActivePlan ? getExhibitorTotalListingCap(plan) : 0;
   const canPublish = publishedCount < listingCap;
   const reason: TrialState["reason"] = canPublish
     ? "ok"
-    : subscribed || inPlanTrial ? "plan_limit_reached"
+    : hasActivePlan ? "plan_limit_reached"
     : "plan_required";
 
   return {
     isExhibitor: true,
     subscribed,
+    hasActivePlan,
+    trialEnded,
     plan,
     inTrial: inPlanTrial,
     daysLeft: inPlanTrial ? Math.max(0, Math.ceil((trial!.endsAt.getTime() - Date.now()) / DAY_MS)) : 0,
@@ -162,7 +160,7 @@ export async function getExhibitorLimitSummary(): Promise<ExhibitorLimitSummary 
     .limit(1);
   if (!co) return null;
 
-  const plan = await exhibitorPlan(uid);
+  const plan = await resolveExhibitorPlan(uid);
   const categoryCap = EXHIBITOR_CATEGORY_CAP[plan];
   const totalCap = getExhibitorTotalListingCap(plan);
 

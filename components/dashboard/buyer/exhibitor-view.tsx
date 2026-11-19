@@ -10,6 +10,7 @@ import { DashboardTabs, EmptyState } from "@/components/dashboard/kit";
 import { RequestQuoteModal } from "@/components/dashboard/buyer/request-quote-modal";
 import { getOrCreateDirectConversation } from "@/lib/services/messaging";
 import type { CompanyDetail, CompanyRecommendation } from "@/lib/services/company";
+import { SELLER_UNAVAILABLE_MESSAGE } from "@/lib/services/seller-availability-rules";
 
 /**
  * Exhibition Hub "View Exhibitor" — a full navigation (not a slide-over,
@@ -26,6 +27,7 @@ export function ExhibitorView({
   productsBasePath = "/dashboard/products",
   messagesHref = "/dashboard/messages",
   backHref = "/dashboard/products",
+  sellerActive = true,
 }: {
   company: CompanyDetail;
   recommendations: CompanyRecommendation[];
@@ -35,6 +37,8 @@ export function ExhibitorView({
   productsBasePath?: string;
   messagesHref?: string;
   backHref?: string;
+  /** Lapsed exhibitors keep their public profile, but not their contact CTA. */
+  sellerActive?: boolean;
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"catalog" | "recommendations">("catalog");
@@ -46,6 +50,7 @@ export function ExhibitorView({
   // Guests can read the whole exhibitor page; the two account actions prompt
   // them to sign in and (via signInHref's ?redirect=) return them right here.
   function guard(): boolean {
+    if (!sellerActive) { toast.error(SELLER_UNAVAILABLE_MESSAGE); return false; }
     if (!signedIn) {
       router.push(signInHref);
       return false;
@@ -90,16 +95,21 @@ export function ExhibitorView({
           <div className="mt-4 flex items-center gap-2">
             <button
               onClick={requestQuote}
-              disabled={!firstProduct}
-              title={firstProduct ? undefined : "No products listed yet"}
+              disabled={!firstProduct || !sellerActive}
+              title={!sellerActive ? SELLER_UNAVAILABLE_MESSAGE : firstProduct ? undefined : "No products listed yet"}
               className="flex-1 py-2.5 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[13px] font-bold hover:bg-[#e6c114] transition-colors disabled:opacity-50 disabled:pointer-events-none"
             >
               Request quote
             </button>
-            <button onClick={message} disabled={messaging} className="flex-1 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-60">
+            <button onClick={message} disabled={messaging || !sellerActive} title={sellerActive ? undefined : SELLER_UNAVAILABLE_MESSAGE} className="flex-1 py-2.5 rounded-xl border border-[#e3e3e3] dark:border-white/15 text-[13px] font-semibold text-[#1e1e1e] dark:text-white hover:border-[#ffd716] transition-colors disabled:opacity-60">
               Message
             </button>
           </div>
+          {!sellerActive && (
+            <p role="status" className="mt-2 rounded-lg border border-[#f3e6b0] bg-[#fffdf2] px-2.5 py-2 text-[11.5px] leading-relaxed text-[#8a7400] dark:border-[#ffd716]/25 dark:bg-[#ffd716]/[0.06] dark:text-[#ffd716]">
+              {SELLER_UNAVAILABLE_MESSAGE}
+            </p>
+          )}
 
           {company.about && (
             <div className="mt-5">

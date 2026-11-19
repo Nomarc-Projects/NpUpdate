@@ -13,6 +13,7 @@ import { NomarcAvatar } from "@/components/ui/avatar";
 import { getProfessionalDetail, type PeopleRow, type ProDetail } from "@/lib/services/directory";
 import { getSavedIds, toggleSaved } from "@/lib/services/saved";
 import { shortLocation } from "@/lib/location-format";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 import { cn } from "@/lib/utils";
 
 const EXPERIENCE_BANDS = [
@@ -48,9 +49,9 @@ export function PeopleDirectory({ rows }: { rows: PeopleRow[] }) {
   const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) => {
+    const result = rows.filter((r) => {
       if (query && !`${r.name} ${r.currentRole} ${r.company}`.toLowerCase().includes(query.toLowerCase())) return false;
-      if (location && !r.location.toLowerCase().includes(location.toLowerCase())) return false;
+      if (location && !locationMatches(r.location, location)) return false;
       if (experience) {
         const band = EXPERIENCE_BANDS.find((b) => b.label === experience);
         if (band && !band.test(r.years)) return false;
@@ -58,6 +59,10 @@ export function PeopleDirectory({ rows }: { rows: PeopleRow[] }) {
       if (availability && r.availability !== availability) return false;
       return true;
     });
+    if (location.trim()) {
+      result.sort((a, b) => locationMatchScore(a.location, location) - locationMatchScore(b.location, location));
+    }
+    return result;
   }, [rows, query, location, experience, availability]);
 
   useEffect(() => {

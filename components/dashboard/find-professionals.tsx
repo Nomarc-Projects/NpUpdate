@@ -17,6 +17,7 @@ import { NomarcAvatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { DISCIPLINE_LABEL } from "@/lib/helm/disciplines";
 import { shortLocation } from "@/lib/location-format";
+import { locationMatches, locationMatchScore } from "@/lib/location-search";
 
 type OpenJob = { id: string; title: string; company: string | null };
 
@@ -443,24 +444,32 @@ export function FindProfessionals({ role, pros = [], myOpenJobs = [], online = {
   // filtering + sorting over the DB-backed list
   const q = query.trim().toLowerCase();
   const occSearchLower = occSearch.trim().toLowerCase();
-  const locSearchLower = locSearch.trim().toLowerCase();
+  const locSearchValue = locSearch.trim();
   const practiceStatus = sel["Practice status"] ?? [];
   let results = pros.filter((p) => {
     if (listTab === "saved" && !savedSet.has(p.id)) return false;
-    const hay = `${p.name} ${p.headline} ${p.location} ${p.skills.join(" ")}`.toLowerCase();
-    if (q && !hay.includes(q)) return false;
+    const hay = `${p.name} ${p.headline} ${p.skills.join(" ")}`.toLowerCase();
+    if (q && !(hay.includes(q) || locationMatches(p.location, q))) return false;
     if (type === "Individual Professional" && p.isCompany) return false;
     if (type === "Company" && !p.isCompany) return false;
     if (occSearchLower) {
       const occHay = `${p.headline} ${DISCIPLINE_LABEL[p.discipline] ?? ""}`.toLowerCase();
       if (!occHay.includes(occSearchLower)) return false;
     }
-    if (locSearchLower && !p.location.toLowerCase().includes(locSearchLower)) return false;
+    if (locSearchValue && !locationMatches(p.location, locSearchValue)) return false;
     if (practiceStatus.length && !practiceStatus.some((l) => p.practiceStatus === PRACTICE_STATUS_VALUE[l])) return false;
     return true;
   });
-  if (sortBy === "Most experience") results = [...results].sort((a, b) => b.years - a.years);
-  else if (sortBy === "Name A–Z") results = [...results].sort((a, b) => a.name.localeCompare(b.name));
+  results = [...results].sort((a, b) => {
+    // Location searches rank exact matches first, then word-start matches.
+    if (locSearchValue) {
+      const locDiff = locationMatchScore(a.location, locSearchValue) - locationMatchScore(b.location, locSearchValue);
+      if (locDiff !== 0) return locDiff;
+    }
+    if (sortBy === "Most experience") return b.years - a.years;
+    if (sortBy === "Name A–Z") return a.name.localeCompare(b.name);
+    return 0;
+  });
   const activeCount = Object.values(sel).reduce((n, a) => n + a.length, 0) + (q ? 1 : 0) + (occSearch.trim() ? 1 : 0) + (locSearch.trim() ? 1 : 0);
 
   const pageCount = Math.max(1, Math.ceil(results.length / perPage));

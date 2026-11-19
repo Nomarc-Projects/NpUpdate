@@ -6,6 +6,8 @@ import { db } from "@/lib/db/client";
 import { quoteRequest, product, company } from "@/lib/db/schema";
 import { requireUserId } from "@/lib/server-user";
 import { notify } from "@/lib/notify-internal";
+import { isSellerActive } from "@/lib/services/seller-availability";
+import { SELLER_UNAVAILABLE_MESSAGE } from "@/lib/services/seller-availability-rules";
 
 export type QuoteRow = {
   id: string; productId: string | null; productName: string; counterpartyName: string; counterpartyAvatar: string;
@@ -28,6 +30,8 @@ export async function createQuoteRequest(input: {
   const row = (res.rows as { name: string; owner_user_id: string }[])[0];
   if (!row) throw new Error("Product not found");
   if (row.owner_user_id === uid) throw new Error("This is your own product");
+  // A lapsed exhibitor's listings stay visible, but they cannot receive RFQs.
+  if (!(await isSellerActive(row.owner_user_id))) throw new Error(SELLER_UNAVAILABLE_MESSAGE);
 
   await db.insert(quoteRequest).values({
     productId: input.productId, buyerUserId: uid, exhibitorUserId: row.owner_user_id,
