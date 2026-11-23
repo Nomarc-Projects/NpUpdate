@@ -136,7 +136,7 @@ export async function assertCanPublish(): Promise<void> {
   if (t.canPublish) return;
   throw new Error(
     t.reason === "plan_limit_reached"
-      ? `Your ${PLAN_LABEL[t.plan]} plan covers ${t.listingCap} active listing${t.listingCap === 1 ? "" : "s"}.${upgradeHint(t.plan)} Unpublish one to make room.`
+      ? `You've reached your plan's total product limit — ${t.listingCap} active product${t.listingCap === 1 ? "" : "s"} allowed in total, in any category.${upgradeHint(t.plan)} Unpublish one to make room.`
       : "Choose an exhibitor plan to publish products to your showroom.",
   );
 }
@@ -171,7 +171,10 @@ export async function getExhibitorLimitSummary(): Promise<ExhibitorLimitSummary 
     .groupBy(product.category);
   const byCategory = new Map<string, number>();
   for (const g of grouped) if (g.category) byCategory.set(g.category, Number(g.n ?? 0));
-  const totalActive = [...byCategory.values()].reduce((a, b) => a + b, 0);
+  // Count every grouped row, including products with no category. Enforcement
+  // in getTrialState() counts all active products, so the banner must agree or
+  // an exhibitor could be blocked without ever seeing the total-limit message.
+  const totalActive = grouped.reduce((sum, g) => sum + Number(g.n ?? 0), 0);
 
   const registered = co.categories ?? [];
   const categories = registered.map((name) => ({ name, count: byCategory.get(name) ?? 0 }));

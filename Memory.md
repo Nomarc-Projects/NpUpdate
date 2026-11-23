@@ -32,7 +32,8 @@ non-trivial work.
   verifiable certificates, admin fee reconciliation, and owner listing
   close/archive. Lease/rent payment transactions and live testing remain.
 - **Exhibitor plan enforcement** — per-plan category caps (SME 1 / Exhibitor 5 /
-  Key Player 10), 10 listings per category, upgrade messaging, plan banner.
+  Key Player 10) and total active-product caps (10 / 50 / 100) that can be split
+  across categories freely, upgrade messaging, plan banner.
 - **Exhibitor category (shop) creation** — "Add a new category" on the product
   upload form and `allowCreate` in the company profile category picker; both are
   plan-capped and pop an upgrade prompt at the limit. The upload dropdown reads

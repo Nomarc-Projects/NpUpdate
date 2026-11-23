@@ -247,6 +247,10 @@ export default function ExhibitorPlansPage() {
                           setBusy(plan);
                           try {
                             const res = await startCheckout(plan, cycle);
+                            if (res.error) {
+                              toast.error(res.error);
+                              return;
+                            }
                             if (res.checkoutUrl) {
                               window.location.href = res.checkoutUrl;
                               return;

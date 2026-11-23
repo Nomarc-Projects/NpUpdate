@@ -42,7 +42,7 @@ async function applyPlan(userId: string, plan: string, cycle?: string, bonusDays
   await setRolePlan(userId, plan, "professional", periodEnd);
 }
 
-export type StartResult = { demo?: boolean; checkoutUrl?: string };
+export type StartResult = { demo?: boolean; checkoutUrl?: string; error?: string };
 
 export async function startCheckout(plan: Plan, cycle: BillingCycle, preferred?: ProviderName): Promise<StartResult> {
   const uid = await requireUserId();
@@ -75,8 +75,17 @@ export async function startCheckout(plan: Plan, cycle: BillingCycle, preferred?:
   const email = session?.user?.email ?? "";
   await db.insert(paymentTransaction).values({ userId: uid, plan, cycle, amount, provider: provider.name, reference, status: "pending" });
   const callbackUrl = `${APP_URL}/dashboard/billing/verify?reference=${reference}`;
-  const { checkoutUrl } = await provider.init({ email, amountNaira: amount, reference, callbackUrl, metadata: { uid, plan, cycle } });
-  return { checkoutUrl };
+  try {
+    const { checkoutUrl } = await provider.init({ email, amountNaira: amount, reference, callbackUrl, metadata: { uid, plan, cycle } });
+    return { checkoutUrl };
+  } catch (e) {
+    // A gateway rejection is an expected outcome, not a server crash. Return it
+    // to the caller so it can show the provider's message instead of Next's
+    // generic "Server Components render" error page.
+    await db.update(paymentTransaction).set({ status: "failed" })
+      .where(eq(paymentTransaction.reference, reference));
+    return { error: e instanceof Error ? e.message : "Couldn't start checkout" };
+  }
 }
 
 /** Settle a transaction by RE-VERIFYING with the provider (source of truth).

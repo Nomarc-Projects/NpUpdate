@@ -63,9 +63,10 @@ relative to the company.
   - SME → 1 category
   - Exhibitor → 5 categories
   - Key Player → 10 categories
-- **Per-category listing cap is 10** for paid tiers; total cap = categories ×
-  10. Drafts do not count toward quota. A company may only list in a category
-  it belongs to.
+- **Total listing cap per paid tier** — SME 10, Exhibitor 50, Key Player 100
+  active products. Products may be split across registered categories in any
+  way, including all of them in one category. Drafts do not count toward
+  quota. A company may only list in a category it belongs to.
 - Plan state machine: active → lapse → drafts; a **14-day trial** applies to
   any plan (see `lib/services/exhibitor-trial.ts`).
 - Quota breaches are surfaced as upgrade prompts, not silent failures.

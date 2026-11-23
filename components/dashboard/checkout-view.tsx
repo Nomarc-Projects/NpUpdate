@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, CreditCard, Check, ShieldCheck, Lock, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Check, ShieldCheck, Lock, Loader2, FlaskConical } from "lucide-react";
 import { NomarcMark } from "@/components/ui/nomarc-mark";
 import { startCheckout } from "@/lib/services/billing";
 import type { ProviderName } from "@/lib/payments/types";
@@ -44,20 +44,22 @@ function perMonth(plan: Plan, cycle: BillingCycle): string {
   return naira(Math.round(planPrice(plan, cycle) / CYCLE_MONTHS[cycle]));
 }
 
-export function CheckoutView({ plan, initialCycle, available = [] }: { plan: CheckoutPlan; initialCycle: BillingCycle; available?: ProviderName[] }) {
+export function CheckoutView({ plan, initialCycle, available = [], demoMode = false }: { plan: CheckoutPlan; initialCycle: BillingCycle; available?: ProviderName[]; demoMode?: boolean }) {
   const router = useRouter();
   const [cycle, setCycle] = useState<BillingCycle>(initialCycle);
-  // Default to a gateway that can actually take the payment, rather than
-  // whichever one happens to be listed first.
-  const [method, setMethod] = useState<ProviderName>(available[0] ?? "flutterwave");
+  // In demo mode there is no gateway to pick — the server grants the plan
+  // immediately. Otherwise default to a gateway that can actually take the
+  // payment, rather than whichever one happens to be listed first.
+  const [method, setMethod] = useState<ProviderName | "demo">(available[0] ?? (demoMode ? "demo" : "flutterwave"));
   const [busy, setBusy] = useState(false);
   const total = planPrice(plan, cycle);
-  const canPay = available.length > 0;
+  const canPay = available.length > 0 || demoMode;
 
   async function subscribe() {
     setBusy(true);
     try {
-      const res = await startCheckout(plan, cycle, method);
+      const res = await startCheckout(plan, cycle, method === "demo" ? undefined : method);
+      if (res.error) { setBusy(false); toast.error(res.error); return; }
       if (res.checkoutUrl) { window.location.href = res.checkoutUrl; return; }
       router.push("/dashboard/plans/receipt");
     } catch (e) { setBusy(false); toast.error(e instanceof Error ? e.message : "Couldn't start checkout"); }
@@ -118,44 +120,73 @@ export function CheckoutView({ plan, initialCycle, available = [] }: { plan: Che
 
         {/* ── Right: payment ── */}
         <div className="p-6 sm:p-8">
-          <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Payment details</h2>
-          <p className="text-[12.5px] text-[#9a9a9a] mt-0.5">Choose how you'd like to pay.</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-[#1e1e1e] dark:text-white">Payment details</h2>
+            {demoMode && <span className="text-[10px] font-bold text-[#166534] bg-[#dcfce7] px-1.5 py-0.5 rounded">Test mode</span>}
+          </div>
+          <p className="text-[12.5px] text-[#9a9a9a] mt-0.5">{demoMode ? "Test the activation flow locally — no real payment is taken." : "Choose how you'd like to pay."}</p>
 
           {/* payment gateway selection */}
           <div className="mt-5 space-y-2.5">
-            {GATEWAYS.map((g) => ({ ...g, active: available.includes(g.key) })).map((gw) => (
+            {demoMode ? (
               <button
-                key={gw.key}
-                onClick={() => setMethod(gw.key)}
-                disabled={!gw.active}
+                onClick={() => setMethod("demo")}
                 className={cn(
                   "w-full flex items-center gap-3.5 rounded-xl border px-4 py-3.5 text-left transition-all",
-                  method === gw.key
-                    ? "border-[#ffd716] bg-[#fff7cc] dark:bg-[#ffd716]/10 shadow-[0_0_0_1px_#ffd716]"
-                    : "border-[#e3e3e3] dark:border-white/15 hover:border-[#ffd716]/60",
-                  !gw.active && "opacity-50 cursor-not-allowed"
+                  "border-[#ffd716] bg-[#fff7cc] dark:bg-[#ffd716]/10 shadow-[0_0_0_1px_#ffd716]"
                 )}
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${gw.color}18` }}>
-                  <CreditCard size={18} style={{ color: gw.color }} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#ffd716]/20">
+                  <FlaskConical size={18} className="text-[#a16207]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">{gw.name}</span>
-                    {!gw.active && <span className="text-[10px] font-bold text-[#9a9a9a] bg-[#f0f0f0] dark:bg-white/10 px-1.5 py-0.5 rounded">Coming soon</span>}
+                    <span className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">Demo payment</span>
+                    <span className="text-[10px] font-bold text-[#166534] bg-[#dcfce7] px-1.5 py-0.5 rounded">No real charge</span>
                   </div>
-                  <p className="text-[11.5px] text-[#9a9a9a] mt-0.5">{gw.desc}</p>
+                  <p className="text-[11.5px] text-[#9a9a9a] mt-0.5">Grants {PLAN_LABEL[plan]} instantly for local testing. No gateway, card, or webhook needed.</p>
                 </div>
-                <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors", method === gw.key ? "border-[#ffd716] bg-[#ffd716]" : "border-[#d4d4d4] dark:border-white/20")}>
-                  {method === gw.key && <Check size={12} className="text-[#1e1e1e]" strokeWidth={3} />}
+                <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 border-[#ffd716] bg-[#ffd716]">
+                  <Check size={12} className="text-[#1e1e1e]" strokeWidth={3} />
                 </div>
               </button>
-            ))}
+            ) : (
+              GATEWAYS.map((g) => ({ ...g, active: available.includes(g.key) })).map((gw) => (
+                <button
+                  key={gw.key}
+                  onClick={() => setMethod(gw.key)}
+                  disabled={!gw.active}
+                  className={cn(
+                    "w-full flex items-center gap-3.5 rounded-xl border px-4 py-3.5 text-left transition-all",
+                    method === gw.key
+                      ? "border-[#ffd716] bg-[#fff7cc] dark:bg-[#ffd716]/10 shadow-[0_0_0_1px_#ffd716]"
+                      : "border-[#e3e3e3] dark:border-white/15 hover:border-[#ffd716]/60",
+                    !gw.active && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${gw.color}18` }}>
+                    <CreditCard size={18} style={{ color: gw.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-bold text-[#1e1e1e] dark:text-white">{gw.name}</span>
+                      {!gw.active && <span className="text-[10px] font-bold text-[#9a9a9a] bg-[#f0f0f0] dark:bg-white/10 px-1.5 py-0.5 rounded">Coming soon</span>}
+                    </div>
+                    <p className="text-[11.5px] text-[#9a9a9a] mt-0.5">{gw.desc}</p>
+                  </div>
+                  <div className={cn("w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors", method === gw.key ? "border-[#ffd716] bg-[#ffd716]" : "border-[#d4d4d4] dark:border-white/20")}>
+                    {method === gw.key && <Check size={12} className="text-[#1e1e1e]" strokeWidth={3} />}
+                  </div>
+                </button>
+              ))
+            )}
           </div>
 
           <div className="mt-4 rounded-xl border border-[#ececec] dark:border-white/10 bg-[#fafafa] dark:bg-white/[0.03] p-4">
             <p className="text-[13px] text-[#6b6b6b] dark:text-white/60">
-              {canPay ? (
+              {demoMode ? (
+                <>Test mode is enabled locally. Clicking the button grants <span className="font-semibold text-[#1e1e1e] dark:text-white">{PLAN_LABEL[plan]}</span> immediately and records a demo transaction — no real charge, redirect, or card details.</>
+              ) : canPay ? (
                 <>You&apos;ll be redirected to <span className="font-semibold text-[#1e1e1e] dark:text-white capitalize">{method}</span>&apos;s secure checkout to complete your payment. All card details, bank transfers, and USSD are handled directly by them.</>
               ) : (
                 <>Checkout is temporarily unavailable — no payment provider is reachable right now. Please try again shortly.</>
@@ -169,9 +200,9 @@ export function CheckoutView({ plan, initialCycle, available = [] }: { plan: Che
           </div>
 
           <button onClick={subscribe} disabled={busy || !canPay} className="mt-4 w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#ffd716] text-[#1e1e1e] text-[14px] font-bold hover:bg-[#e6c114] transition-colors disabled:cursor-not-allowed disabled:opacity-60">
-            {busy ? <><Loader2 size={16} className="animate-spin" /> Processing…</> : !canPay ? "Checkout unavailable" : <><Lock size={15} /> Subscribe · {naira(total)}</>}
+            {busy ? <><Loader2 size={16} className="animate-spin" /> Processing…</> : !canPay ? "Checkout unavailable" : demoMode ? <><FlaskConical size={15} /> Activate test plan · {naira(total)}</> : <><Lock size={15} /> Subscribe · {naira(total)}</>}
           </button>
-          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11.5px] text-[#9a9a9a]"><ShieldCheck size={13} className="text-[#16a34a]" /> Your payment data is encrypted and handled to the highest standards.</p>
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-[11.5px] text-[#9a9a9a]">{demoMode ? <><FlaskConical size={13} className="text-[#a16207]" /> Local test mode — no real payment data is collected.</> : <><ShieldCheck size={13} className="text-[#16a34a]" /> Your payment data is encrypted and handled to the highest standards.</>}</p>
         </div>
       </motion.div>
     </div>

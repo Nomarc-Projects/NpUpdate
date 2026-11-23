@@ -29,7 +29,7 @@ export function PlanLimitBanner({ limits }: { limits: ExhibitorLimitSummary | nu
   if (atUploadLimit) {
     return (
       <Frame warning>
-        <Reason warning title="You've reached your upload limit" body={`You've used all ${totalCap} product uploads on your plan.${nextPlanLabel ? ` Upgrade to ${nextPlanLabel} to add more.` : ""}`} />
+        <Reason warning title="You've reached your plan's total product limit" body={`All ${totalCap} product uploads are in use, across all categories.${nextPlanLabel ? ` Upgrade to ${nextPlanLabel} to add more.` : " Unpublish one to make room."}`} />
         {nextPlanLabel && <Upgrade label={`Upgrade to ${nextPlanLabel}`} />}
       </Frame>
     );
