@@ -107,7 +107,16 @@ export function PropertyListerForm({ initial }: { initial: ListerInitial }) {
       toast.success(submit ? "Submitted — we'll notify you when verification is done" : "Lister profile saved");
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not save your details");
+      // Next.js redacts server-side render/action failures in production into
+      // this generic message. Log the original error (including its digest)
+      // for debugging, but show the user something actionable instead.
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Server Components render")) {
+        console.error("Lister save/submit rejected with a redacted server error", error);
+        toast.error("We couldn't save your details. Please try again, or contact support if it keeps happening.");
+      } else {
+        toast.error(message || "Could not save your details");
+      }
     } finally {
       setBusy(null);
     }
