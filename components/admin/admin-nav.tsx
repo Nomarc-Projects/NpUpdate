@@ -50,6 +50,7 @@ const NAV: Group[] = [
     // way to see every account in one place — and the only place role, status,
     // KYC and plan sit side by side — was to know the URL.
     { label: "All Users", href: "/admin/users", icon: UsersRound },
+    { label: "Admins & Roles", href: "/admin/admins", icon: ShieldCheck, superOnly: true },
     { label: "Professionals", href: "/admin/user-management/professionals", icon: Users },
     { label: "Exhibitors", href: "/admin/user-management/exhibitors", icon: ShieldCheck },
   ]},
