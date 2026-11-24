@@ -120,11 +120,46 @@ const NAV: Group[] = [
 ];
 
 /**
+ * Role-based access control definitions.
+ * Each role maps to a set of group titles it can access.
+ * Group titles not listed are hidden for that role.
+ * 
+ * 'super_admin' is handled separately — sees all groups.
+ */
+const ROLE_ACCESS: Record<string, Set<string>> = {
+  // Super Admin: sees everything (handled separately in navFor)
+  super_admin: new Set(NAV.map((g) => g.title ?? "")),
+
+  // Operations: Dashboard, Verifications, About Team Section
+  operations: new Set(["Dashboard", "Verifications", "Features"]),
+
+  // Customer Support: Dashboard, Support Inbox, User Management, Communications,
+  // Job Board, Exhibition Hub, Properties
+  "customer-support": new Set([
+    "Dashboard", "Support Inbox", "User Management", "Communications",
+    "Marketplace & Catalog",
+  ]),
+
+  // Sales & Marketing: Dashboard, Support Inbox, User Management, Advertising & Promotions,
+  // Communications, Key Players Section, Trusted Clients Section, Job Board, Exhibition Hub, Properties
+  "sales-marketing": new Set([
+    "Dashboard", "Support Inbox", "User Management", "Advertising & Promotions",
+    "Communications", "Features", "Marketplace & Catalog",
+  ]),
+
+  // Reporter: Dashboard, News Feed, News Ticker, Taxonomy, Institutions & Ministries, Events
+  reporter: new Set([
+    "Dashboard", "Content", "Directory", "Industry",
+  ]),
+};
+
+/**
  * Filter NAV groups based on the user's role(s).
- * - If the user has multiple roles, show items allowable by ANY of them.
+ * - If the user has multiple roles, show items allowable by ANY of them (union).
  * - super_admin sees all groups and items.
  * - Items with superOnly are only shown to super_admin.
- * - Groups that end up with no items are removed entirely (heading too).
+ * - Groups not in the role's access set are removed entirely (heading too).
+ * - Groups that end up with no items are removed entirely.
  *
  * @param roles - Single role string or array of role strings
  * @returns Filtered groups with items, empty groups removed
@@ -135,13 +170,28 @@ function navFor(roles: string | string[]): Group[] {
   // super_admin sees everything
   if (roleSet.has("super_admin")) return NAV;
 
-  // For other roles, filter items and remove empty groups
+  // Collect all allowed group titles from the role(s)
+  const allowedTitles = new Set<string>();
+  for (const role of roleSet) {
+    const access = ROLE_ACCESS[role];
+    if (access) {
+      for (const title of access) {
+        allowedTitles.add(title);
+      }
+    }
+  }
+
+  // For other roles, filter groups and items based on allowed titles
   return NAV
     .map((g) => {
+      const groupTitle = g.title ?? "";
+      // Check if this group title is allowed for any of the user's roles
+      if (!allowedTitles.has(groupTitle)) return null;
+
+      // Filter items: show items that are not superOnly
       const filteredItems = g.items.filter((item) => {
-        // Show items that are not superOnly, or where the user has a role that allows them
         if (!item.superOnly) return true;
-        // superOnly items are only for super_admin; plain admins can't see them
+        // superOnly items are only for super_admin; other roles can't see them
         return false;
       });
 
