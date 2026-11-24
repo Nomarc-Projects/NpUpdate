@@ -55,7 +55,7 @@ const NAV: Group[] = [
   { title: "Marketplace & Catalog", items: [
     { label: "Job Board", href: "/admin/marketplace/jobs", icon: ShoppingBag },
     { label: "Exhibition Hub", href: "/admin/marketplace/products", icon: Package },
-    { label: "Nomarc Projects", href: "/admin/properties", icon: Building2 },
+    { label: "Properties", href: "/admin/properties", icon: Building2 },
   ]},
   { title: "Content", items: [
     { label: "News Feed", href: "/admin/newsfeed", icon: Newspaper },
@@ -75,9 +75,6 @@ const NAV: Group[] = [
     { label: "Ad Board", href: "/admin/adverts", icon: GalleryHorizontalEnd },
     { label: "Ad Reviews", href: "/admin/advertising/reviews", icon: Megaphone },
     { label: "Active Campaigns", href: "/admin/advertising/campaigns", icon: CampaignIcon },
-    // Partnerships gate who can run promotions without the Key players plan;
-    // the flag is toggled per user on the All Users console.
-    { label: "Partners", href: "/admin/users", icon: Handshake },
   ]},
   { title: "Communications", items: [
     { label: "Send Email", href: "/admin/broadcasts", icon: Mail },
@@ -91,7 +88,7 @@ const NAV: Group[] = [
   // Linked on its own rather than by un-parking /admin/settings, which stays
   // deliberately unlinked (plans/PARKED-FEATURES.md). A switch that takes the
   // public site down has to be findable without hunting.
-  { title: "Platform", items: [
+  { title: "Security", items: [
     // The audit log has existed at /admin/audit since it was built but was linked
     // from nowhere, so the one screen that answers "who did what, and when" was
     // reachable only by typing the URL.
