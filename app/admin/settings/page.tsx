@@ -1,5 +1,5 @@
-"use client";
-
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import {
 import { DashBanner, BannerContent } from "@/components/dashboard/dash-banner";
 import { cn } from "@/lib/utils";
 import { r2Url } from "@/lib/r2-public";
+import { auth } from "@/lib/auth";
 
 /* ─── Reusable primitives ─────────────────────────────────────────────── */
 
@@ -105,7 +106,13 @@ function SaveBtn({ onClick, busy }: { onClick: () => void; busy: boolean }) {
 
 /* ─── Page ──────────────────────────────────────────────────────────── */
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  // Only admin and super_admin may view platform settings
+  if (role !== "admin" && role !== "super_admin") {
+    redirect("/dashboard");
+  }
   const [fromName, setFromName] = useState("Nomarc Projects");
   const [fromEmail, setFromEmail] = useState("info@nomarcprojects.com");
   const [replyTo, setReplyTo] = useState("support@nomarcprojects.com");

@@ -4,13 +4,19 @@ import { CampaignTrackingView } from "@/components/admin/campaign-tracking-view"
 import { listCampaigns } from "@/lib/services/campaigns";
 import { isEmailConfigured } from "@/lib/email/mailer";
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Campaign Tracking" };
 
 export default async function CampaignTrackingPage() {
-  const rows = await listCampaigns().catch(() => []);
   const session = await auth.api.getSession({ headers: await headers() });
-  const isSuperAdmin = (session?.user as { role?: string } | undefined)?.role === "super_admin";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  // Only super_admin may view campaign tracking
+  if (role !== "admin" && role !== "super_admin") {
+    redirect("/dashboard");
+  }
+  const isSuperAdmin = role === "super_admin";
+  const rows = await listCampaigns().catch(() => []);
   return (
     <div className="px-6 py-6 md:px-8">
       <AdminPageHeader
