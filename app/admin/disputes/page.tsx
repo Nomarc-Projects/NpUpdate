@@ -1,5 +1,3 @@
-"use client";
-
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { MessageSquare, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
