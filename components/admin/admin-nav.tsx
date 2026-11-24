@@ -16,6 +16,7 @@ import { useTheme } from "@/components/theme";
 import { Logo } from "@/components/ui/logo";
 import { NomarcMark } from "@/components/ui/nomarc-mark";
 import { useAuth } from "@/lib/store/auth";
+import { useRoles } from "@/lib/roles-context";
 import { signOut as authSignOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { animateThemeChange } from "@/lib/theme-transition";
@@ -119,12 +120,88 @@ const NAV: Group[] = [
   ]},
 ];
 
-/** Drop super-admin-only entries, then any group left with nothing in it. */
-function navFor(role: string | undefined): Group[] {
-  if (role === "super_admin") return NAV;
+/**
+ * Role-based access control definitions.
+ * Each role maps to a set of group titles it can access.
+ * Group titles not listed are hidden for that role.
+ * 
+ * 'super_admin' is handled separately — sees all groups.
+ */
+const ROLE_ACCESS: Record<string, Set<string>> = {
+  // Super Admin: sees everything (handled separately in navFor)
+  super_admin: new Set(NAV.map((g) => g.title ?? "")),
+
+  // Operations: Dashboard, Verifications, About Team Section
+  operations: new Set(["Dashboard", "Verifications", "Features"]),
+
+  // Customer Support: Dashboard, Support Inbox, User Management, Communications,
+  // Job Board, Exhibition Hub, Properties
+  "customer-support": new Set([
+    "Dashboard", "Support Inbox", "User Management", "Communications",
+    "Marketplace & Catalog",
+  ]),
+
+  // Sales & Marketing: Dashboard, Support Inbox, User Management, Advertising & Promotions,
+  // Communications, Key Players Section, Trusted Clients Section, Job Board, Exhibition Hub, Properties
+  "sales-marketing": new Set([
+    "Dashboard", "Support Inbox", "User Management", "Advertising & Promotions",
+    "Communications", "Features", "Marketplace & Catalog",
+  ]),
+
+  // Reporter: Dashboard, News Feed, News Ticker, Taxonomy, Institutions & Ministries, Events
+  reporter: new Set([
+    "Dashboard", "Content", "Directory", "Industry",
+  ]),
+};
+
+/**
+ * Filter NAV groups based on the user's role(s).
+ * - If the user has multiple roles, show items allowable by ANY of them (union).
+ * - super_admin sees all groups and items.
+ * - Items with superOnly are only shown to super_admin.
+ * - Groups not in the role's access set are removed entirely (heading too).
+ * - Groups that end up with no items are removed entirely.
+ *
+ * @param roles - Single role string or array of role strings
+ * @returns Filtered groups with items, empty groups removed
+ */
+function navFor(roles: string | string[]): Group[] {
+  const roleSet = Array.isArray(roles) ? new Set(roles) : new Set([roles]);
+
+  // super_admin sees everything
+  if (roleSet.has("super_admin")) return NAV;
+
+  // Collect all allowed group titles from the role(s)
+  const allowedTitles = new Set<string>();
+  for (const role of roleSet) {
+    const access = ROLE_ACCESS[role];
+    if (access) {
+      for (const title of access) {
+        allowedTitles.add(title);
+      }
+    }
+  }
+
+  // For other roles, filter groups and items based on allowed titles
   return NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.superOnly) }))
-    .filter((g) => g.items.length > 0);
+    .map((g) => {
+      const groupTitle = g.title ?? "";
+      // Check if this group title is allowed for any of the user's roles
+      if (!allowedTitles.has(groupTitle)) return null;
+
+      // Filter items: show items that are not superOnly
+      const filteredItems = g.items.filter((item) => {
+        if (!item.superOnly) return true;
+        // superOnly items are only for super_admin; other roles can't see them
+        return false;
+      });
+
+      // Only include the group if it has remaining items
+      if (filteredItems.length === 0) return null;
+
+      return { ...g, items: filteredItems };
+    })
+    .filter((g): g is Group => g !== null);
 }
 
 function initials(name: string) {
@@ -179,10 +256,22 @@ function SidebarInner({ collapsed, onNavigate }: { collapsed: boolean; onNavigat
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
+  const roles = useRoles();
+  // Collect all roles: the legacy role from auth + any held stackable roles
+  const roleSet: Set<string> = new Set();
+  if (user?.role) roleSet.add(user.role);
+  // Add held roles (professional, exhibitor, employer) if present
+  // heldRoles is StackableRole[] = ["professional" | "exhibitor" | "employer"]
+  if (roles?.heldRoles?.length) {
+    for (const held of roles.heldRoles) {
+      roleSet.add(held);
+    }
+  }
+  const nav = navFor(Array.from(roleSet));
+  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+  // User display info
   const name = user?.name || "Administrator";
   const email = user?.email || "admin@nomarc.test";
-  const nav = navFor((user as { role?: string } | undefined)?.role);
-  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
 
   async function handleSignOut() {
     onNavigate?.();

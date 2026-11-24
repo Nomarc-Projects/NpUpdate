@@ -1,10 +1,19 @@
-"use client";
-
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { MessageSquare, Clock, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { DashBanner, BannerContent } from "@/components/dashboard/dash-banner";
 import { r2Url } from "@/lib/r2-public";
+import { auth } from "@/lib/auth";
 
-export default function AdminDisputesPage() {
+export const metadata = { title: "Disputes" };
+
+export default async function AdminDisputesPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  // Only admin and super_admin may view the disputes page
+  if (role !== "admin" && role !== "super_admin") {
+    redirect("/dashboard");
+  }
   return (
     <div className="px-5 sm:px-6 lg:px-8 py-6 max-w-[1180px] mx-auto">
       <DashBanner image={r2Url("site/photo-1504307651254-35680f356dfd.jpg")}>

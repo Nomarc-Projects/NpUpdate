@@ -306,7 +306,7 @@ export async function getUsers(search = ""): Promise<AdminUser[]> {
   }));
 }
 
-async function logAudit(actor: string, action: string, targetType?: string, targetId?: string, detail?: string) {
+export async function logAudit(actor: string, action: string, targetType?: string, targetId?: string, detail?: string) {
   await db.execute(sql`INSERT INTO audit_log (actor_user_id, action, target_type, target_id, detail) VALUES (${actor}, ${action}, ${targetType ?? null}, ${targetId ?? null}, ${detail ?? null})`);
 }
 
@@ -910,7 +910,8 @@ export async function setUserRole(userId: string, role: AssignableRole) {
     .rows as { role?: string }[];
   if (!target) throw new Error("That account no longer exists");
 
-  const touchesAdminPrivilege = role === "admin" || isAdminRole(target.role);
+  const oldRole = target.role;
+  const touchesAdminPrivilege = role === "admin" || isAdminRole(oldRole);
   const actor = touchesAdminPrivilege ? await requireSuperAdmin() : await requireAdmin();
 
   // Lockout prevention: never allow demoting a super admin when doing so would
@@ -926,7 +927,13 @@ export async function setUserRole(userId: string, role: AssignableRole) {
   if (userId === actor && role !== "admin") throw new Error("You can't demote yourself");
 
   await db.execute(sql`UPDATE "user" SET role = ${role} WHERE id = ${userId}`);
-  await logAudit(actor, "set_role", "user", userId, role);
+  // Determine the audit action: grant if the user is getting a new role, revoke if role is being removed/changed
+  const isGrant = !oldRole || oldRole === "client" || (oldRole !== null && ASSIGNABLE_ROLES.includes(oldRole as any));
+  if (isGrant) {
+    await logAudit(actor, "grant_role", "user", userId, role);
+  } else {
+    await logAudit(actor, "revoke_role", "user", userId, `${oldRole ?? "null"} → ${role}`);
+  }
   if (touchesAdminPrivilege) await notifySuperAdminsOfPrivilegeChange(actor, userId, role);
   revalidatePath("/admin/users");
   revalidatePath("/admin");

@@ -8,6 +8,7 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { getAdminAlertCounts } from "@/lib/services/admin";
 import { TermsAcceptanceGate } from "@/components/auth/terms-acceptance-gate";
 import { getUserTermsAcceptanceStatus } from "@/lib/services/terms";
+import { logAudit } from "@/lib/services/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await auth.api.getSession({ headers: await headers() });
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (!session) redirect("/login?redirect=/admin");
+  // Log access denied when non-admin/super_admin tries to access admin area
+  if (role !== "admin" && role !== "super_admin") {
+    try {
+      await logAudit(session.user.id, "access_denied", "system", session.user.id, `attempted access to /admin with role ${role ?? "unknown"}`);
+    } catch {}
+  }
   if (role !== "admin" && role !== "super_admin") redirect("/dashboard");
 
   const termsStatus = await getUserTermsAcceptanceStatus(session.user.id).catch(() => ({ accepted: false, version: null, acceptedAt: null }));
