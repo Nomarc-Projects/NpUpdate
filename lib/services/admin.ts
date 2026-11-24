@@ -7,9 +7,10 @@ import { db } from "@/lib/db/client";
 import { profile, company, paymentTransaction, job, product } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
 import { requireUserId } from "@/lib/server-user";
-import { requireAdmin, requireSuperAdmin, isAdminRole } from "@/lib/authz";
+import { requireAdmin, requireSuperAdmin, isAdminRole, isSuperAdmin } from "@/lib/authz";
 import { escapeHtml, siteUrl } from "@/lib/email/mailer";
 import { PLAN_LABEL, type Plan, type BillingCycle } from "@/lib/entitlements";
+import { MANAGEABLE_ROLES, ROLE_LABELS, STACKABLE_ROLES, SUPER_ADMIN_FLOOR, type ManageableRole } from "@/lib/admin-roles";
 import { applyPurchaseForUser, verifyPurchaseReference } from "@/lib/services/billing";
 
 export type AdminStats = {
@@ -319,6 +320,20 @@ export async function setUserPlan(userId: string, plan: "free" | "plus" | "pro" 
 export async function setUserBanned(userId: string, banned: boolean, reason?: string) {
   const admin = await requireAdmin();
   if (userId === admin) throw new Error("You can't suspend your own account");
+  if (banned) {
+    // Banning a super admin deletes their sessions, so it is a demotion in
+    // every way that matters. Require a super admin to do it and apply the
+    // same two-account floor as the explicit role change paths — otherwise a
+    // plain admin could ban every super admin and lock the console outright.
+    const [target] = (await db.execute(sql`SELECT role FROM "user" WHERE id = ${userId} LIMIT 1`))
+      .rows as { role?: string }[];
+    if (target?.role === "super_admin") {
+      if (!(await isSuperAdmin())) throw new Error("Only a super admin can suspend another super admin");
+      if (await countSuperAdmins() <= SUPER_ADMIN_FLOOR) {
+        throw new Error(`At least ${SUPER_ADMIN_FLOOR} super admins must always exist. Promote another super admin first.`);
+      }
+    }
+  }
   await db.execute(sql`UPDATE "user" SET banned = ${banned}, ban_reason = ${banned ? (reason ?? null) : null} WHERE id = ${userId}`);
   if (banned) await db.execute(sql`DELETE FROM session WHERE "userId" = ${userId}`); // force logout
   await logAudit(admin, banned ? "suspend_user" : "unsuspend_user", "user", userId, reason);
@@ -898,6 +913,16 @@ export async function setUserRole(userId: string, role: AssignableRole) {
   const touchesAdminPrivilege = role === "admin" || isAdminRole(target.role);
   const actor = touchesAdminPrivilege ? await requireSuperAdmin() : await requireAdmin();
 
+  // Lockout prevention: never allow demoting a super admin when doing so would
+  // leave fewer than two usable super admins. `role` here is one of the four
+  // non-super roles, so any call that reaches this branch is a demotion. Runs
+  // after the authorization gate so callers can't probe the super-admin count.
+  if (target.role === "super_admin") {
+    if (await countSuperAdmins() <= SUPER_ADMIN_FLOOR) {
+      throw new Error(`At least ${SUPER_ADMIN_FLOOR} super admins must always exist. Promote another super admin first.`);
+    }
+  }
+
   if (userId === actor && role !== "admin") throw new Error("You can't demote yourself");
 
   await db.execute(sql`UPDATE "user" SET role = ${role} WHERE id = ${userId}`);
@@ -920,6 +945,210 @@ export async function getAdmins(): Promise<AdminRow[]> {
     role: (u.role as "admin" | "super_admin") ?? "admin",
     joined: u.joined ? new Date(String(u.joined)).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "",
   }));
+}
+
+/* ─── Super-admin role management ──────────────────────────────────────────
+ * Constants and the `ManageableRole` type live in `lib/admin-roles` because a
+ * `"use server"` module may only export async functions — client components
+ * need the same vocabulary to render the role pickers.
+ */
+
+/** Non-banned super admins. Banned ones can't act, so they don't count towards
+ *  the minimum — otherwise the floor could be "satisfied" by an account nobody
+ *  can use and the console would still lock everybody out. */
+async function countSuperAdmins(): Promise<number> {
+  const { rows } = await db.execute(sql`
+    SELECT count(*)::int AS n FROM "user" WHERE role = 'super_admin' AND banned IS NOT TRUE
+  `);
+  return Number((rows[0] as { n: number } | undefined)?.n ?? 0);
+}
+
+export type AdminRosterRow = {
+  id: string; name: string; email: string; roles: ManageableRole[];
+  primary: string; joined: string; banned: boolean;
+};
+
+/** All admin-tier accounts with their complete role set. Super-admin only:
+ *  this is the roster the role manager renders, and only a super admin may
+ *  change or remove anyone's roles. */
+export async function getAdminRoster(): Promise<AdminRosterRow[]> {
+  await requireSuperAdmin();
+  const res = await db.execute(sql`
+    SELECT u.id, u.name, u.email, COALESCE(u.role,'client') AS role,
+           COALESCE(u.banned,false) AS banned, u."createdAt" AS joined,
+           COALESCE((SELECT array_agg(ur.role) FROM user_role ur
+                     WHERE ur.user_id = u.id AND ur.status = 'active'), ARRAY[]::text[]) AS held
+    FROM "user" u
+    WHERE u.role IN ('admin', 'super_admin')
+    ORDER BY u."createdAt" ASC
+  `);
+  return (res.rows as Record<string, unknown>[]).map((u) => {
+    const primary = String(u.role ?? "client");
+    const held = Array.isArray(u.held) ? u.held.map(String) : [];
+    const roles = [...new Set<string>([...held, primary])].filter((r): r is ManageableRole =>
+      (MANAGEABLE_ROLES as readonly string[]).includes(r)
+    ) as ManageableRole[];
+    return {
+      id: String(u.id), name: String(u.name ?? ""), email: String(u.email ?? ""),
+      roles: roles.length ? roles : [primary as ManageableRole],
+      primary,
+      joined: u.joined ? new Date(String(u.joined)).toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric" }) : "",
+      banned: u.banned === true,
+    };
+  });
+}
+
+/** Best-effort invite/notice email to the person whose roles changed. A mail
+ *  failure must never roll back or block the change itself. */
+async function sendRoleInviteEmail(to: string, name: string, roles: ManageableRole[], heading: string): Promise<void> {
+  try {
+    const { sendEmail, emailLayout } = await import("@/lib/email/mailer");
+    const labels = roles.map((r) => ROLE_LABELS[r]).join(", ");
+    await sendEmail({
+      to,
+      subject: "Your Nomarc Projects access",
+      html: emailLayout({
+        eyebrow: "Account access",
+        heading,
+        subheading: "An update from your Nomarc Projects administrator",
+        body: `<p style="margin:0 0 12px;">Hi ${escapeHtml(name || "there")},</p>
+               <p style="margin:0 0 12px;">Your roles on Nomarc Projects are now: <strong>${escapeHtml(labels)}</strong>.</p>
+               <p style="margin:0;">Sign in to your account to see your updated dashboard. No further action is needed on your part.</p>`,
+        ctaLabel: "Go to your dashboard",
+        ctaUrl: `${siteUrl()}/dashboard`,
+      }),
+    });
+  } catch { /* never block a role change on a mail problem */ }
+}
+
+/**
+ * Replace the complete role set for a user. Super-admin only.
+ *
+ * Lockout rule: there must always be at least two usable super admins. A
+ * super admin cannot drop their own tier, and demoting someone else is refused
+ * when it would take the count below the floor. Role changes are applied to
+ * the database immediately (no session revocation) so they take effect on the
+ * very next request.
+ */
+export async function setUserRoles(userId: string, roles: ManageableRole[]): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const actor = await requireSuperAdmin();
+    const unique = [...new Set(roles)];
+    if (!unique.length) return { ok: false, error: "Select at least one role." };
+    if (unique.some((r) => !(MANAGEABLE_ROLES as readonly string[]).includes(r))) {
+      return { ok: false, error: "Unknown role." };
+    }
+
+    const [target] = (await db.execute(sql`SELECT id, role, name, email FROM "user" WHERE id = ${userId} LIMIT 1`))
+      .rows as { id: string; role?: string; name?: string; email?: string }[];
+    if (!target) return { ok: false, error: "That account no longer exists." };
+
+    const keepsSuper = unique.includes("super_admin");
+    const wasSuper = target.role === "super_admin";
+
+    if (wasSuper && !keepsSuper) {
+      if (userId === actor) return { ok: false, error: "You can't remove your own super admin role." };
+      if (await countSuperAdmins() <= SUPER_ADMIN_FLOOR) {
+        return { ok: false, error: `At least ${SUPER_ADMIN_FLOOR} super admins must always exist. Promote another super admin first.` };
+      }
+    }
+
+    // The scalar is the single authorization gate. Super wins, then admin,
+    // then the highest-priority stackable role, else the plain client role.
+    const scalar: string = keepsSuper ? "super_admin"
+      : unique.includes("admin") ? "admin"
+      : unique.includes("exhibitor") ? "exhibitor"
+      : unique.includes("professional") ? "professional"
+      : unique.includes("employer") ? "employer"
+      : "client";
+
+    await db.execute(sql`UPDATE "user" SET role = ${scalar}, active_role = NULL WHERE id = ${userId}`);
+
+    for (const r of STACKABLE_ROLES) {
+      if (unique.includes(r)) {
+        await db.execute(sql`
+          INSERT INTO user_role (id, user_id, role, status, source, plan, granted_at, granted_by, created_at, updated_at)
+          VALUES (gen_random_uuid(), ${userId}, ${r}, 'active', 'admin_grant', 'free', now(), ${actor}, now(), now())
+          ON CONFLICT (user_id, role) DO UPDATE SET status = 'active', revoked_at = NULL,
+            source = 'admin_grant', granted_at = now(), granted_by = ${actor}
+        `);
+      } else {
+        await db.execute(sql`
+          UPDATE user_role SET status = 'revoked', revoked_at = now()
+          WHERE user_id = ${userId} AND role = ${r} AND status = 'active'
+        `);
+      }
+    }
+
+    await logAudit(actor, "set_role", "user", userId, unique.join(", "));
+    await notifySuperAdminsOfPrivilegeChange(actor, userId, unique.join(", "));
+    if (target.email) await sendRoleInviteEmail(target.email, target.name ?? "", unique, "Your roles have changed");
+    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/admins");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't change roles." };
+  }
+}
+
+/** Resolve an existing account by email and assign the chosen roles. This is
+ *  the action behind the "Add Admin" button: the account already exists, and
+ *  the person gets a normal invite/notice email (best-effort). */
+export async function assignRolesByEmail(email: string, roles: ManageableRole[]): Promise<{ ok: boolean; error?: string }> {
+  const mail = email.trim().toLowerCase();
+  if (!mail) return { ok: false, error: "Enter an email address first." };
+  const { rows } = await db.execute(sql`SELECT id FROM "user" WHERE lower(email) = ${mail} LIMIT 1`);
+  const target = rows[0] as { id: string } | undefined;
+  if (!target) return { ok: false, error: "No Nomarc account found for that email — they need to sign up first." };
+  return setUserRoles(String(target.id), roles);
+}
+
+/** Remove all admin access from an account. Super-admin only, with the same
+ *  two-super-admin lockout as setUserRoles. Stackable roles that were granted
+ *  by an admin are revoked too; roles the user earned themselves are kept. */
+export async function removeAdminAccess(userId: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const actor = await requireSuperAdmin();
+    const [target] = (await db.execute(sql`SELECT id, role, name, email FROM "user" WHERE id = ${userId} LIMIT 1`))
+      .rows as { id: string; role?: string; name?: string; email?: string }[];
+    if (!target) return { ok: false, error: "That account no longer exists." };
+    if (target.role !== "admin" && target.role !== "super_admin") {
+      return { ok: false, error: "This account has no admin access to remove." };
+    }
+    if (target.role === "super_admin") {
+      if (userId === actor) return { ok: false, error: "You can't remove your own super admin access." };
+      if (await countSuperAdmins() <= SUPER_ADMIN_FLOOR) {
+        return { ok: false, error: `At least ${SUPER_ADMIN_FLOOR} super admins must always exist. Promote another super admin first.` };
+      }
+    }
+
+    // Keep any self-earned stackable roles as the demoted primary, else plain client.
+    const held = (await db.execute(sql`
+      SELECT role FROM user_role WHERE user_id = ${userId} AND status = 'active'
+    `)).rows as { role: string }[];
+    const heldRoles = held.map((h) => h.role);
+    const fallback: string = heldRoles.includes("exhibitor") ? "exhibitor"
+      : heldRoles.includes("professional") ? "professional"
+      : heldRoles.includes("employer") ? "employer"
+      : "client";
+
+    await db.execute(sql`UPDATE "user" SET role = ${fallback}, active_role = NULL WHERE id = ${userId}`);
+    await db.execute(sql`
+      UPDATE user_role SET status = 'revoked', revoked_at = now()
+      WHERE user_id = ${userId} AND source = 'admin_grant' AND status = 'active'
+    `);
+
+    await logAudit(actor, "revoke_admin", "user", userId);
+    await notifySuperAdminsOfPrivilegeChange(actor, userId, fallback);
+    if (target.email) await sendRoleInviteEmail(target.email, target.name ?? "", ["professional"], "Your admin access has been removed");
+    revalidatePath("/admin");
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/admins");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't remove admin access." };
+  }
 }
 
 /** Admin tiers a super admin can grant from the Super-Admin dashboard. */
@@ -964,6 +1193,11 @@ export async function inviteAdminByEmail(email: string, role: AdminGrantRole = "
 export async function revokeAdmin(userId: string) {
   const actor = await requireSuperAdmin();
   if (userId === actor) throw new Error("You can't revoke your own access");
+  const [target] = (await db.execute(sql`SELECT role FROM "user" WHERE id = ${userId} LIMIT 1`))
+    .rows as { role?: string }[];
+  if (target?.role === "super_admin" && await countSuperAdmins() <= SUPER_ADMIN_FLOOR) {
+    throw new Error(`At least ${SUPER_ADMIN_FLOOR} super admins must always exist. Promote another super admin first.`);
+  }
   await db.execute(sql`UPDATE "user" SET role = 'client' WHERE id = ${userId}`);
   await logAudit(actor, "revoke_admin", "user", userId);
   await notifySuperAdminsOfPrivilegeChange(actor, userId, "client");
