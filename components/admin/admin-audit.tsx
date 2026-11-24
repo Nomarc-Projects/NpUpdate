@@ -13,6 +13,7 @@ import { r2Url } from "@/lib/r2-public";
 const VERB: Record<string, string> = {
   set_plan: "Changed plan", set_role: "Changed role", suspend_user: "Suspended", unsuspend_user: "Reinstated",
   delete_user: "Deleted", verify: "Verified", unverify: "Unverified", impersonate: "Impersonated", kyc_rejected: "Rejected KYC",
+  grant_role: "Role granted", revoke_role: "Role removed/changed", revoke_admin_access: "Admin access removed", access_denied: "Access denied",
 };
 function tone(action: string) {
   if (/delete|suspend|reject|unverify/.test(action)) return "bg-[#fde8e8] text-[#c0392b] dark:bg-[#ef4444]/15 dark:text-[#f87171]";

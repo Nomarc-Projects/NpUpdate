@@ -16,6 +16,7 @@ import { useTheme } from "@/components/theme";
 import { Logo } from "@/components/ui/logo";
 import { NomarcMark } from "@/components/ui/nomarc-mark";
 import { useAuth } from "@/lib/store/auth";
+import { useRoles } from "@/lib/roles-context";
 import { signOut as authSignOut } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { animateThemeChange } from "@/lib/theme-transition";
@@ -118,12 +119,38 @@ const NAV: Group[] = [
   ]},
 ];
 
-/** Drop super-admin-only entries, then any group left with nothing in it. */
-function navFor(role: string | undefined): Group[] {
-  if (role === "super_admin") return NAV;
+/**
+ * Filter NAV groups based on the user's role(s).
+ * - If the user has multiple roles, show items allowable by ANY of them.
+ * - super_admin sees all groups and items.
+ * - Items with superOnly are only shown to super_admin.
+ * - Groups that end up with no items are removed entirely (heading too).
+ *
+ * @param roles - Single role string or array of role strings
+ * @returns Filtered groups with items, empty groups removed
+ */
+function navFor(roles: string | string[]): Group[] {
+  const roleSet = Array.isArray(roles) ? new Set(roles) : new Set([roles]);
+
+  // super_admin sees everything
+  if (roleSet.has("super_admin")) return NAV;
+
+  // For other roles, filter items and remove empty groups
   return NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.superOnly) }))
-    .filter((g) => g.items.length > 0);
+    .map((g) => {
+      const filteredItems = g.items.filter((item) => {
+        // Show items that are not superOnly, or where the user has a role that allows them
+        if (!item.superOnly) return true;
+        // superOnly items are only for super_admin; plain admins can't see them
+        return false;
+      });
+
+      // Only include the group if it has remaining items
+      if (filteredItems.length === 0) return null;
+
+      return { ...g, items: filteredItems };
+    })
+    .filter((g): g is Group => g !== null);
 }
 
 function initials(name: string) {
@@ -178,10 +205,22 @@ function SidebarInner({ collapsed, onNavigate }: { collapsed: boolean; onNavigat
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
+  const roles = useRoles();
+  // Collect all roles: the legacy role from auth + any held stackable roles
+  const roleSet: Set<string> = new Set();
+  if (user?.role) roleSet.add(user.role);
+  // Add held roles (professional, exhibitor, employer) if present
+  // heldRoles is StackableRole[] = ["professional" | "exhibitor" | "employer"]
+  if (roles?.heldRoles?.length) {
+    for (const held of roles.heldRoles) {
+      roleSet.add(held);
+    }
+  }
+  const nav = navFor(Array.from(roleSet));
+  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+  // User display info
   const name = user?.name || "Administrator";
   const email = user?.email || "admin@nomarc.test";
-  const nav = navFor((user as { role?: string } | undefined)?.role);
-  const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
 
   async function handleSignOut() {
     onNavigate?.();
