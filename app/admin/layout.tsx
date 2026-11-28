@@ -8,6 +8,7 @@ import { SessionHydrator } from "@/components/session-hydrator";
 import { getAdminAlertCounts } from "@/lib/services/admin";
 import { TermsAcceptanceGate } from "@/components/auth/terms-acceptance-gate";
 import { getUserTermsAcceptanceStatus } from "@/lib/services/terms";
+import { getAdminRoles } from "@/lib/admin-access-server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (!session) redirect("/login?redirect=/admin");
   if (role !== "admin" && role !== "super_admin") redirect("/dashboard");
+
+  // The same resolved role set drives the sidebar and the Dashboard cards.
+  const roles = await getAdminRoles();
+  const isSuperAdmin = roles.includes("super_admin");
 
   const termsStatus = await getUserTermsAcceptanceStatus(session.user.id).catch(() => ({ accepted: false, version: null, acceptedAt: null }));
   if (!termsStatus.accepted) {
@@ -27,10 +32,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const counts = await getAdminAlertCounts().catch(() => ({ pendingVerifications: 0, openTickets: 0 }));
 
   return (
-    <TourProvider audience={role === "super_admin" ? "super_admin" : "admin"}>
+    <TourProvider audience={isSuperAdmin ? "super_admin" : "admin"}>
       <SessionHydrator />
       <div className="flex h-screen overflow-hidden bg-[#f9f9f9] dark:bg-[#161616]">
-        <AdminSidebar />
+        <AdminSidebar roles={roles} />
         <main className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden">
           <AdminTopBar pendingVerifications={counts.pendingVerifications} openTickets={counts.openTickets} />
           <div className="pt-14 lg:pt-0 max-w-full">{children}</div>

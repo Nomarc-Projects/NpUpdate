@@ -21,15 +21,15 @@ import { cn } from "@/lib/utils";
 import { animateThemeChange } from "@/lib/theme-transition";
 import { HelmIcon } from "@/components/ui/helm-icon";
 import { TourLauncher } from "@/components/tour/tour-launcher";
+import { canAccessSection, type AdminSectionKey } from "@/lib/admin-access";
 
 /** Lucide icons plus our own glyphs (HelmIcon), which take the same props. */
 type NavIcon = LucideIcon | ((props: { className?: string; size?: number | string }) => React.ReactElement);
-/** `superOnly` hides the entry from plain admins. The nav previously showed every
- *  destination to both tiers, so a plain admin could open a page and only discover
- *  at the point of action that it was not theirs. Hiding is cosmetic; the real
- *  enforcement is always the server-side gate. */
+/** `superOnly` hides the entry from non-super-admins. Group membership uses the
+ *  shared ticket-62 access table — never a per-item role list. Hiding is
+ *  cosmetic; the real enforcement is always the server-side gate. */
 type Item = { label: string; href: string; icon: NavIcon; soon?: boolean; superOnly?: boolean };
-type Group = { title?: string; items: Item[] };
+type Group = { section: AdminSectionKey; title?: string; items: Item[] };
 
 // Redesign IA (images 111/113): slim nav — Dashboard, Support Inbox,
 // Verifications, User Management, Marketplace & Catalog, Advertising, plus
@@ -38,13 +38,13 @@ type Group = { title?: string; items: Item[] };
 // ticker, Quiz mgmt, CRM, Broadcasts, Insights, Taxonomy, PM, Templates,
 // Settings) is unlinked here — routes still exist (plans/PARKED-FEATURES.md).
 const NAV: Group[] = [
-  { items: [{ label: "Dashboard", href: "/admin", icon: BarChart3 }] },
-  { items: [{ label: "Support Inbox", href: "/admin/support-inbox", icon: MessageSquare }] },
-  { title: "Verifications", items: [
+  { section: "Dashboard", items: [{ label: "Dashboard", href: "/admin", icon: BarChart3 }] },
+  { section: "Support Inbox", items: [{ label: "Support Inbox", href: "/admin/support-inbox", icon: MessageSquare }] },
+  { section: "Verifications", title: "Verifications", items: [
     { label: "Identity Checks", href: "/admin/verifications/identity", icon: Fingerprint },
     { label: "Corporate Checks", href: "/admin/verifications/corporate", icon: Building2 },
   ]},
-  { title: "User Management", items: [
+  { section: "User Management", title: "User Management", items: [
     // The combined table at /admin/users existed but was unlinked, so the only
     // way to see every account in one place — and the only place role, status,
     // KYC and plan sit side by side — was to know the URL.
@@ -52,23 +52,23 @@ const NAV: Group[] = [
     { label: "Professionals", href: "/admin/user-management/professionals", icon: Users },
     { label: "Exhibitors", href: "/admin/user-management/exhibitors", icon: ShieldCheck },
   ]},
-  { title: "Marketplace & Catalog", items: [
+  { section: "Marketplace & Catalog", title: "Marketplace & Catalog", items: [
     { label: "Job Board", href: "/admin/marketplace/jobs", icon: ShoppingBag },
     { label: "Exhibition Hub", href: "/admin/marketplace/products", icon: Package },
     { label: "Properties", href: "/admin/properties", icon: Building2 },
   ]},
-  { title: "Content", items: [
+  { section: "Content", title: "Content", items: [
     { label: "News Feed", href: "/admin/newsfeed", icon: Newspaper },
     { label: "News Ticker", href: "/admin/news-ticker", icon: Activity },
     { label: "Taxonomy", href: "/admin/taxonomy", icon: Tags },
   ]},
-  { title: "Directory", items: [
+  { section: "Directory", title: "Directory", items: [
     { label: "Institutions & Ministries", href: "/admin/directory", icon: Landmark },
   ]},
-  { title: "Industry", items: [
+  { section: "Industry", title: "Industry", items: [
     { label: "Events", href: "/admin/events", icon: CalendarDays },
   ]},
-  { title: "Advertising & Promotions", items: [
+  { section: "Advertising & Promotions", title: "Advertising & Promotions", items: [
     // The Promotions section's content lives here: the homepage/hub promoted
     // slots render whatever rows are active on the Ad Board, so this is the
     // admin control for that section.
@@ -76,19 +76,19 @@ const NAV: Group[] = [
     { label: "Ad Reviews", href: "/admin/advertising/reviews", icon: Megaphone },
     { label: "Active Campaigns", href: "/admin/advertising/campaigns", icon: CampaignIcon },
   ]},
-  { title: "Communications", items: [
+  { section: "Communications", title: "Communications", items: [
     { label: "Send Email", href: "/admin/broadcasts", icon: Mail },
     { label: "Audience Segments", href: "/admin/audience-segments", icon: UsersRound },
     { label: "Email Campaigns", href: "/admin/email-campaigns", icon: Mail },
     { label: "Campaign Tracking", href: "/admin/campaigns", icon: LineChart },
   ]},
-  { title: "AI", items: [
+  { section: "AI", title: "AI", items: [
     { label: "Nomabot", href: "/admin/helm", icon: HelmIcon },
   ]},
   // Linked on its own rather than by un-parking /admin/settings, which stays
   // deliberately unlinked (plans/PARKED-FEATURES.md). A switch that takes the
   // public site down has to be findable without hunting.
-  { title: "Security", items: [
+  { section: "Security", title: "Security", items: [
     // The audit log has existed at /admin/audit since it was built but was linked
     // from nowhere, so the one screen that answers "who did what, and when" was
     // reachable only by typing the URL.
@@ -96,7 +96,7 @@ const NAV: Group[] = [
   ]},
   // Both switches are super-admin only (see setMaintenance / setExhibitionHub):
   // nav hides them from plain admins, the server actions enforce it.
-  { title: "Features", items: [
+  { section: "Features", title: "Features", items: [
     // About page team section is super-admin only (see setAboutTeam).
     { label: "About Team Section", href: "/admin/platform/about-team", icon: Users, superOnly: true },
     // Homepage Key Players strip is super-admin only (see setKeyPlayers).
@@ -118,12 +118,22 @@ const NAV: Group[] = [
   ]},
 ];
 
-/** Drop super-admin-only entries, then any group left with nothing in it. */
-function navFor(role: string | undefined): Group[] {
-  if (role === "super_admin") return NAV;
+/**
+ * Filter nav groups through the same access table the Dashboard uses.
+ * Multiple roles are a union; super-only items stay super-only. Groups and
+ * items left with nothing are dropped, so no empty heading is rendered.
+ */
+function navFor(roles: string[]): Group[] {
   return NAV
-    .map((g) => ({ ...g, items: g.items.filter((i) => !i.superOnly) }))
-    .filter((g) => g.items.length > 0);
+    .map((group) => {
+      if (!canAccessSection(roles, group.section)) return null;
+      // `superOnly` items (platform switches, roster) never fall back to the
+      // parent group's access — a plain admin may open Features but must not
+      // see the maintenance switch.
+      const items = group.items.filter((item) => !item.superOnly || roles.includes("super_admin"));
+      return items.length > 0 ? { ...group, items } : null;
+    })
+    .filter((group): group is Group => group !== null);
 }
 
 function initials(name: string) {
@@ -174,13 +184,15 @@ function NavLink({ item, collapsed, active, onNavigate }: { item: Item; collapse
   );
 }
 
-function SidebarInner({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function SidebarInner({ collapsed, roles, onNavigate }: { collapsed: boolean; roles: string[]; onNavigate?: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const user = useAuth((s) => s.user);
   const name = user?.name || "Administrator";
   const email = user?.email || "admin@nomarc.test";
-  const nav = navFor((user as { role?: string } | undefined)?.role);
+  // Roles are resolved on the server (scalar + held roles) and passed down, so
+  // the menu and the Dashboard can never disagree about what is accessible.
+  const nav = navFor(roles);
   const isActive = (href: string) => (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
 
   async function handleSignOut() {
@@ -242,7 +254,7 @@ function AdminChip() {
 
 /** Full admin chrome: collapsible desktop sidebar + mobile top bar & drawer —
  *  mirrors the main DashboardSidebar so the admin console matches the app. */
-export function AdminSidebar() {
+export function AdminSidebar({ roles }: { roles: string[] }) {
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -271,7 +283,7 @@ export function AdminSidebar() {
             <button onClick={() => { setCollapsed(true); setHovered(false); }} className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white transition-colors" aria-label="Collapse sidebar"><PanelLeftClose size={18} /></button>
           </div>
         )}
-        <SidebarInner collapsed={!expanded} />
+        <SidebarInner collapsed={!expanded} roles={roles} />
       </aside>
 
       {/* mobile top bar */}
@@ -291,7 +303,7 @@ export function AdminSidebar() {
                 <Link href="/" onClick={() => setMobileOpen(false)} aria-label="Nomarc home" className="flex items-center gap-2"><Logo size="sm" className="text-[#1e1e1e] dark:text-white" /><AdminChip /></Link>
                 <button onClick={() => setMobileOpen(false)} aria-label="Close menu" className="text-[#9a9a9a] hover:text-[#1e1e1e] dark:hover:text-white"><X size={20} /></button>
               </div>
-              <SidebarInner collapsed={false} onNavigate={() => setMobileOpen(false)} />
+              <SidebarInner collapsed={false} roles={roles} onNavigate={() => setMobileOpen(false)} />
             </motion.aside>
           </div>
         )}

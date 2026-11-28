@@ -1,12 +1,18 @@
 import { headers } from "next/headers";
 import Link from "next/link";
-import { Users, ShieldCheck, Megaphone, MessageSquare, ArrowRight } from "lucide-react";
+import { ShieldCheck, Megaphone, MessageSquare, ArrowRight } from "lucide-react";
 import { auth } from "@/lib/auth";
-import { getAdminStats, getAdmins, getAdminWeeklyImpact, getAdminUpcoming, getAuditLog, type AdminStats } from "@/lib/services/admin";
+import {
+  getAdminStats, getAdmins, getAdminWeeklyImpact, getAdminUpcoming, getAuditLog,
+  type AdminStats, type UpcomingItem,
+} from "@/lib/services/admin";
+import { listCampaigns } from "@/lib/services/campaigns";
 import { KpiTileRow, ActivityFeed, type Stat, type ActivityItem } from "@/components/dashboard/kit";
 import { InviteAdminButton } from "@/components/admin/invite-admin-button";
 import { AdminAvatar } from "@/components/admin/admin-avatar";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { getAdminRoles } from "@/lib/admin-access-server";
+import { canAccessSection, type AdminSectionKey } from "@/lib/admin-access";
 
 const EMPTY_STATS: AdminStats = {
   totalUsers: 0, professionals: 0, exhibitors: 0, buyers: 0, admins: 0,
@@ -21,37 +27,98 @@ const EMPTY_STATS: AdminStats = {
   activeJobListings: 0, liveCatalogProducts: 0, activeAdCampaigns: 0,
 };
 
+type PriorityItem = { label: string; reason: string; href: string; icon: typeof ShieldCheck };
+
+/** Which nav section an audit event belongs to, so the activity list obeys the
+ *  same access table as the menu. Unclassified audit lines belong to Audit Logs. */
+function sectionForAuditAction(action: string): AdminSectionKey {
+  if (/verif|kyc|identity|corporate|tier[12]/.test(action)) return "Verifications";
+  if (/promo|advert|\bad\b/.test(action)) return "Advertising & Promotions";
+  if (/campaign|broadcast|newsletter|email/.test(action)) return "Communications";
+  if (/report|ticket|message|support|dispute/.test(action)) return "Support Inbox";
+  if (/user|role|admin|impersonat|permission/.test(action)) return "User Management";
+  if (/job|product|property|listing|marketplace/.test(action)) return "Marketplace & Catalog";
+  if (/news|taxonomy|event|directory/.test(action)) return "Content";
+  return "Security";
+}
+
+/** `getAdminUpcoming()` ids are stable; map them to their owning section rather
+ *  than guessing from the rendered title. */
+function sectionForUpcoming(item: UpcomingItem): AdminSectionKey {
+  if (item.id === "tier2-deadline") return "Verifications";
+  if (item.id === "profile-promos") return "Advertising & Promotions";
+  if (item.id === "newsletter") return "Communications";
+  return "Dashboard";
+}
+
 export default async function AdminOverviewPage() {
   // getAdminStats runs ~20 queries across most of the schema — a single stale
   // column/table shouldn't 500 the whole console when every other query below
   // already degrades gracefully via .catch().
-  const [session, s] = await Promise.all([
+  const [session, s, roles] = await Promise.all([
     auth.api.getSession({ headers: await headers() }),
     getAdminStats().catch(() => EMPTY_STATS),
+    getAdminRoles(),
   ]);
-  const user = session?.user as { name?: string; role?: string } | undefined;
-  const isSuperAdmin = user?.role === "super_admin";
-  const [admins, weekly, upcoming, audit] = await Promise.all([
-    isSuperAdmin ? getAdmins().catch(() => []) : Promise.resolve([]),
-    isSuperAdmin ? Promise.resolve(null) : getAdminWeeklyImpact().catch(() => null),
+
+  // One shared access table (ticket 62) decides both menu entries and cards.
+  // Cards below only name their section; they never carry a role list.
+  const can = (section: AdminSectionKey) => canAccessSection(roles, section);
+  const showRoster = can("Admin Roster");
+  const showWeekly = !showRoster && can("Dashboard");
+  const showEmailCampaigns = can("Communications");
+
+  const [admins, weekly, campaigns, upcoming, audit] = await Promise.all([
+    showRoster ? getAdmins().catch(() => []) : Promise.resolve([]),
+    showWeekly ? getAdminWeeklyImpact().catch(() => null) : Promise.resolve(null),
+    showEmailCampaigns ? listCampaigns().catch(() => []) : Promise.resolve([]),
     getAdminUpcoming().catch(() => []),
     getAuditLog().catch(() => []),
   ]);
-  const adminName = user?.name || "Admin";
+  const adminName = (session?.user as { name?: string } | undefined)?.name || "Admin";
 
-  const stats: Stat[] = [
-    { label: "Total Users", value: s.totalUsers, hint: `${s.professionals} professionals · ${s.exhibitors} exhibitors`, href: "/admin/users" },
-    { label: "New Signups", value: s.newSignupsThisMonth, hint: `${s.newSignupsChangePct >= 0 ? "+" : ""}${s.newSignupsChangePct}% vs last month`, positive: s.newSignupsChangePct >= 0 },
-    { label: "Pending Verifications", value: s.pendingTier1 + s.pendingTier2, hint: `${s.pendingTier1} Tier 1 · ${s.pendingTier2} Tier 2` },
-    { label: "Pending Ad Reviews", value: s.pendingAdReviews, hint: `${s.pendingAdProfiles} Profiles, ${s.pendingAdProducts} Products` },
-    { label: "Open Disputes", value: s.openReports, hint: s.openReports > 0 ? `${s.openReports} urgent report${s.openReports === 1 ? "" : "s"}` : "All clear" },
-  ];
+  const stats: Stat[] = [];
+  if (can("User Management")) {
+    stats.push(
+      { label: "Total Users", value: s.totalUsers, hint: `${s.professionals} professionals · ${s.exhibitors} exhibitors`, href: "/admin/users" },
+      { label: "New Signups", value: s.newSignupsThisMonth, hint: `${s.newSignupsChangePct >= 0 ? "+" : ""}${s.newSignupsChangePct}% vs last month`, positive: s.newSignupsChangePct >= 0 },
+    );
+  }
+  if (can("Verifications")) {
+    stats.push({ label: "Pending Verifications", value: s.pendingTier1 + s.pendingTier2, hint: `${s.pendingTier1} Tier 1 · ${s.pendingTier2} Tier 2` });
+  }
+  if (can("Advertising & Promotions")) {
+    stats.push({ label: "Pending Ad Reviews", value: s.pendingAdReviews, hint: `${s.pendingAdProfiles} Profiles, ${s.pendingAdProducts} Products` });
+  }
+  if (can("Support Inbox")) {
+    stats.push({ label: "Open Disputes", value: s.openReports, hint: s.openReports > 0 ? `${s.openReports} urgent report${s.openReports === 1 ? "" : "s"}` : "All clear" });
+  }
 
-  const priority = [
-    s.pendingTier1 + s.pendingTier2 > 0 && { label: `${s.pendingTier1 + s.pendingTier2} verification${s.pendingTier1 + s.pendingTier2 === 1 ? "" : "s"} awaiting review`, reason: "In the verification queue", href: "/admin/verifications/identity", icon: ShieldCheck },
-    s.pendingAdReviews > 0 && { label: `${s.pendingAdReviews} ad${s.pendingAdReviews === 1 ? "" : "s"} pending review`, reason: "Awaiting review", href: "/admin/advertising/reviews", icon: Megaphone },
-    s.openReports > 0 && { label: `${s.openReports} open report${s.openReports === 1 ? "" : "s"}`, reason: "Needs attention", href: "/admin/support-inbox", icon: MessageSquare },
-  ].filter(Boolean) as { label: string; reason: string; href: string; icon: typeof ShieldCheck }[];
+  const priority: PriorityItem[] = [];
+  const pendingVerifications = s.pendingTier1 + s.pendingTier2;
+  if (pendingVerifications > 0 && can("Verifications")) {
+    priority.push({
+      label: `${pendingVerifications} verification${pendingVerifications === 1 ? "" : "s"} awaiting review`,
+      reason: "In the verification queue", href: "/admin/verifications/identity", icon: ShieldCheck,
+    });
+  }
+  if (s.pendingAdReviews > 0 && can("Advertising & Promotions")) {
+    priority.push({
+      label: `${s.pendingAdReviews} ad${s.pendingAdReviews === 1 ? "" : "s"} pending review`,
+      reason: "Awaiting review", href: "/admin/advertising/reviews", icon: Megaphone,
+    });
+  }
+  if (s.openReports > 0 && can("Support Inbox")) {
+    priority.push({
+      label: `${s.openReports} open report${s.openReports === 1 ? "" : "s"}`,
+      reason: "Needs attention", href: "/admin/support-inbox", icon: MessageSquare,
+    });
+  }
+
+  const sentCampaigns = campaigns.filter((c) => c.status === "sent");
+  const averageRate = (key: "openRate" | "clickRate") => sentCampaigns.length
+    ? Math.round(sentCampaigns.reduce((sum, c) => sum + (c[key] ?? 0), 0) / sentCampaigns.length)
+    : 0;
 
   // The audit `detail` column holds JSON for machine-written events, and dumping
   // it raw put `{"ip":"105.113.21.45","userAgent":"Mozilla/5.0 (Windows NT 10.0…"}`
@@ -79,17 +146,36 @@ export default async function AdminOverviewPage() {
   // client one, so a component reference cannot cross the boundary. Passing the
   // function threw "Functions cannot be passed directly to Client Components"
   // and blanked the whole overview the moment the audit log had its first row.
-  const recent: ActivityItem[] = audit.slice(0, 6).map((a) => {
-    const action = a.action ?? "";
-    const detail = summarizeAuditDetail(a.detail);
-    return {
-      id: a.id,
-      iconName: /verify|kyc/.test(action) ? "shield" : /promo|ad|maintenance/.test(action) ? "megaphone" : "users",
-      text: <><span className="font-semibold text-[#1e1e1e] dark:text-white">{a.actor}</span> {action.replace(/_/g, " ")}{detail ? <span className="text-[#9a9a9a]"> · {detail}</span> : null}</>,
-      meta: a.date,
-    } satisfies ActivityItem;
-  });
-  const upcomingItems: ActivityItem[] = upcoming.map((u) => ({ id: u.id, text: u.title, meta: u.when }));
+  const recent: ActivityItem[] = audit
+    .filter((a) => can(sectionForAuditAction(a.action ?? "")))
+    .slice(0, 6)
+    .map((a) => {
+      const action = a.action ?? "";
+      const detail = summarizeAuditDetail(a.detail);
+      return {
+        id: a.id,
+        iconName: /verify|kyc/.test(action) ? "shield" : /promo|ad|maintenance/.test(action) ? "megaphone" : "users",
+        text: <><span className="font-semibold text-[#1e1e1e] dark:text-white">{a.actor}</span> {action.replace(/_/g, " ")}{detail ? <span className="text-[#9a9a9a]"> · {detail}</span> : null}</>,
+        meta: a.date,
+      } satisfies ActivityItem;
+    });
+  const upcomingItems: ActivityItem[] = upcoming
+    .filter((u) => can(sectionForUpcoming(u)))
+    .map((u) => ({ id: u.id, text: u.title, meta: u.when }));
+  const showActivity = recent.length > 0 || upcomingItems.length > 0;
+
+  const marketplaceStats: Stat[] = [];
+  if (can("Marketplace & Catalog")) {
+    marketplaceStats.push(
+      { label: "Job Listings", value: s.activeJobListings, hint: "Active" },
+      { label: "Catalog Products", value: s.liveCatalogProducts, hint: "Live" },
+    );
+  }
+  // Ad campaigns live in the Advertising group, not Marketplace, so a role that
+  // can open the Job Board still loses this one tile.
+  if (can("Advertising & Promotions")) {
+    marketplaceStats.push({ label: "Ad Campaigns", value: s.activeAdCampaigns, hint: "Active" });
+  }
 
   return (
     <div className="px-6 py-6 md:px-8">
@@ -102,10 +188,12 @@ export default async function AdminOverviewPage() {
               {adminName.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
             </div>
             <h2 className="mt-3 text-[16px] font-bold text-[#1e1e1e] dark:text-white">{adminName}</h2>
-            <p className="text-[13px] text-[#6b6b6b] dark:text-white/60">{isSuperAdmin ? "Super Administrator" : "System Administrator"}</p>
+            <p className="text-[13px] text-[#6b6b6b] dark:text-white/60">{showRoster ? "Super Administrator" : "System Administrator"}</p>
             <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#1a7f43]"><span className="h-1.5 w-1.5 rounded-full bg-[#1a7f43]" /> System Status • Online</p>
 
-            {isSuperAdmin ? (
+            {/* Only the super-only roster section may show admin names/emails;
+                the whole block is omitted for everyone else (no empty card). */}
+            {showRoster ? (
               <div className="mt-5">
                 <h3 className="mb-2.5 text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">
                   Admins {admins.length > 0 && <span className="font-medium text-[#9a9a9a]">({admins.length})</span>}
@@ -127,7 +215,7 @@ export default async function AdminOverviewPage() {
                   <InviteAdminButton />
                 </div>
               </div>
-            ) : (
+            ) : showWeekly ? (
               <div className="mt-5">
                 <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Weekly Impact</h3>
                 {/* Was a list of "Label • value" lines, where the number was the
@@ -141,35 +229,46 @@ export default async function AdminOverviewPage() {
                   ]}
                 />
               </div>
+            ) : null}
+
+            {can("User Management") && (
+              <div className="mt-5">
+                <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Network at a glance</h3>
+                <KpiTileRow
+                  className="mt-2.5"
+                  stats={[
+                    { label: "Professionals", value: s.activeProfessionals, hint: "Active" },
+                    { label: "Exhibitors", value: s.activeExhibitors, hint: "Active" },
+                  ]}
+                />
+              </div>
             )}
 
-            <div className="mt-5">
-              <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Network at a glance</h3>
-              <KpiTileRow
-                className="mt-2.5"
-                stats={[
-                  { label: "Professionals", value: s.activeProfessionals, hint: "Active" },
-                  { label: "Exhibitors", value: s.activeExhibitors, hint: "Active" },
-                ]}
-              />
-            </div>
+            {marketplaceStats.length > 0 && (
+              <div className="mt-5">
+                <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Marketplace at a glance</h3>
+                <KpiTileRow className="mt-2.5" stats={marketplaceStats} />
+              </div>
+            )}
 
-            <div className="mt-5">
-              <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Marketplace at a glance</h3>
-              <KpiTileRow
-                className="mt-2.5"
-                stats={[
-                  { label: "Job Listings", value: s.activeJobListings, hint: "Active" },
-                  { label: "Catalog Products", value: s.liveCatalogProducts, hint: "Live" },
-                  { label: "Ad Campaigns", value: s.activeAdCampaigns, hint: "Active" },
-                ]}
-              />
-            </div>
+            {showEmailCampaigns && (
+              <div className="mt-5">
+                <h3 className="text-[12px] font-bold uppercase tracking-wide text-[#1e1e1e] dark:text-white">Email campaigns</h3>
+                <KpiTileRow
+                  className="mt-2.5"
+                  stats={[
+                    { label: "Emails Sent", value: sentCampaigns.reduce((sum, c) => sum + c.sentCount, 0) },
+                    { label: "Avg Open Rate", value: `${averageRate("openRate")}%` },
+                    { label: "Avg Click Rate", value: `${averageRate("clickRate")}%` },
+                  ]}
+                />
+              </div>
+            )}
           </div>
         </aside>
 
         <div className="min-w-0 flex-1 space-y-5">
-          <KpiTileRow stats={stats} />
+          {stats.length > 0 && <KpiTileRow stats={stats} />}
 
           {priority.length > 0 && (
             <div className="rounded-2xl border border-[#ffd716]/40 bg-[#fffdf2] p-5 dark:border-[#ffd716]/20 dark:bg-[#ffd716]/[0.04]">
@@ -188,7 +287,15 @@ export default async function AdminOverviewPage() {
             </div>
           )}
 
-          <ActivityFeed recent={recent} upcoming={upcomingItems} title="Activity" viewMoreHref="/admin/audit" viewMoreLabel="View all activity" />
+          {showActivity && (
+            <ActivityFeed
+              recent={recent}
+              upcoming={upcomingItems}
+              title="Activity"
+              viewMoreHref={can("Security") ? "/admin/audit" : undefined}
+              viewMoreLabel="View all activity"
+            />
+          )}
         </div>
       </div>
     </div>

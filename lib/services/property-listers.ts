@@ -44,9 +44,13 @@ function validate(input: ListerInput, forReview: boolean) {
   if (forReview && !input.idDocumentKey) throw new Error("Upload a government-issued ID");
 }
 
+const GENERIC_RSC_ERROR = "An error occurred in the Server Components render";
+
 function errorMessage(e: unknown) {
-  if (e instanceof Error && e.message) return e.message;
-  return "Something went wrong. Please try again.";
+  // Never forward Next.js's redacted production error to the user — it hides
+  // the real cause and reads like a crash rather than an actionable message.
+  if (e instanceof Error && e.message && !e.message.startsWith(GENERIC_RSC_ERROR)) return e.message;
+  return "We couldn't save your details. Please try again, or contact support if it keeps happening.";
 }
 
 async function upsertProfile(uid: string, input: ListerInput, submit: boolean) {
@@ -107,8 +111,12 @@ async function upsertProfile(uid: string, input: ListerInput, submit: boolean) {
     .set({ listerProfileId: profileId, updatedAt: new Date() })
     .where(eq(property.ownerUserId, uid));
 
-  revalidatePath("/dashboard/properties/new");
-  revalidatePath("/dashboard/properties");
+  // `revalidatePath` is deliberately avoided here: calling it inside a Server
+  // Action makes Next.js re-render the current route as part of the action
+  // response. Any render failure there is redacted in production into the
+  // generic "Server Components render" error and rejects the action even
+  // though the database write succeeded. The client form calls
+  // `router.refresh()` on success, which is enough to keep the UI in sync.
   return { ...values, id: profileId };
 }
 
@@ -128,6 +136,7 @@ export async function saveListerProfile(input: ListerInput): Promise<ListerActio
     await upsertProfile(uid, input, false);
     return { ok: true };
   } catch (e) {
+    console.error("Could not save property lister profile", e);
     return { ok: false, error: errorMessage(e) };
   }
 }
@@ -142,9 +151,9 @@ export async function submitListerVerification(input: ListerInput): Promise<List
       body: "We are reviewing your lister profile and documents. You will be notified when it is done.",
       href: "/dashboard/properties/new",
     }).catch(() => {});
-    revalidatePath("/admin/properties/listers");
     return { ok: true };
   } catch (e) {
+    console.error("Could not submit property lister verification", e);
     return { ok: false, error: errorMessage(e) };
   }
 }

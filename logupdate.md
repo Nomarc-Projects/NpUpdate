@@ -18,6 +18,72 @@ Format:
 
 ---
 
+## 2026-11-28 — Admin Dashboard cards follow ticket-62 section access
+
+**Changed** — Extracted the ticket-62 `ROLE_ACCESS` table from
+`components/admin/admin-nav.tsx` into the shared, client-safe
+`lib/admin-access.ts`. The two untitled nav groups are now explicit section keys
+("Dashboard", "Support Inbox"), and the legacy `admin` tier keeps full
+non-super-only access so existing accounts do not lose the console. New
+`lib/admin-access-server.ts` resolves the viewer's effective roles server-side
+(scalar role + held roles) and is read-cached for the layout/page render.
+`components/admin/admin-nav.tsx` and `app/admin/page.tsx` both filter through
+`canAccessSection()`: cards and nav entries name a section, never a role list.
+Dashboard KPI tiles, Priority items, Network/Marketplace/Email-campaign
+sidebars, and Activity/Upcoming rows are omitted when their section is closed;
+the admin name/email roster stays in the super-only "Admin Roster" section.
+Whole blocks (including their margins and the ActivityFeed card) disappear
+rather than rendering empty gaps at laptop or phone widths.
+
+**Why** — The Dashboard was showing every count to every admin. With the
+ticket-62 roles, a Reporter must not see user/ad/verification numbers,
+Customer Support must not see ad campaigns, Operations must not see email
+campaign results, and only a Super Admin may see the admin roster. A second
+per-card role map would drift from the menu; the shared table is now the only
+definition.
+
+**Verified** — `npm run type-check` and `npm run build` pass. A pure-logic
+assertion script checked all expected section outcomes for reporter,
+customer-support, operations, multi-role union, legacy admin and super_admin.
+Smoke-tested `/admin` in a production server at desktop width and with the
+phone breakpoints forced on: avatar/sidebar/main cards render in order, and
+there are no empty grids or empty `mt-5` wrappers left behind by hidden cards.
+
+**Follow-ups** — The specialized role strings can only reach `/admin` once the
+server guards and role manager accept them; today the scalar gate is still
+`admin`/`super_admin`, so those roles are exercised through the shared helpers
+rather than a live login.
+
+---
+
+## 2026-11-24 — Property lister submit no longer fails with an opaque RSC error
+
+**Changed** — `lib/services/property-listers.ts`: `saveListerProfile` and
+`submitListerVerification` no longer call `revalidatePath(...)`; the client form
+already calls `router.refresh()` on success, so the server-side revalidation
+was redundant. Both actions now log unexpected failures with `console.error`
+and never forward Next.js's redacted production error message to the caller.
+`components/dashboard/properties/property-lister-form.tsx` now replaces the
+generic "Server Components render" toast with an actionable message while
+logging the original error/digest to the browser console.
+
+**Why** — Clicking "Submit for verification" surfaced Next.js's redacted
+production error toast even when the database write succeeded. `revalidatePath`
+forces a re-render of the current route as part of the Server Action response;
+any render failure there is redacted into that generic message and rejects the
+action, masking the real cause and leaving the form looking unchanged.
+Admin lister and dashboard property pages are `force-dynamic`, so they refetch
+on navigation without explicit revalidation.
+
+**Verified** — `npm run type-check` and `npm run build` passed. Signed in as
+`pro@nomarc.test` and exercised save/submit in a production `npm run start`
+build: the DB row updated and the success toast/refresh worked.
+
+**Follow-ups** — If the toast still appears in production, capture the browser
+console error/digest or the server log to pinpoint the remaining render throw.
+
+---
+
 ## 2026-11-16 — Added the `/backup` console (super-admin DB dump + restore)
 
 **Changed** — New `/backup` page: unauthenticated visitors get a sign-in screen
