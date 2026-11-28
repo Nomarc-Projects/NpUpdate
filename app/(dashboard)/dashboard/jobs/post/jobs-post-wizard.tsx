@@ -9,10 +9,9 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { createJob } from "@/lib/services/jobs";
 import { getAccountInfo } from "@/lib/services/account";
 import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
+import { EMPLOYMENT_TYPES, WORK_MODELS } from "@/lib/job-options";
 import { cn } from "@/lib/utils";
 
-const EMPLOYMENT = ["Full-time", "Part-time", "Contract", "Internship", "Project-based"];
-const WORK_MODEL = ["On-site", "Hybrid", "Remote"];
 const EXPERIENCE: readonly string[] = EXPERIENCE_LEVELS;
 const CURRENCIES = ["NGN", "USD", "GBP", "EUR"];
 const COMPANY_TYPES = ["Company", "Individual"];
@@ -275,7 +274,7 @@ export function JobsPostWizard() {
           <Section title="Role basics" hint="The headline information candidates see first.">
             <div className={two}>
               <Field label="Role title" required><input className={inputClass} value={f.title} onChange={(e) => set("title", e.target.value)} placeholder="e.g Senior Architect" /></Field>
-              <Field label="Work model"><Select value={f.workModel} onChange={(v) => set("workModel", v)} options={WORK_MODEL} /></Field>
+              <Field label="Work model"><Select value={f.workModel} onChange={(v) => set("workModel", v)} options={WORK_MODELS} /></Field>
               <Field label="Posting as">
                 <Select value={f.companyType} onChange={onCompanyType} options={COMPANY_TYPES} />
               </Field>
@@ -283,7 +282,7 @@ export function JobsPostWizard() {
                 <input className={inputClass} value={f.company} onChange={(e) => set("company", e.target.value)} placeholder={f.companyType === "Company" ? "e.g UrbanGrid Studios" : "e.g. John Adeyemi"} />
               </Field>
               <Field label="Location"><input className={inputClass} value={f.location} onChange={(e) => set("location", e.target.value)} placeholder="City, State, Country" /></Field>
-              <Field label="Employment type"><Select value={f.employmentType} onChange={(v) => set("employmentType", v)} options={EMPLOYMENT} /></Field>
+              <Field label="Employment type"><Select value={f.employmentType} onChange={(v) => set("employmentType", v)} options={EMPLOYMENT_TYPES} /></Field>
               <Field label="Experience level"><Select value={f.experienceLevel} onChange={(v) => set("experienceLevel", v)} options={EXPERIENCE} /></Field>
             </div>
           </Section>

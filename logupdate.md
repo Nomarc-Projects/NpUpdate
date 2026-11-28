@@ -56,7 +56,7 @@ rather than a live login.
 
 ---
 
-## 2026-11-24 — Property lister submit no longer fails with an opaque RSC error
+## 2026-11-24 — Property lister save no longer fails with an opaque RSC error
 
 **Changed** — `lib/services/property-listers.ts`: `saveListerProfile` and
 `submitListerVerification` no longer call `revalidatePath(...)`; the client form
@@ -67,17 +67,19 @@ and never forward Next.js's redacted production error message to the caller.
 generic "Server Components render" toast with an actionable message while
 logging the original error/digest to the browser console.
 
-**Why** — Clicking "Submit for verification" surfaced Next.js's redacted
-production error toast even when the database write succeeded. `revalidatePath`
-forces a re-render of the current route as part of the Server Action response;
-any render failure there is redacted into that generic message and rejects the
+**Why** — Clicking "Save details" surfaced Next.js's redacted production error
+toast even when the database write succeeded. `revalidatePath` forces a
+re-render of the current route as part of the Server Action response; any
+render failure there is redacted into that generic message and rejects the
 action, masking the real cause and leaving the form looking unchanged.
 Admin lister and dashboard property pages are `force-dynamic`, so they refetch
 on navigation without explicit revalidation.
 
-**Verified** — `npm run type-check` and `npm run build` passed. Signed in as
-`pro@nomarc.test` and exercised save/submit in a production `npm run start`
-build: the DB row updated and the success toast/refresh worked.
+**Verified** — `npm run build` (includes TypeScript) passed. Signed in as
+`pro@nomarc.test`, accepted Terms, opened `/dashboard/properties/new`, filled
+Display name and clicked "Save details": the DB row updated and only the
+"Lister profile saved" toast appeared in a production `npm run start` build
+(the same flow was also exercised in `next dev`).
 
 **Follow-ups** — If the toast still appears in production, capture the browser
 console error/digest or the server log to pinpoint the remaining render throw.

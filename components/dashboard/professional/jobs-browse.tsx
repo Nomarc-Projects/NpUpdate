@@ -16,6 +16,7 @@ import { getQualifications, type Experience } from "@/lib/services/qualification
 import { toggleSaved } from "@/lib/services/saved";
 import { ShareMenu } from "@/components/ui/share";
 import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
+import { EMPLOYMENT_TYPES, WORK_MODELS } from "@/lib/job-options";
 // SAMPLE_JOBS no longer padded into the list (see `data` below). OVERVIEW is
 // still the shared copy shown in the quick-look drawer.
 import { JOB_OVERVIEW as OVERVIEW } from "@/lib/sample-jobs";
@@ -35,8 +36,8 @@ type JobCard = {
 
 const FILTER_SECTIONS = [
   { key: "Experience level", options: [...EXPERIENCE_LEVELS] },
-  { key: "Employment type",  options: ["Full-time", "Part-time", "Internship", "Remote", "Contract"] },
-  { key: "Work model",       options: ["On-site", "Hybrid", "Remote"] },
+  { key: "Employment type",  options: [...EMPLOYMENT_TYPES] },
+  { key: "Work model",       options: [...WORK_MODELS] },
   { key: "Salary Range",     options: ["Under ₦250k/mo", "₦250k–₦500k/mo", "₦500k–₦1M/mo", "₦1M+/mo"] },
   { key: "Industry",         options: ["Architecture", "Engineering", "Construction", "Interior Design", "Quantity Surveying", "Project Management"] },
 ];
@@ -269,8 +270,8 @@ function MetaCell({ icon, label, value }: { icon: React.ReactNode; label: string
 function JobPreview({ job, isSaved, onSave, onClose }: {
   job: JobCard; isSaved: boolean; onSave: () => void; onClose: () => void;
 }) {
-  const workModel = job.tags.find((t) => ["On-site", "Hybrid", "Remote"].includes(t)) || "On-site";
-  const jobType = job.tags.find((t) => ["Full-time", "Part-time", "Contract", "Internship"].includes(t)) || "Full-time";
+  const workModel = job.tags.find((t) => WORK_MODELS.includes(t)) || "On-site";
+  const jobType = job.tags.find((t) => EMPLOYMENT_TYPES.includes(t)) || "Full-time";
 
   return (
     <div className="h-full flex flex-col bg-white dark:bg-[#1a1a1a]">

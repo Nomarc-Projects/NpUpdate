@@ -5,7 +5,7 @@ import { AdminSidebar } from "@/components/admin/admin-nav";
 import { AdminTopBar } from "@/components/admin/admin-top-bar";
 import { TourProvider } from "@/components/tour/tour-provider";
 import { SessionHydrator } from "@/components/session-hydrator";
-import { getAdminAlertCounts } from "@/lib/services/admin";
+import { getAdminAlertCounts, logAudit } from "@/lib/services/admin";
 import { TermsAcceptanceGate } from "@/components/auth/terms-acceptance-gate";
 import { getUserTermsAcceptanceStatus } from "@/lib/services/terms";
 import { getAdminRoles } from "@/lib/admin-access-server";
@@ -16,6 +16,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await auth.api.getSession({ headers: await headers() });
   const role = (session?.user as { role?: string } | undefined)?.role;
   if (!session) redirect("/login?redirect=/admin");
+  // Log access denied when non-admin/super_admin tries to access admin area
+  if (role !== "admin" && role !== "super_admin") {
+    try {
+      await logAudit(session.user.id, "access_denied", "system", session.user.id, `attempted access to /admin with role ${role ?? "unknown"}`);
+    } catch {}
+  }
   if (role !== "admin" && role !== "super_admin") redirect("/dashboard");
 
   // The same resolved role set drives the sidebar and the Dashboard cards.

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, MapPin, Briefcase, Layers, Wallet, Clock, Bookmark, MessageSquare } from "lucide-react";
 import { ShareMenu } from "@/components/ui/share";
 import type { SampleJob } from "@/lib/sample-jobs";
+import { EMPLOYMENT_TYPES, WORK_MODELS } from "@/lib/job-options";
 
 type Overview = { body: string; responsibilities: string[]; requirements: string[] };
 type PostingDetail = { requirements: string[]; skills: string[]; benefits: string[] };
@@ -74,8 +75,8 @@ export function JobDetail({
   shareUrl?: string;
 }) {
   const router = useRouter();
-  const workModel = job.tags.find((t) => ["On-site", "Hybrid", "Remote"].includes(t)) || "On-site";
-  const jobType = job.tags.find((t) => ["Full-time", "Part-time", "Contract", "Internship"].includes(t)) || "Full-time";
+  const workModel = job.tags.find((t) => WORK_MODELS.includes(t)) || "On-site";
+  const jobType = job.tags.find((t) => EMPLOYMENT_TYPES.includes(t)) || "Full-time";
 
   const applyHref = signedIn ? `/dashboard/jobs/apply?job=${job.id}` : signInHref;
   const messageHref = signedIn

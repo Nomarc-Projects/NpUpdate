@@ -211,8 +211,11 @@ export default async function AdminOverviewPage() {
                     ))}
                   </div>
                 )}
-                <div className="mt-4">
+                <div className="mt-4 flex flex-col items-start gap-2">
                   <InviteAdminButton />
+                  <Link href="/admin/admins" className="inline-flex items-center gap-1 text-[11.5px] font-semibold text-[#6b6b6b] transition-colors hover:text-[#1e1e1e] dark:text-white/60 dark:hover:text-white">
+                    Manage roles & access <ArrowRight size={12} />
+                  </Link>
                 </div>
               </div>
             ) : showWeekly ? (

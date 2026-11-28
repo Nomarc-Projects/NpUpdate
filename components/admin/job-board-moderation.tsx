@@ -8,6 +8,7 @@ import { DataTable, KebabMenu, StatusBadge, SlideOverDrawer, type DataTableColum
 import { FiltersRail, type FilterGroup } from "@/components/admin/filters-rail";
 import { AdminJobFormDrawer } from "@/components/admin/admin-job-form";
 import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
+import { EMPLOYMENT_TYPES, WORK_MODELS } from "@/lib/job-options";
 import { suspendAdminJob, restoreAdminJob, deleteAdminJob, getAdminJobForEdit, type AdminJob, type AdminJobDetail } from "@/lib/services/admin";
 
 const STATUS_TONE: Record<string, BadgeTone> = { open: "green", suspended: "amber", closed: "grey" };
@@ -60,9 +61,9 @@ export function JobBoardModeration({ rows }: { rows: AdminJob[] }) {
 
   const filterGroups: FilterGroup[] = [
     { key: "status", label: "Status", value: status, onChange: setStatus, options: [{ value: "", label: "All" }, { value: "open", label: "Active" }, { value: "closed", label: "Closed" }, { value: "suspended", label: "Suspended" }] },
-    { key: "employmentType", label: "Employment Type", value: employmentType, onChange: setEmploymentType, options: [{ value: "", label: "All" }, { value: "Full-time", label: "Full-time" }, { value: "Part-time", label: "Part-time" }, { value: "Contract", label: "Contract" }, { value: "Internship", label: "Internship" }, { value: "Project-based", label: "Project-based" }] },
+    { key: "employmentType", label: "Employment Type", value: employmentType, onChange: setEmploymentType, options: [{ value: "", label: "All" }, ...EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t }))] },
     { key: "experienceLevel", label: "Experience Level", value: experienceLevel, onChange: setExperienceLevel, options: [{ value: "", label: "All" }, ...EXPERIENCE_LEVELS.map((l) => ({ value: l, label: l }))] },
-    { key: "workModel", label: "Work Model", value: workModel, onChange: setWorkModel, options: [{ value: "", label: "All" }, { value: "On-site", label: "On-site" }, { value: "Remote", label: "Remote" }, { value: "Hybrid", label: "Hybrid" }] },
+    { key: "workModel", label: "Work Model", value: workModel, onChange: setWorkModel, options: [{ value: "", label: "All" }, ...WORK_MODELS.map((m) => ({ value: m, label: m }))] },
   ];
 
   return (

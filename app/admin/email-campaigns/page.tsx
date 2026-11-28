@@ -5,15 +5,19 @@ import { MailThroughputCard } from "@/components/admin/mail-throughput-card";
 import { listCampaigns } from "@/lib/services/campaigns";
 import { isEmailConfigured } from "@/lib/email/mailer";
 import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Email Campaigns" };
 
 export default async function EmailCampaignsPage() {
-  const rows = await listCampaigns().catch(() => []);
-  // Only a super admin may release a blast. The menu reflects that, but the
-  // real enforcement is server-side in lib/services/campaigns.ts.
   const session = await auth.api.getSession({ headers: await headers() });
-  const isSuperAdmin = (session?.user as { role?: string } | undefined)?.role === "super_admin";
+  const role = (session?.user as { role?: string } | undefined)?.role;
+  // Only admin and super_admin may view the Email Campaigns page
+  if (role !== "admin" && role !== "super_admin") {
+    redirect("/dashboard");
+  }
+  const isSuperAdmin = role === "super_admin";
+  const rows = await listCampaigns().catch(() => []);
   return (
     <div className="px-6 py-6 md:px-8">
       <AdminPageHeader

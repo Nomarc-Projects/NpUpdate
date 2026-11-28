@@ -9,6 +9,7 @@ import {
   createAdminJob, updateAdminJob, getAdminUserPicker, type AdminUserOption, type AdminJobDetail,
 } from "@/lib/services/admin";
 import { EXPERIENCE_LEVELS } from "@/lib/experience-levels";
+import { EMPLOYMENT_TYPES, WORK_MODELS } from "@/lib/job-options";
 
 const inputCls = "w-full rounded-lg border border-[#e3e3e3] bg-white px-3 py-2 text-[13px] text-[#1e1e1e] placeholder:text-[#b3b3b3] focus:border-[#ffd716] focus:outline-none dark:border-white/15 dark:bg-[#1e1e1e] dark:text-white";
 const labelCls = "mb-1 block text-[11.5px] font-semibold uppercase tracking-wide text-[#9a9a9a]";
@@ -181,11 +182,7 @@ export function AdminJobFormDrawer({ open, onClose, initial }: { open: boolean; 
             <label className={labelCls}>Employment Type</label>
             <select value={employmentType} onChange={(e) => setEmploymentType(e.target.value)} className={inputCls}>
               <option value="">Any</option>
-              <option value="Full-time">Full-time</option>
-              <option value="Part-time">Part-time</option>
-              <option value="Contract">Contract</option>
-              <option value="Internship">Internship</option>
-              <option value="Project-based">Project-based</option>
+              {EMPLOYMENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className={fieldCls}>
@@ -199,9 +196,7 @@ export function AdminJobFormDrawer({ open, onClose, initial }: { open: boolean; 
             <label className={labelCls}>Work Model</label>
             <select value={workModel} onChange={(e) => setWorkModel(e.target.value)} className={inputCls}>
               <option value="">Any</option>
-              <option value="On-site">On-site</option>
-              <option value="Remote">Remote</option>
-              <option value="Hybrid">Hybrid</option>
+              {WORK_MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
         </div>
